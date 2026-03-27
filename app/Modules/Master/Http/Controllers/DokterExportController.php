@@ -13,7 +13,14 @@ class DokterExportController extends Controller
 {
     public function print(Request $request)
     {
-        $dokterList = MstDokter::withTrashed()->get();
+        $status = $request->query('status', 'all');
+        $query = MstDokter::withTrashed();
+        
+        if ($status !== 'all') {
+            $query->where('status', $status);
+        }
+        
+        $dokterList = $query->get();
         
         $pdf = Pdf::loadView('modules.Master.dokter-pdf', compact('dokterList'))
             ->setPaper('a4', 'landscape');
@@ -23,6 +30,7 @@ class DokterExportController extends Controller
 
     public function exportExcel(Request $request)
     {
-        return Excel::download(new DokterExport, 'Data_Dokter_' . date('Ymd_His') . '.xlsx', \Maatwebsite\Excel\Excel::XLSX);
+        $status = $request->query('status', 'all');
+        return Excel::download(new DokterExport($status), 'Data_Dokter_' . date('Ymd_His') . '.xlsx', \Maatwebsite\Excel\Excel::XLSX);
     }
 }

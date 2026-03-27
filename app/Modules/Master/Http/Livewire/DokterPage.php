@@ -138,8 +138,10 @@ class DokterPage extends Component
 
                     $dokter->save();
 
-                    if ($this->status === 'Aktif' && $dokter->trashed()) {
-                        $dokter->restore();
+                    if ($this->status === 'Aktif' || $this->status === 'Cuti') {
+                        if ($dokter->trashed()) {
+                            $dokter->restore();
+                        }
                     } elseif ($this->status === 'Tidak Aktif' && !$dokter->trashed()) {
                         $dokter->delete();
                     }
@@ -175,12 +177,30 @@ class DokterPage extends Component
 
     public function delete($id)
     {
-        $dokter = MstDokter::findOrFail($id);
+        $dokter = MstDokter::withTrashed()->findOrFail($id);
+        
+        if ($dokter->status === 'Cuti' || $dokter->status === 'Tidak Aktif') {
+            $this->dispatch('alert', [
+                'type' => 'info', 
+                'message' => 'Informasi: Dokter dengan status ' . $dokter->status . ' tidak dapat dihapus. Silakan kembalikan ke status Aktif terlebih dahulu jika ingin memproses kembali.'
+            ]);
+            return;
+        }
+
         $dokter->update(['status' => 'Tidak Aktif']);
         $dokter->delete(); // Soft Delete
         
         $this->dispatch('refresh-table');
         $this->dispatch('alert', ['type' => 'success', 'message' => 'Status dokter telah diubah menjadi Tidak Aktif (Soft Delete)!']);
+    }
+
+    public function forceDelete($id)
+    {
+        $dokter = MstDokter::withTrashed()->findOrFail($id);
+        $dokter->forceDelete();
+        
+        $this->dispatch('refresh-table');
+        $this->dispatch('alert', ['type' => 'success', 'message' => 'Data dokter berhasil dihapus secara permanen dari database!']);
     }
 
     public function render()
@@ -321,6 +341,12 @@ class DokterPage extends Component
                                         <span>Tidak Aktif</span>
                                     </a>
                                 </li>
+                                <li class="nav-item">
+                                    <a class="nav-link {{ $selectedStatus === 'Cuti' ? 'active active-pill-warning' : '' }}" wire:click="setStatus('Cuti')" role="button">
+                                        <i class="ri-calendar-todo-line"></i>
+                                        <span>Dokter Cuti</span>
+                                    </a>
+                                </li>
                             </ul>
                         </div>
 
@@ -334,11 +360,11 @@ class DokterPage extends Component
                             
                             <!-- Utility Actions (Print & Export) -->
                             <div class="flex items-center gap-1.5 p-1 bg-[#f3f6f9] rounded-lg border border-[#e9ecef]">
-                                <a href="{{ route('master.dokter.print') }}" target="_blank" class="h-8 w-8 rounded-md flex items-center justify-center text-indigo-500 hover:bg-white hover:shadow-sm transition-all" title="Cetak PDF">
+                                <a href="{{ route('master.dokter.print', ['status' => $selectedStatus]) }}" target="_blank" class="h-8 w-8 rounded-md flex items-center justify-center text-indigo-500 hover:bg-white hover:shadow-sm transition-all" title="Cetak PDF">
                                     <i class="ri-printer-line text-lg"></i>
                                 </a>
                                 <div class="w-[1px] h-4 bg-[#e9ecef]"></div>
-                                <a href="{{ route('master.dokter.export') }}" target="_blank" class="h-8 w-8 rounded-md flex items-center justify-center text-emerald-500 hover:bg-white hover:shadow-sm transition-all" title="Unduh Excel">
+                                <a href="{{ route('master.dokter.export', ['status' => $selectedStatus]) }}" target="_blank" class="h-8 w-8 rounded-md flex items-center justify-center text-emerald-500 hover:bg-white hover:shadow-sm transition-all" title="Unduh Excel">
                                     <i class="ri-file-excel-2-line text-lg"></i>
                                 </a>
                             </div>
@@ -378,7 +404,7 @@ class DokterPage extends Component
                                 <td>{{ $dokter->no_sip ?? '-' }}</td>
                                 <td>{{ $dokter->no_telepon ?? '-' }}</td>
                                 <td>
-                                    <span class="badge {{ $dokter->status == 'Aktif' ? 'bg-success-subtle' : 'bg-danger-subtle' }}">
+                                    <span class="badge {{ $dokter->status == 'Aktif' ? 'bg-success-subtle' : ($dokter->status == 'Cuti' ? 'bg-warning-subtle' : 'bg-danger-subtle') }}">
                                         {{ $dokter->status }}
                                     </span>
                                 </td>
@@ -388,21 +414,49 @@ class DokterPage extends Component
                                             <i class="ri-edit-line"></i>
                                         </button>
                                         <button @click="
-                                            Swal.fire({
-                                                title: 'Konfirmasi',
-                                                text: 'Apakah Anda yakin ingin mengubah status dokter ini menjadi Tidak Aktif?',
-                                                icon: 'warning',
-                                                showCancelButton: true,
-                                                confirmButtonColor: '#f06548',
-                                                cancelButtonColor: '#6c757d',
-                                                confirmButtonText: 'Ya, Nonaktifkan!',
-                                                cancelButtonText: 'Batal',
-                                                reverseButtons: true
-                                            }).then((result) => {
-                                                if (result.isConfirmed) {
-                                                    $wire.delete({{ $dokter->id }})
-                                                }
-                                            })
+                                            if ('{{ $dokter->status }}' === 'Cuti' || '{{ $dokter->status }}' === 'Tidak Aktif') {
+                                                Swal.fire({
+                                                    title: 'Informasi',
+                                                    text: 'Dokter dengan status {{ $dokter->status }} tidak dapat dihapus. Silakan kembalikan ke status Aktif terlebih dahulu.',
+                                                    icon: 'info',
+                                                    confirmButtonColor: '#405189'
+                                                });
+                                            } else {
+                                                Swal.fire({
+                                                    title: 'Konfirmasi Penghapusan',
+                                                    text: 'Pilih tindakan untuk data dokter ini:',
+                                                    icon: 'warning',
+                                                    showCancelButton: true,
+                                                    showDenyButton: true,
+                                                    confirmButtonColor: '#f06548',
+                                                    denyButtonColor: '#d33',
+                                                    cancelButtonColor: '#6c757d',
+                                                    confirmButtonText: 'Nonaktifkan',
+                                                    denyButtonText: 'Hapus Permanen',
+                                                    cancelButtonText: 'Batal',
+                                                    reverseButtons: true
+                                                }).then((result) => {
+                                                    if (result.isConfirmed) {
+                                                        $wire.delete({{ $dokter->id }})
+                                                    } else if (result.isDenied) {
+                                                        Swal.fire({
+                                                            title: 'Konfirmasi Hapus Permanen',
+                                                            text: 'Tindakan ini tidak dapat dibatalkan dan data akan hilang selamanya!',
+                                                            icon: 'error',
+                                                            showCancelButton: true,
+                                                            confirmButtonColor: '#d33',
+                                                            cancelButtonColor: '#6c757d',
+                                                            confirmButtonText: 'Ya, Hapus Permanen!',
+                                                            cancelButtonText: 'Batal',
+                                                            reverseButtons: true
+                                                        }).then((res) => {
+                                                            if (res.isConfirmed) {
+                                                                $wire.forceDelete({{ $dokter->id }})
+                                                            }
+                                                        })
+                                                    }
+                                                })
+                                            }
                                         " class="flex h-7 w-7 items-center justify-center rounded bg-[#f06548]/10 text-[#f06548] hover:bg-[#f06548] hover:text-white transition-all">
                                             <i class="ri-delete-bin-line"></i>
                                         </button>
@@ -515,21 +569,29 @@ class DokterPage extends Component
                                         @error('no_telepon') <span class="text-[11px] text-red-500 mt-1 italic">{{ $message }}</span> @enderror
                                     </div>
 
-                                    <div class="flex items-center justify-between p-3 bg-gray-50/50 rounded-xl border border-dashed border-gray-200 mt-2 hover:bg-gray-50 transition-colors">
-                                        <div class="flex items-center gap-2">
-                                            <div class="w-2 h-2 rounded-full {{ $status === 'Aktif' ? 'bg-green-500 animate-pulse' : 'bg-red-500' }}"></div>
-                                            <span class="text-[11px] font-bold text-gray-600 uppercase tracking-tight">Status Dokter</span>
-                                        </div>
-                                        <div class="flex items-center gap-3">
-                                            <span class="text-[10px] font-extrabold {{ $status === 'Aktif' ? 'text-green-600' : 'text-red-500' }}">
-                                                {{ strtoupper($status) }}
-                                            </span>
-                                            <label class="relative inline-flex items-center cursor-pointer">
-                                                <input type="checkbox" class="sr-only peer" 
-                                                    {{ $status === 'Aktif' ? 'checked' : '' }}
-                                                    @click="$wire.set('status', '{{ $status === 'Aktif' ? 'Tidak Aktif' : 'Aktif' }}')">
-                                                <div class="w-9 h-5 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#0ab39c]"></div>
-                                            </label>
+                                    <div class="space-y-2 mt-2">
+                                        <label class="block text-[11px] font-bold text-gray-600 uppercase tracking-tight mb-2">Pilih Status Praktik Dokter</label>
+                                        <div class="grid grid-cols-3 gap-2">
+                                            <button type="button" 
+                                                @click="$wire.set('status', 'Aktif')"
+                                                class="flex flex-col items-center justify-center p-2 rounded-xl border-2 transition-all {{ $status === 'Aktif' ? 'border-green-500 bg-green-50 text-green-700 shadow-sm' : 'border-gray-100 bg-white text-gray-400 grayscale opacity-60 hover:grayscale-0 hover:opacity-100' }}">
+                                                <i class="ri-checkbox-circle-line text-lg mb-0.5"></i>
+                                                <span class="text-[10px] font-bold uppercase">Aktif</span>
+                                            </button>
+                                            
+                                            <button type="button" 
+                                                @click="$wire.set('status', 'Cuti')"
+                                                class="flex flex-col items-center justify-center p-2 rounded-xl border-2 transition-all {{ $status === 'Cuti' ? 'border-warning bg-warning-subtle text-warning shadow-sm' : 'border-gray-100 bg-white text-gray-400 grayscale opacity-60 hover:grayscale-0 hover:opacity-100' }}">
+                                                <i class="ri-calendar-event-line text-lg mb-0.5"></i>
+                                                <span class="text-[10px] font-bold uppercase">Cuti</span>
+                                            </button>
+
+                                            <button type="button" 
+                                                @click="$wire.set('status', 'Tidak Aktif')"
+                                                class="flex flex-col items-center justify-center p-2 rounded-xl border-2 transition-all {{ $status === 'Tidak Aktif' ? 'border-red-500 bg-red-50 text-red-700 shadow-sm' : 'border-gray-100 bg-white text-gray-400 grayscale opacity-60 hover:grayscale-0 hover:opacity-100' }}">
+                                                <i class="ri-close-circle-line text-lg mb-0.5"></i>
+                                                <span class="text-[10px] font-bold uppercase">Off</span>
+                                            </button>
                                         </div>
                                     </div>
                                 </div>

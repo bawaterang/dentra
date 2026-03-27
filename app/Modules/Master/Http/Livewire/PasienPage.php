@@ -182,7 +182,16 @@ class PasienPage extends Component
 
     public function delete($id)
     {
-        $pasien = MstPasien::findOrFail($id);
+        $pasien = MstPasien::withTrashed()->findOrFail($id);
+        
+        if ($pasien->status === 'Tidak Aktif') {
+            $this->dispatch('alert', [
+                'type' => 'info', 
+                'message' => 'Informasi: Pasien dengan status Tidak Aktif tidak dapat dihapus. Silakan kembalikan ke status Aktif terlebih dahulu jika ingin memproses kembali.'
+            ]);
+            return;
+        }
+
         $pasien->update(['status' => 'Tidak Aktif']);
         $pasien->delete(); // Soft Delete
         
@@ -398,21 +407,30 @@ class PasienPage extends Component
                                             <i class="ri-edit-line"></i>
                                         </button>
                                         <button @click="
-                                            Swal.fire({
-                                                title: 'Konfirmasi',
-                                                text: 'Apakah Anda yakin ingin mengubah status pasien ini menjadi Tidak Aktif?',
-                                                icon: 'warning',
-                                                showCancelButton: true,
-                                                confirmButtonColor: '#f06548',
-                                                cancelButtonColor: '#6c757d',
-                                                confirmButtonText: 'Ya, Nonaktifkan!',
-                                                cancelButtonText: 'Batal',
-                                                reverseButtons: true
-                                            }).then((result) => {
-                                                if (result.isConfirmed) {
-                                                    $wire.delete({{ $pasien->id }})
-                                                }
-                                            })
+                                            if ('{{ $pasien->status }}' === 'Tidak Aktif') {
+                                                Swal.fire({
+                                                    title: 'Informasi',
+                                                    text: 'Pasien dengan status Tidak Aktif tidak dapat dihapus. Silakan kembalikan ke status Aktif terlebih dahulu.',
+                                                    icon: 'info',
+                                                    confirmButtonColor: '#405189'
+                                                });
+                                            } else {
+                                                Swal.fire({
+                                                    title: 'Konfirmasi',
+                                                    text: 'Apakah Anda yakin ingin mengubah status pasien ini menjadi Tidak Aktif?',
+                                                    icon: 'warning',
+                                                    showCancelButton: true,
+                                                    confirmButtonColor: '#f06548',
+                                                    cancelButtonColor: '#6c757d',
+                                                    confirmButtonText: 'Ya, Nonaktifkan!',
+                                                    cancelButtonText: 'Batal',
+                                                    reverseButtons: true
+                                                }).then((result) => {
+                                                    if (result.isConfirmed) {
+                                                        $wire.delete({{ $pasien->id }})
+                                                    }
+                                                })
+                                            }
                                         " class="flex h-7 w-7 items-center justify-center rounded bg-[#f06548]/10 text-[#f06548] hover:bg-[#f06548] hover:text-white transition-all">
                                             <i class="ri-delete-bin-line"></i>
                                         </button>

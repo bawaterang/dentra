@@ -9,9 +9,22 @@ use Maatwebsite\Excel\Concerns\WithMapping;
 
 class DokterExport implements FromCollection, WithHeadings, WithMapping
 {
+    protected $status;
+
+    public function __construct($status = 'all')
+    {
+        $this->status = $status;
+    }
+
     public function collection()
     {
-        return MstDokter::withTrashed()->get();
+        $query = MstDokter::withTrashed();
+        
+        if ($this->status !== 'all') {
+            $query->where('status', $this->status);
+        }
+        
+        return $query->get();
     }
 
     /**
