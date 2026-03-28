@@ -141,12 +141,12 @@ new class extends Component
                             <label for="password" class="block text-sm font-medium text-gray-700">
                                 Password
                             </label>
-                            <div class="text-sm">
+                            <!-- <div class="text-sm">
                                 <a href="#"
                                     class="font-medium text-indigo-600 hover:text-indigo-500 hover:underline transition-colors">
                                     Forgot password?
                                 </a>
-                            </div>
+                            </div> -->
                         </div>
                         <div class="relative" x-data="{ show: false }">
                             <div

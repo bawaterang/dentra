@@ -73,6 +73,11 @@ class PasienPage extends Component
         $this->dispatch('refresh-table');
     }
 
+    public function history($id)
+    {
+        $this->dispatch('alert', ['type' => 'info', 'message' => 'Fitur riwayat pasien sedang dalam pengembangan.']);
+    }
+
     public function edit($id)
     {
         $this->resetForm();
@@ -366,7 +371,7 @@ class PasienPage extends Component
                             <div class="hidden lg:block h-6 w-[1px] bg-[#e9ecef] mx-1"></div>
 
                             <!-- Primary Action: Add Button -->
-                            <button @click="$wire.create()" class="btn btn-primary h-10 px-5 shadow-sm flex items-center justify-center gap-2 transition-all hover:translate-y-[-2px] hover:shadow-lg active:scale-95">
+                            <button @click="$wire.create()" class="btn btn-primary h-10 px-5 shadow-sm flex items-center justify-center gap-2 transition-all hover:translate-y-[-2px] hover:shadow-lg active:scale-95 w-full sm:w-auto">
                                 <i class="ri-add-line text-lg"></i>
                                 <span class="font-semibold text-xs uppercase tracking-wider">Tambah Pasien</span>
                             </button>
@@ -385,7 +390,7 @@ class PasienPage extends Component
                                 <th>Jenis Kelamin</th>
                                 <th>No. Telepon</th>
                                 <th>Status</th>
-                                <th class="text-center">Aksi</th>
+                                <th class="!text-center" style="text-align: center !important;">Aksi</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -401,8 +406,11 @@ class PasienPage extends Component
                                         {{ $pasien->status }}
                                     </span>
                                 </td>
-                                <td>
+                                <td class="text-center">
                                     <div class="flex justify-center gap-2">
+                                        <button wire:click="history({{ $pasien->id }})" class="flex h-7 w-7 items-center justify-center rounded bg-[#0ab39c]/10 text-[#0ab39c] hover:bg-[#0ab39c] hover:text-white transition-all" title="Riwayat">
+                                            <i class="ri-history-line"></i>
+                                        </button>
                                         <button wire:click="edit({{ $pasien->id }})" class="flex h-7 w-7 items-center justify-center rounded bg-[#405189]/10 text-[#405189] hover:bg-[#405189] hover:text-white transition-all">
                                             <i class="ri-edit-line"></i>
                                         </button>

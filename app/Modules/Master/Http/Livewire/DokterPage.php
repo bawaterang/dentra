@@ -18,6 +18,7 @@ class DokterPage extends Component
     public $totalDokter = 0;
     public $totalSpesialis = 0;
     public $takAktif = 0;
+    public $dokterCutiCount = 0;
     
     public $selectedStatus = 'all';
     public $isEdit = false;
@@ -70,6 +71,11 @@ class DokterPage extends Component
         $this->kode_dokter = $this->generateKodeDokter();
         $this->dispatch('open-dokter-modal');
         $this->dispatch('refresh-table');
+    }
+
+    public function history($id)
+    {
+        $this->dispatch('alert', ['type' => 'info', 'message' => 'Fitur riwayat dokter sedang dalam pengembangan.']);
     }
 
     public function edit($id)
@@ -215,6 +221,7 @@ class DokterPage extends Component
         $this->totalDokter = MstDokter::withTrashed()->count();
         $this->totalSpesialis = MstDokter::withTrashed()->whereNotNull('spesialisasi')->where('spesialisasi', '!=', '')->count();
         $this->takAktif = MstDokter::withTrashed()->where('status', 'Tidak Aktif')->count();
+        $this->dokterCutiCount = MstDokter::withTrashed()->where('status', 'Cuti')->count();
 
         return <<<'HTML'
         <div x-data="{ 
@@ -278,7 +285,7 @@ class DokterPage extends Component
             </div>
 
             <!-- Summary Widgets -->
-            <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 mb-6">
+            <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 mb-6">
                 <div class="card shadow-sm hover:shadow-md transition-all duration-300" style="border-top: 3px solid #405189;">
                     <div class="flex items-center p-5 gap-4">
                         <div class="flex h-12 w-12 items-center justify-center rounded-lg bg-info-subtle text-info">
@@ -303,13 +310,25 @@ class DokterPage extends Component
                     </div>
                 </div>
 
+                <div class="card shadow-sm hover:shadow-md transition-all duration-300" style="border-top: 3px solid #f7b84b;">
+                    <div class="flex items-center p-5 gap-4">
+                        <div class="flex h-12 w-12 items-center justify-center rounded-lg bg-warning-subtle text-warning">
+                            <i class="ri-history-line text-xl"></i>
+                        </div>
+                        <div>
+                            <p class="mb-1 text-[#878a99] font-medium text-xs uppercase tracking-wider">Dokter Cuti</p>
+                            <h4 class="mb-0 font-bold text-2xl text-[#495057]">{{ number_format($dokterCutiCount) }}</h4>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="card shadow-sm hover:shadow-md transition-all duration-300" style="border-top: 3px solid #f06548;">
                     <div class="flex items-center p-5 gap-4">
                         <div class="flex h-12 w-12 items-center justify-center rounded-lg bg-danger-subtle text-danger">
                             <i class="ri-user-unfollow-line text-xl"></i>
                         </div>
                         <div>
-                            <p class="mb-1 text-[#878a99] font-medium text-xs uppercase tracking-wider">Dokter Tak Aktif</p>
+                            <p class="mb-1 text-[#878a99] font-medium text-xs uppercase tracking-wider">Dokter Tidak Aktif</p>
                             <h4 class="mb-0 font-bold text-2xl text-[#495057]">{{ number_format($takAktif) }}</h4>
                         </div>
                     </div>
@@ -373,7 +392,7 @@ class DokterPage extends Component
                             <div class="hidden lg:block h-6 w-[1px] bg-[#e9ecef] mx-1"></div>
 
                             <!-- Primary Action: Add Button -->
-                            <button @click="$wire.create()" class="btn btn-primary h-10 px-5 shadow-sm flex items-center justify-center gap-2 transition-all hover:translate-y-[-2px] hover:shadow-lg active:scale-95">
+                            <button @click="$wire.create()" class="btn btn-primary h-10 px-5 shadow-sm flex items-center justify-center gap-2 transition-all hover:translate-y-[-2px] hover:shadow-lg active:scale-95 w-full sm:w-auto">
                                 <i class="ri-add-line text-lg"></i>
                                 <span class="font-semibold text-xs uppercase tracking-wider">Tambah Dokter</span>
                             </button>
@@ -392,7 +411,7 @@ class DokterPage extends Component
                                 <th>No. SIP</th>
                                 <th>No. Telepon</th>
                                 <th>Status</th>
-                                <th class="text-center">Aksi</th>
+                                <th class="!text-center" style="text-align: center !important;">Aksi</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -408,8 +427,11 @@ class DokterPage extends Component
                                         {{ $dokter->status }}
                                     </span>
                                 </td>
-                                <td>
+                                <td class="text-center">
                                     <div class="flex justify-center gap-2">
+                                        <button wire:click="history({{ $dokter->id }})" class="flex h-7 w-7 items-center justify-center rounded bg-[#0ab39c]/10 text-[#0ab39c] hover:bg-[#0ab39c] hover:text-white transition-all" title="Riwayat">
+                                            <i class="ri-history-line"></i>
+                                        </button>
                                         <button wire:click="edit({{ $dokter->id }})" class="flex h-7 w-7 items-center justify-center rounded bg-[#405189]/10 text-[#405189] hover:bg-[#405189] hover:text-white transition-all">
                                             <i class="ri-edit-line"></i>
                                         </button>
