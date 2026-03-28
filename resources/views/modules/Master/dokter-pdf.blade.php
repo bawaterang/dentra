@@ -2,6 +2,7 @@
 <html>
 <head>
     <title>Data Dokter - SIGI Dental EMR</title>
+    <link rel="icon" type="image/svg+xml" href="{{ asset('images/favicon.svg') }}">
     <style>
         body {
             font-family: 'Helvetica', sans-serif;
