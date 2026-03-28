@@ -179,7 +179,20 @@ class ObatPage extends Component
                                     <div><label class="block text-xs font-semibold text-gray-500 mb-1">Kode Obat <span class="text-red-500">*</span></label><input type="text" wire:model="kode_obat" x-ref="firstInput" class="w-full rounded-lg border-gray-100 bg-gray-50/50 text-sm px-4 py-2.5 font-bold text-[#405189]" readonly tabindex="-1"></div>
                                     <div><label class="block text-xs font-semibold text-gray-500 mb-1">Nama Obat <span class="text-red-500">*</span></label><input type="text" wire:model="nama_obat" class="w-full rounded-lg border-gray-200 text-sm px-4 py-2.5 focus:border-[#405189] transition-all @error('nama_obat') border-red-400 @enderror" placeholder="Contoh: Amoxicillin 500mg">@error('nama_obat') <span class="text-[11px] text-red-500 mt-1 italic">{{ $message }}</span> @enderror</div>
                                     <div class="grid grid-cols-2 gap-4">
-                                        <div><label class="block text-xs font-semibold text-gray-500 mb-1">Satuan</label><select wire:model="satuan" class="w-full rounded-lg border-gray-200 text-sm px-4 py-2.5 focus:border-[#405189] transition-all"><option value="">Pilih</option><option value="Tablet">Tablet</option><option value="Kapsul">Kapsul</option><option value="Botol">Botol</option><option value="Tube">Tube</option><option value="Sachet">Sachet</option></select></div>
+                                        <div>
+                                        <label class="block text-xs font-semibold text-gray-500 mb-1">Satuan</label>
+                                        <x-custom-dropdown 
+                                            model="satuan" 
+                                            :options="[
+                                                ['value' => 'Tablet', 'label' => 'Tablet', 'icon' => 'ri-capsule-line text-blue-500'],
+                                                ['value' => 'Kapsul', 'label' => 'Kapsul', 'icon' => 'ri-capsule-fill text-indigo-500'],
+                                                ['value' => 'Botol', 'label' => 'Botol', 'icon' => 'ri-flask-line text-green-500'],
+                                                ['value' => 'Tube', 'label' => 'Tube', 'icon' => 'ri-paint-brush-line text-yellow-500'],
+                                                ['value' => 'Sachet', 'label' => 'Sachet', 'icon' => 'ri-sticky-note-line text-gray-400']
+                                            ]"
+                                            placeholder="Pilih Satuan"
+                                        />
+                                        </div>
                                         <div><label class="block text-xs font-semibold text-gray-500 mb-1">Stok</label><input type="number" wire:model="stok" class="w-full rounded-lg border-gray-200 text-sm px-4 py-2.5 focus:border-[#405189] transition-all" min="0"></div>
                                     </div>
                                     <div><label class="block text-xs font-semibold text-gray-500 mb-1">Stok Minimal</label><input type="number" wire:model="stok_minimal" class="w-full rounded-lg border-gray-200 text-sm px-4 py-2.5 focus:border-[#405189] transition-all" min="0"></div>

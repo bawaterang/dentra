@@ -4,14 +4,18 @@ namespace App\Modules\Master\Http\Livewire;
 
 use Livewire\Component;
 use App\Models\MstTarif;
+use App\Models\MstTindakan;
+use App\Models\MstAsuransi;
 use Illuminate\Validation\Rule;
 
 class TarifPage extends Component
 {
     public $tarifId;
-    public $kode_tindakan, $kode_asuransi, $tarif, $jasmed, $bhp, $adm_fee, $satuan, $status;
+    public $kode_tindakan, $kode_asuransi, $tarif, $jasmed, $satuan_jasmed = 'Rp', $bhp, $adm_fee, $satuan, $status;
     
     public $tarifList = [];
+    public $tindakanList = [];
+    public $asuransiList = [];
     public $totalTarif = 0;
     public $tarifAktif = 0;
     public $takAktif = 0;
@@ -28,6 +32,7 @@ class TarifPage extends Component
             'kode_asuransi' => 'required|string|max:20',
             'tarif' => 'nullable|numeric|min:0',
             'jasmed' => 'nullable|numeric|min:0',
+            'satuan_jasmed' => 'nullable|string|in:Rp,%',
             'bhp' => 'nullable|numeric|min:0',
             'adm_fee' => 'nullable|numeric|min:0',
             'satuan' => 'nullable|string|max:50',
@@ -36,8 +41,8 @@ class TarifPage extends Component
 
     public function resetForm()
     {
-        $this->reset(['tarifId', 'kode_tindakan', 'kode_asuransi', 'tarif', 'jasmed', 'bhp', 'adm_fee', 'satuan', 'isEdit']);
-        $this->status = 'Aktif'; $this->tarif = 0; $this->jasmed = 0; $this->bhp = 0; $this->adm_fee = 0;
+        $this->reset(['tarifId', 'kode_tindakan', 'kode_asuransi', 'tarif', 'jasmed', 'satuan_jasmed', 'bhp', 'adm_fee', 'satuan', 'isEdit']);
+        $this->status = 'Aktif'; $this->satuan_jasmed = 'Rp'; $this->tarif = 0; $this->jasmed = 0; $this->bhp = 0; $this->adm_fee = 0;
         $this->resetErrorBag();
     }
 
@@ -48,7 +53,7 @@ class TarifPage extends Component
         $this->resetForm();
         $item = MstTarif::withTrashed()->findOrFail($id);
         $this->tarifId = $item->id; $this->kode_tindakan = $item->kode_tindakan; $this->kode_asuransi = $item->kode_asuransi;
-        $this->tarif = $item->tarif; $this->jasmed = $item->jasmed; $this->bhp = $item->bhp;
+        $this->tarif = $item->tarif; $this->jasmed = $item->jasmed; $this->satuan_jasmed = $item->satuan_jasmed ?? 'Rp'; $this->bhp = $item->bhp;
         $this->adm_fee = $item->adm_fee; $this->satuan = $item->satuan; $this->status = $item->status;
         $this->isEdit = true; $this->dispatch('open-modal'); $this->dispatch('refresh-table');
     }
@@ -58,7 +63,7 @@ class TarifPage extends Component
         try {
             $this->validate($this->rules());
             $item = $this->tarifId ? MstTarif::withTrashed()->findOrFail($this->tarifId) : new MstTarif();
-            $item->fill(['kode_tindakan' => $this->kode_tindakan, 'kode_asuransi' => $this->kode_asuransi, 'tarif' => $this->tarif, 'jasmed' => $this->jasmed, 'bhp' => $this->bhp, 'adm_fee' => $this->adm_fee, 'satuan' => $this->satuan, 'status' => $this->status ?? 'Aktif']);
+            $item->fill(['kode_tindakan' => $this->kode_tindakan, 'kode_asuransi' => $this->kode_asuransi, 'tarif' => $this->tarif, 'jasmed' => $this->jasmed, 'satuan_jasmed' => $this->satuan_jasmed ?? 'Rp', 'bhp' => $this->bhp, 'adm_fee' => $this->adm_fee, 'satuan' => $this->satuan, 'status' => $this->status ?? 'Aktif']);
             $item->save();
             if ($this->status === 'Aktif' && $item->trashed()) { $item->restore(); }
             elseif ($this->status === 'Tidak Aktif' && !$item->trashed()) { $item->delete(); }
@@ -86,6 +91,9 @@ class TarifPage extends Component
         $this->tarifAktif = MstTarif::withTrashed()->where('status', 'Aktif')->count();
         $this->takAktif = MstTarif::withTrashed()->where('status', 'Tidak Aktif')->count();
 
+        $this->tindakanList = MstTindakan::all()->map(fn($t) => ['value' => $t->kode_tindakan, 'label' => $t->nama_tindakan, 'icon' => 'ri-pulse-line'])->toArray();
+        $this->asuransiList = MstAsuransi::all()->map(fn($a) => ['value' => $a->kode_asuransi, 'label' => $a->nama_asuransi, 'icon' => 'ri-shield-user-line'])->toArray();
+
         return <<<'HTML'
         <div x-data="{ showModal: false, initDataTable() { const t='#tarifTable'; if($.fn.DataTable.isDataTable(t)){$(t).DataTable().destroy()} const tb=$(t).DataTable({scrollX:false,dom:'lrtip',language:{lengthMenu:'_MENU_',info:'Menampilkan _START_ sampai _END_ dari _TOTAL_ data',infoEmpty:'Menampilkan 0 sampai 0 dari 0 data',infoFiltered:'(disaring dari total _MAX_ data)',zeroRecords:'Tidak ada data yang ditemukan',emptyTable:'Tidak ada data dalam tabel',paginate:{previous:'<i class=ri-arrow-left-s-line></i>',next:'<i class=ri-arrow-right-s-line></i>'}}}); $('#customSearch').off('keyup').on('keyup',function(){tb.search(this.value).draw()}) }, init(){this.$watch('showModal',v=>{if(v){$nextTick(()=>{this.$refs.firstInput&&this.$refs.firstInput.focus()})} $nextTick(()=>this.initDataTable())}); $nextTick(()=>this.initDataTable())} }" @open-modal.window="showModal=true" @close-modal.window="showModal=false" @refresh-table.window="$nextTick(()=>initDataTable())" x-init="initDataTable()">
             <div class="page-header"><div class="page-header-title"><div class="page-header-icon"><i class="ri-money-dollar-circle-line"></i></div><h1>Tarif</h1></div><div class="page-header-breadcrumb"><a href="/dashboard" wire:navigate><i class="ri-database-2-line"></i></a><span class="sep">/</span><a href="#">Master</a><span class="sep">/</span><span>Data Tarif</span></div></div>
@@ -108,14 +116,15 @@ class TarifPage extends Component
                 </div></div>
                 <div class="card-body p-0"><div class="table-responsive bg-white">
                     <table id="tarifTable" class="display w-full">
-                    <thead><tr><th>Kode Tindakan</th><th>Kode Asuransi</th><th>Tarif</th><th>Jasmed</th><th>BHP</th><th>Status</th><th class="!text-center" style="text-align: center !important;">Aksi</th></tr></thead>
+                    <thead><tr><th>Kode Tindakan</th><th>Kode Asuransi</th><th>Tarif</th><th>Jasmed</th><th>Satuan</th><th>BHP</th><th>Status</th><th class="!text-center" style="text-align: center !important;">Aksi</th></tr></thead>
                     <tbody>
                         @foreach($tarifList as $item)
                         <tr wire:key="tarif-{{ $item->id }}">
                             <td><span class="font-semibold text-[#405189]">{{ $item->kode_tindakan }}</span></td>
                             <td>{{ $item->kode_asuransi }}</td>
                             <td>Rp {{ number_format($item->tarif, 0, ',', '.') }}</td>
-                            <td>Rp {{ number_format($item->jasmed, 0, ',', '.') }}</td>
+                            <td>{{ ($item->satuan_jasmed ?? 'Rp') === '%' ? number_format($item->jasmed, 0, ',', '.') . '%' : 'Rp ' . number_format($item->jasmed, 0, ',', '.') }}</td>
+                            <td><span class="text-[11px] font-bold px-2 py-0.5 rounded {{ ($item->satuan_jasmed ?? 'Rp') === '%' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700' }}">{{ $item->satuan_jasmed ?? 'Rp' }}</span></td>
                             <td>Rp {{ number_format($item->bhp, 0, ',', '.') }}</td>
                             <td><span class="badge {{ $item->status == 'Aktif' ? 'bg-success-subtle' : 'bg-danger-subtle' }}">{{ $item->status }}</span></td>
                             <td class="text-center"><div class="flex justify-center gap-2">
@@ -136,14 +145,58 @@ class TarifPage extends Component
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
                                 <div class="space-y-4">
                                     <h6 class="text-xs font-bold text-[#405189] uppercase tracking-widest border-b pb-2">Referensi</h6>
-                                    <div><label class="block text-xs font-semibold text-gray-500 mb-1">Kode Tindakan <span class="text-red-500">*</span></label><input type="text" wire:model="kode_tindakan" x-ref="firstInput" class="w-full rounded-lg border-gray-200 text-sm px-4 py-2.5 focus:border-[#405189] transition-all @error('kode_tindakan') border-red-400 @enderror" placeholder="Contoh: TDK00001">@error('kode_tindakan') <span class="text-[11px] text-red-500 mt-1 italic">{{ $message }}</span> @enderror</div>
-                                    <div><label class="block text-xs font-semibold text-gray-500 mb-1">Kode Asuransi <span class="text-red-500">*</span></label><input type="text" wire:model="kode_asuransi" class="w-full rounded-lg border-gray-200 text-sm px-4 py-2.5 focus:border-[#405189] transition-all @error('kode_asuransi') border-red-400 @enderror" placeholder="Contoh: ASR00001">@error('kode_asuransi') <span class="text-[11px] text-red-500 mt-1 italic">{{ $message }}</span> @enderror</div>
-                                    <div><label class="block text-xs font-semibold text-gray-500 mb-1">Satuan</label><select wire:model="satuan" class="w-full rounded-lg border-gray-200 text-sm px-4 py-2.5 focus:border-[#405189] transition-all"><option value="">Pilih</option><option value="Sesi">Sesi</option><option value="Kali">Kali</option><option value="Tindakan">Tindakan</option></select></div>
+                                    <div>
+                                        <label class="block text-xs font-semibold text-gray-500 mb-1">Pilih Tindakan <span class="text-red-500">*</span></label>
+                                        <x-custom-dropdown 
+                                            model="kode_tindakan" 
+                                            :options="$tindakanList"
+                                            placeholder="Cari & Pilih Tindakan..."
+                                            searchable="true"
+                                            icon="ri-pulse-line"
+                                        />
+                                        @error('kode_tindakan') <span class="text-[11px] text-red-500 mt-1 italic">{{ $message }}</span> @enderror
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-semibold text-gray-500 mb-1">Pilih Asuransi <span class="text-red-500">*</span></label>
+                                        <x-custom-dropdown 
+                                            model="kode_asuransi" 
+                                            :options="$asuransiList"
+                                            placeholder="Cari & Pilih Asuransi..."
+                                            searchable="true"
+                                            icon="ri-shield-user-line"
+                                        />
+                                        @error('kode_asuransi') <span class="text-[11px] text-red-500 mt-1 italic">{{ $message }}</span> @enderror
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-semibold text-gray-500 mb-1">Satuan</label>
+                                        <x-custom-dropdown 
+                                            model="satuan" 
+                                            :options="[
+                                                ['value' => 'Sesi', 'label' => 'Sesi', 'icon' => 'ri-time-line'],
+                                                ['value' => 'Kali', 'label' => 'Kali', 'icon' => 'ri-history-line'],
+                                                ['value' => 'Tindakan', 'label' => 'Tindakan', 'icon' => 'ri-list-check']
+                                            ]"
+                                            placeholder="Pilih Satuan"
+                                        />
+                                    </div>
                                 </div>
                                 <div class="space-y-4">
                                     <h6 class="text-xs font-bold text-[#0ab39c] uppercase tracking-widest border-b pb-2">Rincian Biaya</h6>
                                     <div><label class="block text-xs font-semibold text-gray-500 mb-1">Tarif Total (Rp)</label><input type="number" wire:model="tarif" class="w-full rounded-lg border-gray-200 text-sm px-4 py-2.5 focus:border-[#405189] transition-all" min="0"></div>
-                                    <div><label class="block text-xs font-semibold text-gray-500 mb-1">Jasa Medik (Rp)</label><input type="number" wire:model="jasmed" class="w-full rounded-lg border-gray-200 text-sm px-4 py-2.5 focus:border-[#405189] transition-all" min="0"></div>
+                                    <div class="grid grid-cols-3 gap-3">
+                                        <div class="col-span-2"><label class="block text-xs font-semibold text-gray-500 mb-1">Jasa Medik</label><input type="number" wire:model="jasmed" class="w-full rounded-lg border-gray-200 text-sm px-4 py-2.5 focus:border-[#405189] transition-all" min="0"></div>
+                                        <div>
+                                            <label class="block text-xs font-semibold text-gray-500 mb-1">Satuan</label>
+                                            <x-custom-dropdown 
+                                                model="satuan_jasmed" 
+                                                :options="[
+                                                    ['value' => 'Rp', 'label' => 'Rp (Rupiah)', 'icon' => 'ri-money-dollar-circle-line text-blue-500'],
+                                                    ['value' => '%', 'label' => '% (Persen)', 'icon' => 'ri-percent-line text-amber-500']
+                                                ]"
+                                                placeholder="Rp"
+                                            />
+                                        </div>
+                                    </div>
                                     <div class="grid grid-cols-2 gap-4">
                                         <div><label class="block text-xs font-semibold text-gray-500 mb-1">BHP (Rp)</label><input type="number" wire:model="bhp" class="w-full rounded-lg border-gray-200 text-sm px-4 py-2.5 focus:border-[#405189] transition-all" min="0"></div>
                                         <div><label class="block text-xs font-semibold text-gray-500 mb-1">Adm Fee (Rp)</label><input type="number" wire:model="adm_fee" class="w-full rounded-lg border-gray-200 text-sm px-4 py-2.5 focus:border-[#405189] transition-all" min="0"></div>

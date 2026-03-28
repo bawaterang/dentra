@@ -25,7 +25,7 @@
         <p>Dicetak pada: {{ date('d F Y H:i') }}</p>
     </div>
     <table>
-        <thead><tr><th width="5%">No</th><th>Kode Tindakan</th><th>Kode Asuransi</th><th>Tarif</th><th>Jasmed</th><th>BHP</th><th>Status</th></tr></thead>
+        <thead><tr><th width="5%">No</th><th>Kode Tindakan</th><th>Kode Asuransi</th><th>Tarif</th><th>Jasmed</th><th>Satuan</th><th>BHP</th><th>Status</th></tr></thead>
         <tbody>
             @foreach($dataList as $index => $item)
             <tr>
@@ -33,7 +33,8 @@
                 <td>{{ $item->kode_tindakan }}</td>
                 <td>{{ $item->kode_asuransi }}</td>
                 <td>Rp {{ number_format($item->tarif, 0, ',', '.') }}</td>
-                <td>Rp {{ number_format($item->jasmed, 0, ',', '.') }}</td>
+                <td>{{ ($item->satuan_jasmed ?? 'Rp') === '%' ? number_format($item->jasmed, 0, ',', '.') . '%' : 'Rp ' . number_format($item->jasmed, 0, ',', '.') }}</td>
+                <td>{{ $item->satuan_jasmed ?? 'Rp' }}</td>
                 <td>Rp {{ number_format($item->bhp, 0, ',', '.') }}</td>
                 <td><span class="status-badge {{ strtolower($item->status) == 'aktif' ? 'status-aktif' : 'status-tidak-aktif' }}">{{ $item->status }}</span></td>
             </tr>

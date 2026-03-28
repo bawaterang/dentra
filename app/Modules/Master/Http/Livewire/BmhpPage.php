@@ -168,7 +168,25 @@ class BmhpPage extends Component
                                     <div><label class="block text-xs font-semibold text-gray-500 mb-1">Kode BMHP <span class="text-red-500">*</span></label><input type="text" wire:model="kode_bmhp" x-ref="firstInput" class="w-full rounded-lg border-gray-100 bg-gray-50/50 text-sm px-4 py-2.5 font-bold text-[#405189]" readonly tabindex="-1"></div>
                                     <div><label class="block text-xs font-semibold text-gray-500 mb-1">Nama BMHP <span class="text-red-500">*</span></label><input type="text" wire:model="nama_bmhp" class="w-full rounded-lg border-gray-200 text-sm px-4 py-2.5 focus:border-[#405189] transition-all @error('nama_bmhp') border-red-400 @enderror" placeholder="Contoh: Sarung Tangan Latex">@error('nama_bmhp') <span class="text-[11px] text-red-500 mt-1 italic">{{ $message }}</span> @enderror</div>
                                     <div class="grid grid-cols-2 gap-4">
-                                        <div><label class="block text-xs font-semibold text-gray-500 mb-1">Satuan</label><select wire:model="satuan" class="w-full rounded-lg border-gray-200 text-sm px-4 py-2.5 focus:border-[#405189] transition-all"><option value="">Pilih</option><option value="Pcs">Pcs</option><option value="Box">Box</option><option value="Pack">Pack</option><option value="Roll">Roll</option><option value="Lembar">Lembar</option></select></div>
+                                        <div>    
+                                            <label class="block text-xs font-semibold text-gray-500 mb-1">Satuan</label>
+                                            <x-custom-dropdown 
+                                                model="satuan" 
+                                                :options="[
+                                                    ['value' => 'Pcs', 'label' => 'Pcs', 'icon' => 'ri-drop-line text-blue-500'],
+                                                    ['value' => 'Box', 'label' => 'Box', 'icon' => 'ri-archive-line text-indigo-500'],
+                                                    ['value' => 'Pack', 'label' => 'Pack', 'icon' => 'ri-box-3-line text-green-500'],
+                                                    ['value' => 'Roll', 'label' => 'Roll', 'icon' => 'ri-loop-left-line text-yellow-500'],
+                                                    ['value' => 'Lembar', 'label' => 'Lembar', 'icon' => 'ri-pages-line text-gray-400'],
+                                                    ['value' => 'Gigi', 'label' => 'Gigi', 'icon' => 'ri-mastodon-line text-cyan-500'],
+                                                    ['value' => 'Carpul', 'label' => 'Carpul', 'icon' => 'ri-syringe-line text-red-500'],
+                                                    ['value' => 'Ampul', 'label' => 'Ampul', 'icon' => 'ri-test-tube-line text-purple-500'],
+                                                    ['value' => 'Spray', 'label' => 'Spray', 'icon' => 'ri-contrast-drop-line text-teal-500']
+                                                ]"
+                                                placeholder="Pilih Satuan"
+                                                searchable="true"
+                                            />
+                                        </div>
                                         <div><label class="block text-xs font-semibold text-gray-500 mb-1">Stok</label><input type="number" wire:model="stok" class="w-full rounded-lg border-gray-200 text-sm px-4 py-2.5 focus:border-[#405189] transition-all" min="0"></div>
                                     </div>
                                 </div>

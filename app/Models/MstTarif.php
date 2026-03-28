@@ -17,6 +17,7 @@ class MstTarif extends Model
         'kode_asuransi',
         'tarif',
         'jasmed',
+        'satuan_jasmed',
         'bhp',
         'adm_fee',
         'satuan',

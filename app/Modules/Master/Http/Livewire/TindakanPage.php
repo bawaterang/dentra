@@ -152,7 +152,22 @@ class TindakanPage extends Component
                                 <h6 class="text-xs font-bold text-[#405189] uppercase tracking-widest border-b pb-2">Informasi Tindakan</h6>
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div><label class="block text-xs font-semibold text-gray-500 mb-1">Kode Tindakan <span class="text-red-500">*</span></label><input type="text" wire:model="kode_tindakan" x-ref="firstInput" class="w-full rounded-lg border-gray-100 bg-gray-50/50 text-sm px-4 py-2.5 font-bold text-[#405189] @error('kode_tindakan') border-red-400 @enderror" readonly tabindex="-1">@error('kode_tindakan') <span class="text-[11px] text-red-500 mt-1 italic">{{ $message }}</span> @enderror</div>
-                                    <div><label class="block text-xs font-semibold text-gray-500 mb-1">Kategori Tindakan</label><select wire:model="kategori_tindakan" class="w-full rounded-lg border-gray-200 text-sm px-4 py-2.5 focus:border-[#405189] transition-all"><option value="">Pilih Kategori</option><option value="Konsultasi">Konsultasi</option><option value="Cabut Gigi">Cabut Gigi</option><option value="Tambal">Tambal</option><option value="Perawatan Saluran Akar">Perawatan Saluran Akar</option><option value="Pembersihan Karang Gigi">Pembersihan Karang Gigi</option><option value="Lainnya">Lainnya</option></select></div>
+                                    <div>
+                                        <label class="block text-xs font-semibold text-gray-500 mb-1">Kategori Tindakan</label>
+                                        <x-custom-dropdown 
+                                            model="kategori_tindakan" 
+                                            :options="[
+                                                ['value' => 'Konsultasi', 'label' => 'Konsultasi', 'icon' => 'ri-chat-voice-line text-blue-500'],
+                                                ['value' => 'Cabut Gigi', 'label' => 'Cabut Gigi', 'icon' => 'ri-delete-bin-line text-red-500'],
+                                                ['value' => 'Tambal', 'label' => 'Tambal', 'icon' => 'ri-brush-line text-indigo-500'],
+                                                ['value' => 'Perawatan Saluran Akar', 'label' => 'Perawatan Saluran Akar', 'icon' => 'ri-h-1 text-green-500'],
+                                                ['value' => 'Pembersihan Karang Gigi', 'label' => 'Pembersihan Karang Gigi', 'icon' => 'ri-sparkling-fill text-yellow-500'],
+                                                ['value' => 'Lainnya', 'label' => 'Lainnya', 'icon' => 'ri-more-line text-gray-400']
+                                            ]"
+                                            placeholder="Pilih Kategori Tindakan"
+                                            searchable="true"
+                                        />
+                                    </div>
                                 </div>
                                 <div><label class="block text-xs font-semibold text-gray-500 mb-1">Nama Tindakan <span class="text-red-500">*</span></label><input type="text" wire:model="nama_tindakan" class="w-full rounded-lg border-gray-200 text-sm px-4 py-2.5 focus:border-[#405189] transition-all @error('nama_tindakan') border-red-400 @enderror" placeholder="Contoh: Pencabutan Gigi Permanen">@error('nama_tindakan') <span class="text-[11px] text-red-500 mt-1 italic">{{ $message }}</span> @enderror</div>
                                 <div><label class="block text-xs font-semibold text-gray-500 mb-1">Harga Default (Rp)</label><input type="number" wire:model="harga_default" class="w-full rounded-lg border-gray-200 text-sm px-4 py-2.5 focus:border-[#405189] transition-all" placeholder="0"></div>

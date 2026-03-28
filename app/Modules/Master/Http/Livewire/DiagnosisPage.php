@@ -189,13 +189,16 @@ class DiagnosisPage extends Component
                                         @error('kode_diagnosa') <span class="text-[11px] text-red-500 mt-1 italic">{{ $message }}</span> @enderror
                                     </div>
                                     <div>
-                                        <label class="block text-xs font-semibold text-gray-500 mb-1">Kategori</label>
-                                        <select wire:model="kategori" class="w-full rounded-lg border-gray-200 text-sm px-4 py-2.5 focus:border-[#405189] transition-all">
-                                            <option value="">Pilih Kategori</option>
-                                            <option value="Gigi">Gigi</option>
-                                            <option value="Umum">Umum</option>
-                                            <option value="Bedah">Bedah</option>
-                                        </select>
+                                        <label class="block text-xs font-semibold text-gray-500 mb-1">Kategori Diagnosis</label>
+                                        <x-custom-dropdown 
+                                            model="kategori" 
+                                            :options="[
+                                                ['value' => 'Gigi', 'label' => 'Gigi', 'icon' => 'ri-mastodon-line text-blue-500'],
+                                                ['value' => 'Umum', 'label' => 'Umum', 'icon' => 'ri-hospital-line text-green-500'],
+                                                ['value' => 'Bedah', 'label' => 'Bedah', 'icon' => 'ri-scissors-line text-red-500']
+                                            ]"
+                                            placeholder="Pilih Kategori"
+                                        />
                                     </div>
                                 </div>
                                 <div>

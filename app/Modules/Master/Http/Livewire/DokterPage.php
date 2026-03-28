@@ -538,11 +538,14 @@ class DokterPage extends Component
                                     <div class="grid grid-cols-2 gap-4">
                                         <div>
                                             <label class="block text-xs font-semibold text-gray-500 mb-1">Jenis Kelamin <span class="text-red-500">*</span></label>
-                                            <select wire:model="jenis_kelamin" class="w-full rounded-lg border-gray-200 text-sm px-4 py-2.5 focus:border-[#405189] transition-all @error('jenis_kelamin') border-red-400 @enderror">
-                                                <option value="">Pilih</option>
-                                                <option value="Laki-laki">Laki-laki</option>
-                                                <option value="Perempuan">Perempuan</option>
-                                            </select>
+                                            <x-custom-dropdown 
+                                                model="jenis_kelamin" 
+                                                :options="[
+                                                    ['value' => 'Laki-laki', 'label' => 'Laki-laki', 'icon' => 'ri-men-line text-blue-500'],
+                                                    ['value' => 'Perempuan', 'label' => 'Perempuan', 'icon' => 'ri-women-line text-pink-500']
+                                                ]"
+                                                placeholder="Pilih Jenis Kelamin"
+                                            />
                                             @error('jenis_kelamin') <span class="text-[11px] text-red-500 mt-1 italic">{{ $message }}</span> @enderror
                                         </div>
                                         <div>

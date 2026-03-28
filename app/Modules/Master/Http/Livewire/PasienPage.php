@@ -501,22 +501,29 @@ class PasienPage extends Component
                                     <div class="grid grid-cols-2 gap-4">
                                         <div>
                                             <label class="block text-xs font-semibold text-gray-500 mb-1">Jenis Kelamin <span class="text-red-500">*</span></label>
-                                            <select wire:model="jenis_kelamin" class="w-full rounded-lg border-gray-200 text-sm px-4 py-2.5 focus:border-[#405189] transition-all @error('jenis_kelamin') border-red-400 @enderror">
-                                                <option value="">Pilih</option>
-                                                <option value="Laki-laki">Laki-laki</option>
-                                                <option value="Perempuan">Perempuan</option>
-                                            </select>
+                                            <x-custom-dropdown 
+                                                model="jenis_kelamin" 
+                                                :options="[
+                                                    ['value' => 'Laki-laki', 'label' => 'Laki-laki', 'icon' => 'ri-men-line text-blue-500'],
+                                                    ['value' => 'Perempuan', 'label' => 'Perempuan', 'icon' => 'ri-women-line text-pink-500']
+                                                ]"
+                                                placeholder="Pilih Jenis Kelamin"
+                                            />
                                             @error('jenis_kelamin') <span class="text-[11px] text-red-500 mt-1 italic">{{ $message }}</span> @enderror
                                         </div>
                                         <div>
                                             <label class="block text-xs font-semibold text-gray-500 mb-1">Gol. Darah</label>
-                                            <select wire:model="golongan_darah" class="w-full rounded-lg border-gray-200 text-sm px-4 py-2.5 focus:border-[#405189] transition-all">
-                                                <option value="">-</option>
-                                                <option value="A">A</option>
-                                                <option value="B">B</option>
-                                                <option value="AB">AB</option>
-                                                <option value="O">O</option>
-                                            </select>
+                                            <x-custom-dropdown 
+                                                model="golongan_darah" 
+                                                :options="[
+                                                    ['value' => 'A', 'label' => 'A'],
+                                                    ['value' => 'B', 'label' => 'B'],
+                                                    ['value' => 'AB', 'label' => 'AB'],
+                                                    ['value' => 'O', 'label' => 'O']
+                                                ]"
+                                                placeholder="Golongan Darah"
+                                                icon="ri-drop-line"
+                                            />
                                         </div>
                                     </div>
 
@@ -553,14 +560,21 @@ class PasienPage extends Component
                                     <div class="grid grid-cols-2 gap-4">
                                         <div>
                                             <label class="block text-xs font-semibold text-gray-500 mb-1">Agama</label>
-                                            <select wire:model="agama" class="w-full rounded-lg border-gray-200 text-sm px-4 py-2.5 focus:border-[#405189] transition-all">
-                                                <option value="">-</option>
-                                                <option value="Islam">Islam</option>
-                                                <option value="Kristen">Kristen</option>
-                                                <option value="Katolik">Katolik</option>
-                                                <option value="Hindu">Hindu</option>
-                                                <option value="Budha">Budha</option>
-                                            </select>
+                                            <x-custom-dropdown 
+                                                model="agama" 
+                                                :options="[
+                                                    ['value' => 'Islam', 'label' => 'Islam'],
+                                                    ['value' => 'Kristen', 'label' => 'Kristen'],
+                                                    ['value' => 'Katolik', 'label' => 'Katolik'],
+                                                    ['value' => 'Hindu', 'label' => 'Hindu'],
+                                                    ['value' => 'Budha', 'label' => 'Budha'],
+                                                    ['value' => 'Konghucu', 'label' => 'Konghucu'],
+                                                    ['value' => 'Lainnya', 'label' => 'Lainnya']
+                                                ]"
+                                                placeholder="Pilih Agama"
+                                                searchable="true"
+                                                icon="ri-service-line"
+                                            />
                                         </div>
                                         <div>
                                             <label class="block text-xs font-semibold text-gray-500 mb-1">Pekerjaan</label>

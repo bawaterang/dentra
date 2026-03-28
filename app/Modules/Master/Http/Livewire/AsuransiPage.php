@@ -411,12 +411,16 @@ class AsuransiPage extends Component
                                     </div>
 
                                     <div>
-                                        <label class="block text-xs font-semibold text-gray-500 mb-1">Tipe Asuransi <span class="text-red-500">*</span></label>
-                                        <select wire:model="tipe_asuransi" class="w-full rounded-lg border-gray-200 text-sm px-4 py-2.5 focus:border-[#405189] transition-all @error('tipe_asuransi') border-red-400 @enderror">
-                                            <option value="Pemerintah">Pemerintah</option>
-                                            <option value="Swasta">Swasta</option>
-                                            <option value="Lainnya">Lainnya</option>
-                                        </select>
+                                        <label class="block text-xs font-semibold text-gray-500 mb-1">Tipe Asuransi</label>
+                                        <x-custom-dropdown 
+                                            model="tipe_asuransi" 
+                                            :options="[
+                                                ['value' => 'Pemerintah', 'label' => 'Pemerintah', 'icon' => 'ri-government-line text-blue-500'],
+                                                ['value' => 'Swasta', 'label' => 'Swasta', 'icon' => 'ri-building-line text-indigo-500'],
+                                                ['value' => 'Lainnya', 'label' => 'Lainnya', 'icon' => 'ri-more-line text-gray-400']
+                                            ]"
+                                            placeholder="Pilih Tipe Asuransi"
+                                        />
                                         @error('tipe_asuransi') <span class="text-[11px] text-red-500 mt-1 italic">{{ $message }}</span> @enderror
                                     </div>
 
