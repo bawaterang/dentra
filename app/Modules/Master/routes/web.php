@@ -12,6 +12,8 @@ use App\Modules\Master\Http\Livewire\TindakanPage;
 use App\Modules\Master\Http\Livewire\TarifPage;
 use App\Modules\Master\Http\Livewire\BmhpPage;
 use App\Modules\Master\Http\Livewire\MenuPage;
+use App\Modules\Master\Http\Livewire\PoliPage;
+use App\Modules\Master\Http\Livewire\SurveiPage;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['web', 'auth'])->prefix('master')->name('master.')->group(function () {
@@ -64,4 +66,12 @@ Route::middleware(['web', 'auth'])->prefix('master')->name('master.')->group(fun
     Route::get('/data-menu', MenuPage::class)->name('menu');
     Route::get('/data-menu/print', [\App\Modules\Master\Http\Controllers\MenuExportController::class, 'print'])->name('menu.print');
     Route::get('/data-menu/export-excel', [\App\Modules\Master\Http\Controllers\MenuExportController::class, 'exportExcel'])->name('menu.export');
+
+    // Survei
+    Route::get('/data-survei', SurveiPage::class)->name('survei');
+    Route::get('/data-survei/print', [\App\Modules\Master\Http\Controllers\SurveiExportController::class, 'print'])->name('survei.print');
+    Route::get('/data-survei/export-excel', [\App\Modules\Master\Http\Controllers\SurveiExportController::class, 'exportExcel'])->name('survei.export');
+
+    // Poli
+    Route::get('/data-poli', PoliPage::class)->name('poli');
 });

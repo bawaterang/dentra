@@ -6,4 +6,8 @@ return [
     AppServiceProvider::class,
     App\Modules\Dashboard\Providers\DashboardServiceProvider::class,
     App\Modules\Master\Providers\MasterServiceProvider::class,
+    App\Modules\Antrian\Providers\AntrianServiceProvider::class,
+    App\Modules\Pendaftaran\Providers\PendaftaranServiceProvider::class,
+    App\Modules\Screening\Providers\ScreeningServiceProvider::class,
+    App\Modules\Setting\Providers\SettingServiceProvider::class,
 ];
