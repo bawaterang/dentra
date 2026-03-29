@@ -1258,28 +1258,34 @@
             </button>
 
             {{-- Settings --}}
-            <button class="topbar-icon-btn" title="Pengaturan">
+            <a href="{{ route('setting.klinik') }}" wire:navigate class="topbar-icon-btn" title="Pengaturan">
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <circle cx="12" cy="12" r="3" />
                     <path
                         d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
                 </svg>
-            </button>
+            </a>
 
             <div class="topbar-divider"></div>
 
             {{-- Avatar + Dropdown --}}
             <div class="dropdown" x-data="{ open: false }" @click.outside="open = false">
-                <div class="topbar-avatar" @click="open = !open" title="Admin">AD</div>
+                <div class="topbar-avatar" @click="open = !open" title="{{ Auth::user()->full_name ?? 'User' }}" style="overflow:hidden; display:flex; align-items:center; justify-center;">
+                    @if(Auth::user() && Auth::user()->avatar)
+                        <img src="{{ asset('storage/'.Auth::user()->avatar) }}" style="width:100%; height:100%; object-fit:cover;">
+                    @else
+                        {{ strtoupper(substr(Auth::user()->full_name ?? 'U', 0, 2)) }}
+                    @endif
+                </div>
                 <div class="dropdown-menu" x-show="open" x-cloak x-transition style="display:none;">
                     <div class="dropdown-item"
                         style="flex-direction:column;align-items:flex-start;gap:1px;padding-bottom:12px;">
-                        <span style="font-weight:600;color:#343a40;">Admin System</span>
-                        <span style="font-size:12px;color:#878a99;">admin@sigidental.id</span>
+                        <span style="font-weight:600;color:#343a40;">{{ Auth::user()->full_name ?? 'User System' }}</span>
+                        <span style="font-size:12px;color:#878a99;">{{ Auth::user()->email ?? '' }}</span>
                     </div>
                     <div class="dropdown-divider"></div>
-                    <a href="#" class="dropdown-item">
+                    <a href="{{ route('profil.index') }}" wire:navigate class="dropdown-item">
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
@@ -1287,7 +1293,7 @@
                         </svg>
                         Profil Saya
                     </a>
-                    <a href="#" class="dropdown-item">
+                    <a href="{{ route('setting.klinik') }}" wire:navigate class="dropdown-item">
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <circle cx="12" cy="12" r="3" />

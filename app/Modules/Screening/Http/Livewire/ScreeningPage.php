@@ -11,6 +11,8 @@ class ScreeningPage extends Component
     public $selectedDate;
     public $selectedTab = 'belum'; // belum / sudah
     public $pendaftaranList = [];
+    public $totalBelum = 0;
+    public $totalSudah = 0;
 
     public function mount()
     {
@@ -33,8 +35,8 @@ class ScreeningPage extends Component
 
         $this->pendaftaranList = $query->orderBy('created_at', 'desc')->get();
 
-        $totalBelum = TrxPendaftaran::whereDate('created_at', $this->selectedDate)->whereIn('status', ['terdaftar','menunggu_screening'])->count();
-        $totalSudah = TrxPendaftaran::whereDate('created_at', $this->selectedDate)->where('status', 'selesai')->count();
+        $this->totalBelum = TrxPendaftaran::whereDate('created_at', $this->selectedDate)->whereIn('status', ['terdaftar','menunggu_screening'])->count();
+        $this->totalSudah = TrxPendaftaran::whereDate('created_at', $this->selectedDate)->where('status', 'selesai')->count();
 
         return <<<'HTML'
         <div x-data="{ 
@@ -72,7 +74,7 @@ class ScreeningPage extends Component
                     </div>
                     <div class="card shadow-sm mt-4 p-4">
                         <div class="flex items-center gap-2 mb-3"><i class="ri-download-2-line text-[#405189]"></i><span class="text-xs font-bold text-[#405189] uppercase tracking-widest">Eksport</span></div>
-                        <a href="{{ route('screening.export', ['date' => $selectedDate]) }}" class="btn bg-green-600 text-white w-full h-9 flex items-center justify-center gap-2 text-xs font-bold hover:bg-green-700 transition-all mb-2"><i class="ri-file-excel-2-line"></i> Unduh Excel</a>
+                        <a href="{{ route('screening.export', ['date' => $selectedDate]) }}" target="_blank" class="btn bg-green-600 text-white w-full h-9 flex items-center justify-center gap-2 text-xs font-bold hover:bg-green-700 transition-all mb-2"><i class="ri-file-excel-2-line"></i> Unduh Excel</a>
                     </div>
                 </div>
 

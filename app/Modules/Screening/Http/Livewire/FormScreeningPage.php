@@ -115,11 +115,9 @@ class FormScreeningPage extends Component
                                                 <span class="text-sm font-semibold {{ isset($jawaban[$p->id]) && $jawaban[$p->id] === 'tidak' ? 'text-green-600' : 'text-gray-500' }} group-hover:text-green-500">Tidak</span>
                                             </label>
                                         </div>
-                                        @if(isset($jawaban[$p->id]) && $jawaban[$p->id] === 'ya')
-                                        <div class="mt-3">
-                                            <input type="text" wire:model="keterangan.{{ $p->id }}" {{ $isCompleted ? 'disabled' : '' }} class="w-full rounded-lg border-gray-200 text-xs px-3 h-[36px] focus:border-[#405189] transition-all" placeholder="Keterangan (opsional)...">
+                                        <div class="mt-4">
+                                            <input type="text" wire:model="keterangan.{{ $p->id }}" {{ $isCompleted ? 'disabled' : '' }} class="w-full rounded-lg border-gray-200 text-sm px-4 h-11 focus:border-[#405189] focus:ring focus:ring-[#405189]/20 transition-all bg-gray-50/50" placeholder="Tambahkan keterangan rincian (opsional)...">
                                         </div>
-                                        @endif
                                     </div>
                                 </div>
                             </div>
