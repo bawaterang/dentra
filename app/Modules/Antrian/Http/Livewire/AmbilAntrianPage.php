@@ -16,6 +16,11 @@ class AmbilAntrianPage extends Component
     public $tanggal_antrian, $jenis_antrian = 'offline';
     public $time_slot;
 
+    // Search properties
+    public $searchPasien = '';
+    public $pasienResults = [];
+    public $showSearchModal = false;
+
     // Dropdown data
     public $poliList = [];
     public $dokterList = [];
@@ -99,6 +104,33 @@ class AmbilAntrianPage extends Component
         $this->resetForm();
     }
 
+    public function updatedSearchPasien($value)
+    {
+        if (strlen($value) >= 2) {
+            $this->pasienResults = MstPasien::where(function ($q) use ($value) {
+                    $q->where('nama_pasien', 'like', '%' . $value . '%')
+                      ->orWhere('nik', 'like', '%' . $value . '%')
+                      ->orWhere('no_telepon', 'like', '%' . $value . '%')
+                      ->orWhere('no_rm', 'like', '%' . $value . '%');
+                })
+                ->limit(10)
+                ->get()
+                ->toArray();
+        } else {
+            $this->pasienResults = [];
+        }
+    }
+
+    public function pilihPasien($pasienId)
+    {
+        $pasien = MstPasien::findOrFail($pasienId);
+        $this->nama_pasien = $pasien->nama_pasien;
+        $this->no_telepon = $pasien->no_telepon;
+        $this->nik = $pasien->nik;
+        $this->showSearchModal = false;
+        $this->dispatch('alert', ['type' => 'info', 'message' => 'Pasien terpilih: ' . $pasien->nama_pasien]);
+    }
+
     public function render()
     {
         $this->poliList = MstPoli::where('status', 'Aktif')->get()->map(fn($p) => ['value' => $p->kode_poli, 'label' => $p->nama_poli, 'icon' => 'ri-hospital-line text-blue-500'])->toArray();
@@ -106,13 +138,41 @@ class AmbilAntrianPage extends Component
         $this->asuransiList = MstAsuransi::where('status', 'Aktif')->get()->map(fn($a) => ['value' => $a->nama_asuransi, 'label' => $a->nama_asuransi, 'icon' => 'ri-shield-check-line text-green-500'])->toArray();
 
         return <<<'HTML'
-        <div>
+        <div x-data="{ showSearchModal: @entangle('showSearchModal') }">
             <div class="page-header"><div class="page-header-title"><div class="page-header-icon"><i class="ri-ticket-line"></i></div><h1>Ambil Antrian</h1></div><div class="page-header-breadcrumb"><a href="/dashboard" wire:navigate><i class="ri-home-line"></i></a><span class="sep">/</span><a href="{{ route('antrian.index') }}" wire:navigate>Antrian</a><span class="sep">/</span><span>Ambil Antrian</span></div></div>
 
             @if($generatedAntrian)
+            <!-- Print Style -->
+            <style>
+                @media print {
+                    @page {
+                        margin: 0;
+                    }
+                    body * {
+                        visibility: hidden;
+                    }
+                    #printArea, #printArea * {
+                        visibility: visible;
+                        color: black !important;
+                    }
+                    #printArea {
+                        display: block !important;
+                        position: absolute;
+                        left: 0;
+                        top: 0;
+                        width: 100%;
+                        max-width: 100%;
+                        margin: 0;
+                        padding: 5mm;
+                        font-family: monospace;
+                        background: white !important;
+                    }
+                }
+            </style>
             <!-- Ticket Result -->
             <div class="max-w-md mx-auto">
-                <div class="card shadow-xl border-2 border-[#405189] overflow-hidden" id="printArea">
+                <!-- Screen UI (Hidden on Print) -->
+                <div class="card shadow-xl border-2 border-[#405189] overflow-hidden print:hidden" id="screenTicket">
                     <div class="bg-gradient-to-br from-[#405189] to-[#3577f1] p-6 text-center text-white">
                         <p class="text-xs font-semibold uppercase tracking-widest opacity-80 mb-2">SIGI Dental Clinic</p>
                         <p class="text-sm opacity-70">Nomor Antrian</p>
@@ -128,7 +188,29 @@ class AmbilAntrianPage extends Component
                     </div>
                     <div class="border-t border-dashed border-gray-200 p-4 text-center text-[10px] text-[#878a99]">Simpan tiket ini. Harap menunggu giliran Anda dipanggil.</div>
                 </div>
-                <div class="flex gap-3 mt-4">
+
+                <!-- Thermal Print UI (Hidden on Screen) -->
+                <div id="printArea" class="hidden text-black bg-white w-full">
+                    <div class="text-center font-bold text-lg border-b border-dashed border-black pb-2 mb-2">
+                        SIGI DENTAL CLINIC
+                    </div>
+                    <div class="text-center text-sm mb-1">Nomor Antrian</div>
+                    <div class="text-center text-5xl font-black my-2">{{ $generatedAntrian->nomor_antrian }}</div>
+                    <div class="text-center text-xs mb-3">{{ \Carbon\Carbon::parse($generatedAntrian->tanggal_antrian)->translatedFormat('l, d M Y') }}</div>
+                    
+                    <div class="text-sm border-t border-b border-dashed border-black py-2 mb-3">
+                        <div class="flex justify-between my-1"><span>Nama:</span><span class="font-bold text-right ml-2 truncate">{{ $generatedAntrian->nama_pasien_input_manual }}</span></div>
+                        @if($generatedAntrian->kode_poli)<div class="flex justify-between my-1"><span>Poli:</span><span class="font-bold text-right ml-2">{{ $generatedAntrian->kode_poli }}</span></div>@endif
+                        @if($generatedAntrian->kode_dokter)<div class="flex justify-between my-1"><span>Dokter:</span><span class="font-bold text-right ml-2">{{ $generatedAntrian->kode_dokter }}</span></div>@endif
+                        <div class="flex justify-between my-1"><span>Jenis:</span><span class="font-bold text-right ml-2">{{ ucfirst($generatedAntrian->jenis_antrian) }}</span></div>
+                    </div>
+                    
+                    <div class="text-center text-[10px]">
+                        Simpan tiket ini.<br>Harap menunggu giliran Anda.
+                    </div>
+                </div>
+
+                <div class="flex gap-3 mt-4 print:hidden">
                     <button onclick="window.print()" class="btn bg-[#405189] text-white flex-1 h-10 flex items-center justify-center gap-2 hover:bg-[#364574] transition-all"><i class="ri-printer-line"></i> Cetak Tiket</button>
                     <button wire:click="ambilLagi" class="btn bg-[#0ab39c] text-white flex-1 h-10 flex items-center justify-center gap-2 hover:bg-[#099885] transition-all"><i class="ri-add-line"></i> Ambil Lagi</button>
                 </div>
@@ -142,7 +224,14 @@ class AmbilAntrianPage extends Component
                         <form wire:submit.prevent="save">
                             <div class="space-y-4">
                                 <h6 class="text-xs font-bold text-[#405189] uppercase tracking-widest border-b pb-2">Data Pasien</h6>
-                                <div><label class="block text-xs font-semibold text-gray-500 mb-1">Nama Pasien <span class="text-red-500">*</span></label><input type="text" wire:model="nama_pasien" class="w-full rounded-lg border-gray-200 text-sm px-4 h-[42px] focus:border-[#405189] transition-all @error('nama_pasien') border-red-400 @enderror" placeholder="Nama lengkap pasien">@error('nama_pasien') <span class="text-[11px] text-red-500 mt-1 italic">{{ $message }}</span> @enderror</div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-gray-500 mb-1">Nama Pasien <span class="text-red-500">*</span></label>
+                                    <div class="flex gap-2">
+                                        <input type="text" wire:model="nama_pasien" class="flex-1 rounded-lg border-gray-200 text-sm px-4 h-[42px] focus:border-[#405189] transition-all @error('nama_pasien') border-red-400 @enderror" placeholder="Nama lengkap pasien">
+                                        <button type="button" @click="showSearchModal = true; $wire.set('searchPasien', ''); $wire.set('pasienResults', [])" class="btn bg-[#299cdb] text-white h-[42px] px-3 flex items-center gap-1 text-[10px] font-bold whitespace-nowrap"><i class="ri-search-2-line"></i> CARI PASIEN</button>
+                                    </div>
+                                    @error('nama_pasien') <span class="text-[11px] text-red-500 mt-1 italic">{{ $message }}</span> @enderror
+                                </div>
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div><label class="block text-xs font-semibold text-gray-500 mb-1">No Telepon</label><input type="text" wire:model="no_telepon" class="w-full rounded-lg border-gray-200 text-sm px-4 h-[42px] focus:border-[#405189] transition-all" placeholder="08xxxxxxxxxx"></div>
                                     <div><label class="block text-xs font-semibold text-gray-500 mb-1">NIK</label><input type="text" wire:model="nik" class="w-full rounded-lg border-gray-200 text-sm px-4 h-[42px] focus:border-[#405189] transition-all" placeholder="Nomor Induk Kependudukan"></div>
@@ -186,6 +275,35 @@ class AmbilAntrianPage extends Component
                 </div>
             </div>
             @endif
+
+            <!-- Search Pasien Modal -->
+            <div x-show="showSearchModal" class="fixed inset-0 z-[1050] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" x-transition.opacity style="display:none;">
+                <div x-show="showSearchModal" x-transition.scale.95 class="w-full max-w-lg bg-white rounded-xl shadow-2xl overflow-hidden">
+                    <div class="px-6 py-4 flex items-center justify-between border-b border-gray-100 bg-[#f3f6f9]/50"><h5 class="text-lg font-bold text-[#495057]"><i class="ri-search-2-line mr-2 text-[#405189]"></i>Cari Pasien</h5><button @click="showSearchModal=false" class="text-gray-400 hover:text-gray-600"><i class="ri-close-line text-2xl"></i></button></div>
+                    <div class="px-6 py-5">
+                        <div class="relative mb-4"><input type="text" wire:model.live.debounce.300ms="searchPasien" class="w-full rounded-lg border-gray-200 text-sm pl-10 pr-4 h-[42px] focus:border-[#405189] transition-all" placeholder="Cari berdasarkan Nama, NIK, No HP, atau No RM..."><i class="ri-search-line absolute left-3.5 top-1/2 -translate-y-1/2 text-[#878a99]"></i></div>
+                        <div class="max-h-[300px] overflow-y-auto space-y-2">
+                            @forelse($pasienResults as $p)
+                            <button wire:key="psearch-{{ $p['id'] }}" wire:click="pilihPasien({{ $p['id'] }})" class="w-full text-left p-3 rounded-lg border border-gray-100 hover:border-[#405189] hover:bg-[#405189]/5 transition-all group">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <p class="font-semibold text-[#495057] text-sm group-hover:text-[#405189]">{{ $p['nama_pasien'] }}</p>
+                                        <p class="text-[11px] text-[#878a99]">{{ $p['no_rm'] }} · NIK: {{ $p['nik'] ?? '-' }} · {{ $p['no_telepon'] ?? '-' }}</p>
+                                    </div>
+                                    <i class="ri-arrow-right-s-line text-gray-300 group-hover:text-[#405189] text-xl"></i>
+                                </div>
+                            </button>
+                            @empty
+                            @if(strlen($searchPasien) >= 2)
+                            <div class="text-center py-6 text-[#878a99]"><i class="ri-user-search-line text-3xl mb-2 block"></i><p class="text-sm">Tidak ada pasien ditemukan</p></div>
+                            @else
+                            <div class="text-center py-6 text-[#878a99]"><i class="ri-search-eye-line text-3xl mb-2 block"></i><p class="text-sm">Ketik minimal 2 karakter untuk mencari</p></div>
+                            @endif
+                            @endforelse
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
         HTML;
     }

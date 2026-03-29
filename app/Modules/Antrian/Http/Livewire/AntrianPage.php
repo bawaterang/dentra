@@ -17,11 +17,17 @@ class AntrianPage extends Component
     public $dipanggil = 0;
     public $selesai = 0;
 
-    // Sync pasien modal
     public $syncAntrianId;
     public $searchPasien = '';
     public $pasienResults = [];
     public $showSyncModal = false;
+    public $isSyncForEdit = false; // Flag to check if search is from Edit modal
+
+    // Edit Antrian Modal
+    public $editAntrianId;
+    public $editNamaPasien, $editPoli, $editDokter;
+    public $poliList = [], $dokterList = [];
+    public $showEditModal = false;
 
     public function mount()
     {
@@ -77,18 +83,18 @@ class AntrianPage extends Component
         $this->syncAntrianId = $antrianId;
         $this->searchPasien = '';
         $this->pasienResults = [];
+        $this->isSyncForEdit = false;
         $this->showSyncModal = true;
     }
 
-    public function updatedSearchPasien()
+    public function updatedSearchPasien($value)
     {
-        if (strlen($this->searchPasien) >= 2) {
-            $this->pasienResults = MstPasien::where('status', 'Aktif')
-                ->where(function ($q) {
-                    $q->where('nama_pasien', 'like', '%' . $this->searchPasien . '%')
-                      ->orWhere('nik', 'like', '%' . $this->searchPasien . '%')
-                      ->orWhere('no_telepon', 'like', '%' . $this->searchPasien . '%')
-                      ->orWhere('no_rm', 'like', '%' . $this->searchPasien . '%');
+        if (strlen($value) >= 2) {
+            $this->pasienResults = MstPasien::where(function ($q) use ($value) {
+                    $q->where('nama_pasien', 'like', '%' . $value . '%')
+                      ->orWhere('nik', 'like', '%' . $value . '%')
+                      ->orWhere('no_telepon', 'like', '%' . $value . '%')
+                      ->orWhere('no_rm', 'like', '%' . $value . '%');
                 })
                 ->limit(10)
                 ->get()
@@ -100,22 +106,57 @@ class AntrianPage extends Component
 
     public function pilihPasien($pasienId)
     {
-        $antrian = TrxAntrian::findOrFail($this->syncAntrianId);
         $pasien = MstPasien::findOrFail($pasienId);
-        $antrian->update(['pasien_id' => $pasien->id]);
+
+        if ($this->isSyncForEdit) {
+            $this->editNamaPasien = $pasien->nama_pasien;
+            // Also update the hidden pasien_id for the edit
+            $this->dispatch('alert', ['type' => 'info', 'message' => 'Pasien terpilih: ' . $pasien->nama_pasien]);
+        } else {
+            $antrian = TrxAntrian::findOrFail($this->syncAntrianId);
+            $antrian->update(['pasien_id' => $pasien->id]);
+            $this->dispatch('alert', ['type' => 'success', 'message' => 'Pasien berhasil disinkronkan: ' . $pasien->nama_pasien . ' (' . $pasien->no_rm . ')']);
+        }
+
         $this->showSyncModal = false;
         $this->dispatch('refresh-table');
-        $this->dispatch('alert', ['type' => 'success', 'message' => 'Pasien berhasil disinkronkan: ' . $pasien->nama_pasien . ' (' . $pasien->no_rm . ')']);
     }
 
     public function daftarkan($antrianId)
     {
         $antrian = TrxAntrian::findOrFail($antrianId);
-        if (!$antrian->pasien_id) {
-            $this->dispatch('alert', ['type' => 'warning', 'message' => 'Sinkronkan pasien terlebih dahulu sebelum mendaftarkan.']);
-            return;
-        }
         return redirect()->route('pendaftaran.create', ['antrian_id' => $antrian->id, 'pasien_id' => $antrian->pasien_id]);
+    }
+
+    public function editAntrian($id)
+    {
+        $antrian = TrxAntrian::findOrFail($id);
+        $this->editAntrianId = $antrian->id;
+        $this->editNamaPasien = $antrian->pasien?->nama_pasien ?? $antrian->nama_pasien_input_manual;
+        $this->editPoli = $antrian->kode_poli;
+        $this->editDokter = $antrian->kode_dokter;
+        $this->poliList = \App\Models\MstPoli::where('status', 'Aktif')->get()->toArray();
+        $this->dokterList = \App\Models\MstDokter::where('status', 'Aktif')->get()->toArray();
+        $this->showEditModal = true;
+    }
+
+    public function updateAntrian()
+    {
+        $this->validate(['editNamaPasien' => 'required|string|max:100']);
+        $antrian = TrxAntrian::findOrFail($this->editAntrianId);
+        
+        $data = [
+            'kode_poli' => $this->editPoli,
+            'kode_dokter' => $this->editDokter,
+        ];
+        if (!$antrian->pasien_id) {
+            $data['nama_pasien_input_manual'] = $this->editNamaPasien;
+        }
+        
+        $antrian->update($data);
+        $this->showEditModal = false;
+        $this->dispatch('refresh-table');
+        $this->dispatch('alert', ['type' => 'success', 'message' => 'Data antrian berhasil diperbarui.']);
     }
 
     public function render()
@@ -137,6 +178,7 @@ class AntrianPage extends Component
         return <<<'HTML'
         <div x-data="{ 
             showSyncModal: @entangle('showSyncModal'),
+            showEditModal: @entangle('showEditModal'),
             initDataTable() { 
                 const t='#antrianTable'; 
                 if($.fn.DataTable.isDataTable(t)){$(t).DataTable().destroy()} 
@@ -207,6 +249,9 @@ class AntrianPage extends Component
                                     </td>
                                     <td class="text-center">
                                         <div class="flex flex-wrap justify-center gap-1">
+                                            @if(in_array($item->status, ['menunggu','dipanggil']))
+                                                <button wire:click="editAntrian({{ $item->id }})" class="flex h-7 px-2 items-center justify-center rounded bg-gray-100 text-gray-600 hover:bg-gray-600 hover:text-white transition-all text-[10px] font-bold gap-1" title="Edit Antrian"><i class="ri-edit-line"></i></button>
+                                            @endif
                                             @if($item->status === 'menunggu')
                                                 <button wire:click="ubahStatus({{ $item->id }}, 'dipanggil')" class="flex h-7 px-2 items-center justify-center rounded bg-blue-100 text-blue-600 hover:bg-blue-600 hover:text-white transition-all text-[10px] font-bold gap-1" title="Panggil"><i class="ri-notification-3-line"></i></button>
                                             @endif
@@ -217,7 +262,7 @@ class AntrianPage extends Component
                                             @if(!$item->pasien_id && in_array($item->status, ['menunggu','dipanggil','hadir']))
                                                 <button wire:click="openSyncModal({{ $item->id }})" class="flex h-7 px-2 items-center justify-center rounded bg-purple-100 text-purple-600 hover:bg-purple-600 hover:text-white transition-all text-[10px] font-bold gap-1" title="Sinkron Pasien"><i class="ri-link"></i></button>
                                             @endif
-                                            @if($item->pasien_id && in_array($item->status, ['hadir','dipanggil']))
+                                            @if(in_array($item->status, ['hadir','dipanggil']))
                                                 <button wire:click="daftarkan({{ $item->id }})" class="flex h-7 px-2 items-center justify-center rounded bg-[#0ab39c]/10 text-[#0ab39c] hover:bg-[#0ab39c] hover:text-white transition-all text-[10px] font-bold gap-1" title="Daftarkan"><i class="ri-file-add-line"></i> Daftar</button>
                                             @endif
                                             @if(in_array($item->status, ['menunggu','dipanggil']))
@@ -241,7 +286,7 @@ class AntrianPage extends Component
                         <div class="relative mb-4"><input type="text" wire:model.live.debounce.300ms="searchPasien" class="w-full rounded-lg border-gray-200 text-sm pl-10 pr-4 h-[42px] focus:border-[#405189] transition-all" placeholder="Cari berdasarkan Nama, NIK, No HP, atau No RM..."><i class="ri-search-line absolute left-3.5 top-1/2 -translate-y-1/2 text-[#878a99]"></i></div>
                         <div class="max-h-[300px] overflow-y-auto space-y-2">
                             @forelse($pasienResults as $p)
-                            <button wire:click="pilihPasien({{ $p['id'] }})" class="w-full text-left p-3 rounded-lg border border-gray-100 hover:border-[#405189] hover:bg-[#405189]/5 transition-all group">
+                            <button wire:key="psearch-{{ $p['id'] }}" wire:click="pilihPasien({{ $p['id'] }})" class="w-full text-left p-3 rounded-lg border border-gray-100 hover:border-[#405189] hover:bg-[#405189]/5 transition-all group">
                                 <div class="flex items-center justify-between">
                                     <div>
                                         <p class="font-semibold text-[#495057] text-sm group-hover:text-[#405189]">{{ $p['nama_pasien'] }}</p>
@@ -258,6 +303,49 @@ class AntrianPage extends Component
                             @endif
                             @endforelse
                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Edit Antrian Modal -->
+            <div x-show="showEditModal" class="fixed inset-0 z-[1050] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" x-transition.opacity style="display:none;">
+                <div x-show="showEditModal" x-transition.scale.95 class="w-full max-w-lg bg-white rounded-xl shadow-2xl overflow-hidden">
+                    <div class="px-6 py-4 flex items-center justify-between border-b border-gray-100 bg-[#f3f6f9]/50"><h5 class="text-lg font-bold text-[#495057]"><i class="ri-edit-line mr-2 text-[#405189]"></i>Edit Antrian (Kiosk)</h5><button @click="showEditModal=false" class="text-gray-400 hover:text-gray-600"><i class="ri-close-line text-2xl"></i></button></div>
+                    <div class="px-8 py-6 max-h-[75vh] overflow-y-auto">
+                        <form wire:submit.prevent="updateAntrian">
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-xs font-semibold text-gray-500 mb-1">Nama Pasien <span class="text-red-500">*</span></label>
+                                    <div class="flex gap-2">
+                                        <input type="text" wire:model="editNamaPasien" class="flex-1 rounded-lg border-gray-200 text-sm px-4 h-[42px] focus:border-[#405189] transition-all" placeholder="Nama pasien">
+                                        <button type="button" @click="$wire.set('isSyncForEdit', true); $wire.set('searchPasien', ''); $wire.set('pasienResults', []); showSyncModal = true" class="btn bg-[#299cdb] text-white h-[42px] px-3 flex items-center gap-1 text-[10px] font-bold whitespace-nowrap"><i class="ri-search-2-line"></i> CARI PASIEN</button>
+                                    </div>
+                                    @error('editNamaPasien') <span class="text-[11px] text-red-500 mt-1 italic">{{ $message }}</span> @enderror
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-gray-500 mb-1">Poli Tujuan</label>
+                                    <select wire:model="editPoli" class="w-full rounded-lg border-gray-200 text-sm px-4 h-[42px] focus:border-[#405189] transition-all">
+                                        <option value="">-- Pilih Poli --</option>
+                                        @foreach($poliList as $p)
+                                            <option value="{{ $p['kode_poli'] }}">{{ $p['nama_poli'] }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-gray-500 mb-1">Dokter</label>
+                                    <select wire:model="editDokter" class="w-full rounded-lg border-gray-200 text-sm px-4 h-[42px] focus:border-[#405189] transition-all">
+                                        <option value="">-- Kosongkan / Belum Memilih --</option>
+                                        @foreach($dokterList as $d)
+                                            <option value="{{ $d['kode_dokter'] }}">{{ $d['nama_dokter'] }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="px-8 py-5 bg-gray-50/80 flex justify-end gap-3 border-t border-gray-100">
+                        <button type="button" @click="showEditModal = false" class="btn bg-orange-500 text-white px-6 h-10 flex items-center gap-2 transition-all hover:bg-orange-600"><i class="ri-arrow-go-back-line"></i> Batal</button>
+                        <button type="button" wire:click="updateAntrian" class="btn bg-[#0d6efd] text-white px-8 h-10 shadow-md flex items-center justify-center gap-2 transition-all hover:bg-[#0b5ed7]"><i class="ri-save-line"></i> Simpan</button>
                     </div>
                 </div>
             </div>
