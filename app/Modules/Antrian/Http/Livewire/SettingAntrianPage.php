@@ -28,7 +28,7 @@ class SettingAntrianPage extends Component
             $this->is_active = $setting->is_active;
         } else {
             // Default values
-            $this->mode_antrian = 'offline';
+            $this->mode_antrian = 'nomor_urut';
             $this->jam_buka = '08:00';
             $this->jam_tutup = '21:00';
             $this->durasi_slot = 15;
@@ -40,7 +40,7 @@ class SettingAntrianPage extends Component
     public function rules()
     {
         return [
-            'mode_antrian' => 'required|in:online,offline,hybrid',
+            'mode_antrian' => 'required|in:nomor_urut,time_slot',
             'jam_buka' => 'required|date_format:H:i',
             'jam_tutup' => 'required|date_format:H:i|after:jam_buka',
             'durasi_slot' => 'required|integer|min:5|max:120',
@@ -107,25 +107,25 @@ class SettingAntrianPage extends Component
                                     <div>
                                         <label class="block text-sm font-semibold text-gray-700 mb-2">Mode Antrian</label>
                                         <div class="flex flex-col gap-3">
-                                            <label class="flex items-center gap-3 p-3 border rounded-xl cursor-pointer hover:bg-gray-50 transition-all {{ $mode_antrian === 'offline' ? 'border-[#405189] bg-blue-50/30' : 'border-gray-200' }}">
-                                                <input type="radio" wire:model="mode_antrian" value="offline" class="w-4 h-4 text-[#405189] focus:ring-[#405189]">
+                                            <label class="flex items-center gap-3 p-3 border rounded-xl cursor-pointer hover:bg-gray-50 transition-all {{ $mode_antrian === 'nomor_urut' ? 'border-[#405189] bg-blue-50/30' : 'border-gray-200' }}">
+                                                <input type="radio" wire:model="mode_antrian" value="nomor_urut" class="w-4 h-4 text-[#405189] focus:ring-[#405189]">
                                                 <div>
-                                                    <p class="font-bold text-sm text-gray-800">Offline Only</p>
-                                                    <p class="text-[11px] text-gray-500">Pasien hanya bisa mengambil antrian di klinik.</p>
+                                                    <p class="font-bold text-sm text-gray-800">Nomor Urut</p>
+                                                    <p class="text-[11px] text-gray-500">Pasien dipanggil berdasarkan urutan kedatangan.</p>
                                                 </div>
                                             </label>
-                                            <label class="flex items-center gap-3 p-3 border rounded-xl cursor-pointer hover:bg-gray-50 transition-all {{ $mode_antrian === 'hybrid' ? 'border-[#0ab39c] bg-green-50/30' : 'border-gray-200' }}">
-                                                <input type="radio" wire:model="mode_antrian" value="hybrid" class="w-4 h-4 text-[#0ab39c] focus:ring-[#0ab39c]">
+                                            <label class="flex items-center gap-3 p-3 border rounded-xl cursor-pointer hover:bg-gray-50 transition-all {{ $mode_antrian === 'time_slot' ? 'border-[#0ab39c] bg-green-50/30' : 'border-gray-200' }}">
+                                                <input type="radio" wire:model="mode_antrian" value="time_slot" class="w-4 h-4 text-[#0ab39c] focus:ring-[#0ab39c]">
                                                 <div>
-                                                    <p class="font-bold text-sm text-gray-800">Hybrid (On/Off)</p>
-                                                    <p class="text-[11px] text-gray-500">Kombinasi antrian online via aplikasi dan offline.</p>
+                                                    <p class="font-bold text-sm text-gray-800">Waktu Periksa</p>
+                                                    <p class="text-[11px] text-gray-500">Pasien datang sesuai dengan jam reservasi.</p>
                                                 </div>
                                             </label>
-                                            <label class="flex items-center gap-3 p-3 border rounded-xl cursor-pointer hover:bg-gray-50 transition-all {{ $mode_antrian === 'online' ? 'border-orange-500 bg-orange-50/30' : 'border-gray-200' }}">
-                                                <input type="radio" wire:model="mode_antrian" value="online" class="w-4 h-4 text-orange-500 focus:ring-orange-500">
+                                            <label class="flex items-center gap-3 p-3 border rounded-xl cursor-pointer hover:bg-gray-50 transition-all {{ $mode_antrian === 'time_slot' ? 'border-[#0ab39c] bg-green-50/30' : 'border-gray-200' }}">
+                                                <input type="radio" wire:model="mode_antrian" value="keduanya" class="w-4 h-4 text-[#a62ea2] focus:ring-[#a62ea2]">
                                                 <div>
-                                                    <p class="font-bold text-sm text-gray-800">Online Only</p>
-                                                    <p class="text-[11px] text-gray-500">Kiosk dimatikan. Semua harus reservasi online.</p>
+                                                    <p class="font-bold text-sm text-gray-800">Keduanya</p>
+                                                    <p class="text-[11px] text-gray-500">Waktu periksa diatur berbanding lurus dengan nomor urut.</p>
                                                 </div>
                                             </label>
                                         </div>
@@ -193,8 +193,8 @@ class SettingAntrianPage extends Component
                         </div>
                         
                         <div class="p-5 bg-gray-50 flex justify-end gap-3 border-t border-[#eff2f7]">
-                            <button type="button" class="btn btn-soft-secondary font-bold text-sm px-6 hover:-translate-y-0.5 transition-transform" wire:click="mount"><i class="ri-refresh-line mr-1"></i> Reset</button>
-                            <button type="submit" class="btn btn-primary font-bold text-sm px-8 shadow-md hover:-translate-y-0.5 transition-transform"><i class="ri-save-3-line mr-1"></i> Simpan Pengaturan</button>
+                            <button type="button" class="btn bg-gray-500 text-white font-bold text-sm px-6 hover:bg-gray-600 hover:-translate-y-0.5 transition-all" wire:click="mount"><i class="ri-refresh-line mr-1"></i> Reset</button>
+                            <button type="submit" class="btn bg-[#0d6efd] text-white font-bold text-sm px-8 shadow-md hover:bg-[#0b5ed7] hover:-translate-y-0.5 transition-all"><i class="ri-save-3-line mr-1"></i> Simpan Pengaturan</button>
                         </div>
                     </div>
                 </form>
