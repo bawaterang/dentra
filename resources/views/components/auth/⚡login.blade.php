@@ -17,6 +17,10 @@ new class extends Component
         ]);
 
         if (Auth::attempt(['username' => $this->username, 'password' => $this->password], $this->remember)) {
+            $user = Auth::user();
+            $user->login_terakhir = now();
+            $user->save();
+
             session()->regenerate();
             return redirect()->route('dashboard.index');
         }

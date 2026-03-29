@@ -298,7 +298,9 @@ class ProfilPage extends Component
                                         <div class="flex flex-col items-center justify-center p-6 border rounded-xl bg-gray-50/30">
                                             <p class="text-xs font-bold text-gray-500 mb-4 uppercase tracking-widest">Tanda Tangan Saat Ini</p>
                                             <div class="h-40 w-full flex items-center justify-center border rounded-lg bg-white shadow-inner overflow-hidden">
-                                                @if($signature)
+                                                @if($signature_file)
+                                                    <img src="{{ $signature_file->temporaryUrl() }}" class="max-h-full max-w-full object-contain">
+                                                @elseif($signature)
                                                     <img src="{{ asset('storage/'.$signature) }}" class="max-h-full max-w-full object-contain">
                                                 @else
                                                     <div class="text-center text-gray-300">
@@ -346,8 +348,8 @@ class ProfilPage extends Component
                                 </div>
                                 
                                 <div class="p-5 bg-gray-50/80 flex justify-end gap-3 border-t border-gray-100 rounded-b-xl">
-                                    <button type="button" class="btn btn-soft-secondary font-bold text-sm px-6 hover:-translate-y-0.5 transition-transform" wire:click="mount">Batal</button>
-                                    <button type="submit" class="btn btn-primary font-bold text-sm px-8 shadow-md hover:-translate-y-0.5 transition-transform hover:shadow-lg"><i class="ri-save-3-line mr-1.5"></i> Simpan Perubahan</button>
+                                    <button type="button" class="btn bg-gray-500 text-white font-bold text-sm px-6 hover:bg-gray-600 hover:-translate-y-0.5 transition-all" wire:click="mount">Batal</button>
+                                    <button type="submit" class="btn bg-[#0d6efd] text-white font-bold text-sm px-8 shadow-md hover:bg-[#0b5ed7] hover:-translate-y-0.5 transition-all hover:shadow-lg"><i class="ri-save-3-line mr-1.5"></i> Simpan Perubahan</button>
                                 </div>
                             </div>
                         </form>

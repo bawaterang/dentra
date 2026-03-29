@@ -3,16 +3,22 @@
 namespace App\Modules\Setting\Http\Livewire;
 
 use Livewire\Component;
+use Livewire\WithFileUploads;
+use Illuminate\Support\Facades\Storage;
 use App\Models\MstInstansi;
 
 class SettingKlinikPage extends Component
 {
+    use WithFileUploads;
+
     public $nama_klinik;
     public $alamat;
     public $telepon;
     public $email;
     public $website;
     public $pimpinan;
+    public $logo;
+    public $logo_file;
 
     public function mount()
     {
@@ -24,6 +30,7 @@ class SettingKlinikPage extends Component
             $this->email = $instansi->email;
             $this->website = $instansi->website;
             $this->pimpinan = $instansi->pimpinan;
+            $this->logo = $instansi->logo;
         } else {
             // Defaults
             $this->nama_klinik = 'SIGI Dental Clinic';
@@ -40,6 +47,7 @@ class SettingKlinikPage extends Component
             'email' => 'nullable|email',
             'website' => 'nullable|string|max:255',
             'pimpinan' => 'nullable|string|max:255',
+            'logo_file' => 'nullable|image|max:2048',
         ];
     }
 
@@ -54,6 +62,15 @@ class SettingKlinikPage extends Component
         $instansi->email = $this->email;
         $instansi->website = $this->website;
         $instansi->pimpinan = $this->pimpinan;
+
+        if ($this->logo_file) {
+            if ($instansi->logo) {
+                Storage::disk('public')->delete($instansi->logo);
+            }
+            $this->logo = $this->logo_file->store('logos', 'public');
+            $instansi->logo = $this->logo;
+        }
+
         $instansi->save();
 
         $this->dispatch('alert', ['type' => 'success', 'message' => 'Informasi klinik berhasil diperbarui!']);
@@ -87,6 +104,29 @@ class SettingKlinikPage extends Component
                             <p class="text-sm text-[#878a99] mt-1">Kelola identitas dan informasi kontak rekam medis klinik Anda.</p>
                         </div>
                         
+                        <div class="p-6 border-b border-[#eff2f7]">
+                            <div class="flex flex-col sm:flex-row items-center gap-6">
+                                <div class="h-24 w-24 shrink-0 rounded-xl bg-gray-50 border-2 border-dashed border-gray-300 flex items-center justify-center relative overflow-hidden group">
+                                    @if($logo_file)
+                                        <img src="{{ $logo_file->temporaryUrl() }}" class="w-full h-full object-cover">
+                                    @elseif($logo)
+                                        <img src="{{ asset('storage/'.$logo) }}" class="w-full h-full object-cover">
+                                    @else
+                                        <i class="ri-image-add-line text-3xl text-gray-400 group-hover:text-[#405189] transition-colors"></i>
+                                    @endif
+                                    <label class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer">
+                                        <i class="ri-camera-switch-line text-white text-xl"></i>
+                                        <input type="file" wire:model="logo_file" class="hidden" accept="image/*">
+                                    </label>
+                                </div>
+                                <div class="text-center sm:text-left">
+                                    <h6 class="text-sm font-bold text-gray-700 mb-1">Logo Klinik</h6>
+                                    <p class="text-xs text-gray-500 mb-2">Format yang didukung: JPG, PNG, atau GIF. Ukuran maksimal 2MB.</p>
+                                    @error('logo_file') <span class="text-[11px] text-red-500 font-medium">{{ $message }}</span> @enderror
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="p-6 space-y-6">
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div class="space-y-4">
@@ -155,8 +195,8 @@ class SettingKlinikPage extends Component
                         </div>
                         
                         <div class="p-5 bg-gray-50 flex justify-end gap-3 border-t border-[#eff2f7]">
-                            <button type="button" wire:click="mount" class="btn btn-soft-secondary font-bold text-sm px-6 hover:-translate-y-0.5 transition-transform">Reset</button>
-                            <button type="submit" class="btn btn-primary font-bold text-sm px-8 shadow-md hover:-translate-y-0.5 transition-transform"><i class="ri-check-double-line mr-1"></i> Simpan Pendaftaran Klinik</button>
+                            <button type="button" wire:click="mount" class="btn bg-gray-500 text-white font-bold text-sm px-6 hover:bg-gray-600 hover:-translate-y-0.5 transition-all">Reset</button>
+                            <button type="submit" class="btn bg-[#0d6efd] text-white font-bold text-sm px-8 shadow-md hover:bg-[#0b5ed7] hover:-translate-y-0.5 transition-all"><i class="ri-check-double-line mr-1"></i> Simpan Pendaftaran Klinik</button>
                         </div>
                     </div>
                 </form>
