@@ -69,6 +69,23 @@ class AmbilAntrianPage extends Component
                 if ($pasien) { $pasienId = $pasien->id; }
             }
 
+            // Duplicate Validation
+            $duplicateCheck = clone TrxAntrian::query()
+                ->where(['tanggal_antrian' => $this->tanggal_antrian])
+                ->where(['asuransi' => $this->asuransi]);
+                
+            if ($pasienId) {
+                $duplicateCheck->where('pasien_id', $pasienId);
+            } else {
+                $duplicateCheck->where('nama_pasien_input_manual', $this->nama_pasien);
+            }
+
+            if ($duplicateCheck->exists()) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'general' => 'Pasien ini sudah memiliki antrian dengan asuransi yang sama pada tanggal tersebut.'
+                ]);
+            }
+
             // Generate nomor antrian
             $lastAntrian = TrxAntrian::where('tanggal_antrian', $this->tanggal_antrian)
                 ->orderBy('nomor_antrian', 'desc')
@@ -127,6 +144,7 @@ class AmbilAntrianPage extends Component
         $this->nama_pasien = $pasien->nama_pasien;
         $this->no_telepon = $pasien->no_telepon;
         $this->nik = $pasien->nik;
+        $this->no_asuransi = $pasien->no_penjamin;
         $this->showSearchModal = false;
         $this->dispatch('alert', ['type' => 'info', 'message' => 'Pasien terpilih: ' . $pasien->nama_pasien]);
     }
@@ -222,6 +240,7 @@ class AmbilAntrianPage extends Component
                     <div class="px-6 py-4 border-b border-gray-100 bg-[#f3f6f9]/50"><h5 class="text-lg font-bold text-[#495057]"><i class="ri-ticket-line mr-2 text-[#405189]"></i>Form Pengambilan Antrian</h5></div>
                     <div class="px-8 py-6">
                         <form wire:submit.prevent="save">
+                            @error('general') <div class="bg-red-500/10 border border-red-500/50 text-red-500 px-4 py-3 rounded-xl mb-4 text-sm font-semibold"><i class="ri-alert-line mr-2"></i>{{ $message }}</div> @enderror
                             <div class="space-y-4">
                                 <h6 class="text-xs font-bold text-[#405189] uppercase tracking-widest border-b pb-2">Data Pasien</h6>
                                 <div>

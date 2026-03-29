@@ -322,7 +322,7 @@ class PasienPage extends Component
 
             <div class="card overflow-hidden border-t-2 border-[#405189]">
                 <!-- Unified Action Bar (Modern & High-Density) -->
-                <div class="p-4 border-b border-[#eff2f7] bg-white">
+                <div class="p-4 border-b border-[#eff2f7]">
                     <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                         <!-- Left Side: Filter Tabs -->
                         <div class="flex overflow-x-auto scrollbar-hide -mx-2 px-2 lg:mx-0 lg:px-0">
@@ -352,12 +352,12 @@ class PasienPage extends Component
                         <div class="flex flex-wrap items-center gap-3 justify-start lg:justify-end">
                             <!-- Search Input -->
                             <div class="relative flex-grow md:flex-none">
-                                <input type="text" id="customSearch" class="h-10 w-full md:w-64 rounded-lg bg-[#f3f6f9] border border-[#e9ecef] pl-10 pr-4 text-sm outline-none focus:border-[#405189] focus:bg-white transition-all placeholder:text-[#adb5bd]" placeholder="Cari data pasien...">
+                                <input type="text" id="customSearch" class="h-10 w-full md:w-64 rounded-lg border border-[#e9ecef] pl-10 pr-4 text-sm outline-none focus:border-[#405189] focus:bg-white transition-all placeholder:text-[#adb5bd]" placeholder="Cari data pasien...">
                                 <i class="ri-search-line absolute left-3.5 top-1/2 -translate-y-1/2 text-[#878a99] text-base"></i>
                             </div>
                             
                             <!-- Utility Actions (Print & Export) -->
-                            <div class="flex items-center gap-1.5 p-1 bg-[#f3f6f9] rounded-lg border border-[#e9ecef]">
+                            <div class="flex items-center gap-1.5 p-1 rounded-lg border border-[#e9ecef]">
                                 <a href="{{ route('master.pasien.print', ['status' => $selectedStatus]) }}" target="_blank" class="h-8 w-8 rounded-md flex items-center justify-center text-indigo-500 hover:bg-white hover:shadow-sm transition-all" title="Cetak PDF">
                                     <i class="ri-printer-line text-lg"></i>
                                 </a>
@@ -380,9 +380,9 @@ class PasienPage extends Component
                 </div>
 
                 <div class="card-body p-0">
-                    <div class="table-responsive bg-white">
-                        <table id="pasienTable" class="display w-full">
-                        <thead>
+                    <div class="table-responsive dark:bg-transparent">
+                        <table id="pasienTable" class="table align-middle table-nowrap w-full">
+                        <thead class="table-light text-muted">
                             <tr>
                                 <th>No. RM</th>
                                 <th>Nama Pasien</th>

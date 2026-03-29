@@ -39,6 +39,17 @@ class AmbilAntrianKioskPage extends Component
         ]);
 
         try {
+            $duplicateCheck = clone TrxAntrian::query()
+                ->where(['tanggal_antrian' => $this->tanggal_antrian])
+                ->where(['nama_pasien_input_manual' => $this->nama_pasien])
+                ->where(['kode_poli' => $this->kode_poli])
+                ->exists();
+                
+            if ($duplicateCheck) {
+                $this->addError('general', 'Anda sudah mengambil antrian untuk poli ini pada tanggal tersebut.');
+                return;
+            }
+
             $lastAntrian = TrxAntrian::where('tanggal_antrian', $this->tanggal_antrian)
                 ->orderBy('nomor_antrian', 'desc')
                 ->first();

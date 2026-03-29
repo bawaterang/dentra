@@ -18,6 +18,7 @@ class MstSettingAntrian extends Model
         'durasi_slot',
         'max_antrian',
         'is_active',
+        'running_text',
     ];
 
     protected $casts = [

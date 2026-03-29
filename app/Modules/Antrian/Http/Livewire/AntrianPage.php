@@ -219,7 +219,7 @@ class AntrianPage extends Component
                 <!-- Antrian Table -->
                 <div class="lg:col-span-3">
                     <div class="card overflow-hidden border-t-2 border-[#405189]">
-                        <div class="p-4 border-b border-[#eff2f7] bg-white"><div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                        <div class="p-4 border-b border-[#eff2f7] dark:border-white/10 dark:bg-transparent"><div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                             <div class="flex overflow-x-auto scrollbar-hide -mx-2 px-2 lg:mx-0 lg:px-0"><ul class="nav-pills-custom">
                                 <li class="nav-item"><a class="nav-link {{ $selectedStatus === 'all' ? 'active active-pill-primary' : '' }}" wire:click="setStatus('all')" role="button"><i class="ri-layout-grid-line"></i><span>Semua</span></a></li>
                                 <li class="nav-item"><a class="nav-link {{ $selectedStatus === 'menunggu' ? 'active active-pill-warning' : '' }}" wire:click="setStatus('menunggu')" role="button"><i class="ri-time-line"></i><span>Menunggu</span></a></li>
@@ -228,17 +228,17 @@ class AntrianPage extends Component
                                 <li class="nav-item"><a class="nav-link {{ $selectedStatus === 'selesai' ? 'active active-pill-success' : '' }}" wire:click="setStatus('selesai')" role="button"><i class="ri-checkbox-circle-line"></i><span>Selesai</span></a></li>
                             </ul></div>
                         </div></div>
-                        <div class="card-body p-0"><div class="table-responsive bg-white">
-                            <table id="antrianTable" class="display w-full">
-                            <thead><tr><th width="8%">No</th><th>Pasien</th><th>Poli</th><th>Dokter</th><th>Jenis</th><th>Status</th><th class="!text-center" style="text-align:center!important;">Aksi</th></tr></thead>
+                        <div class="card-body p-0"><div class="table-responsive dark:bg-transparent">
+                            <table id="antrianTable" class="table align-middle table-nowrap w-full">
+                            <thead class="table-light text-muted"><tr><th width="8%">No</th><th>No RM</th><th>Pasien</th><th>Poli</th><th>Dokter</th><th>Jenis</th><th>Status</th><th class="!text-center" style="text-align:center!important;">Aksi</th></tr></thead>
                             <tbody>
                                 @foreach($antrianList as $item)
-                                <tr wire:key="antrian-{{ $item->id }}" class="{{ $item->status === 'dipanggil' ? 'bg-blue-50' : ($item->status === 'hadir' ? 'bg-green-50' : ($item->status === 'tidak_hadir' ? 'bg-red-50' : '')) }}">
+                                <tr wire:key="antrian-{{ $item->id }}" class="{{ $item->status === 'dipanggil' ? 'bg-blue-50 dark:bg-blue-900/20' : ($item->status === 'hadir' ? 'bg-green-50 dark:bg-green-900/20' : ($item->status === 'tidak_hadir' ? 'bg-red-50 dark:bg-red-900/20' : 'bg-transparent')) }}">
                                     <td><span class="inline-flex items-center justify-center h-8 w-8 rounded-lg bg-[#405189] text-white font-bold text-sm">{{ $item->nomor_antrian }}</span></td>
+                                    <td><span class="font-mono text-sm font-semibold text-[#405189] dark:text-[#8ab4f8]">{{ $item->pasien?->no_rm ?? '-' }}</span></td>
                                     <td>
-                                        <div class="font-semibold text-[#495057]">{{ $item->pasien?->nama_pasien ?? $item->nama_pasien_input_manual ?? '-' }}</div>
-                                        @if($item->pasien_id)<span class="text-[10px] text-[#0ab39c] font-medium"><i class="ri-link mr-0.5"></i>{{ $item->pasien->no_rm }}</span>
-                                        @else<span class="text-[10px] text-orange-500 font-medium"><i class="ri-alert-line mr-0.5"></i>Belum sinkron</span>@endif
+                                        <div class="font-semibold text-[#495057] dark:text-gray-200">{{ $item->pasien?->nama_pasien ?? $item->nama_pasien_input_manual ?? '-' }}</div>
+                                        @if(!$item->pasien_id)<span class="text-[10px] text-orange-500 font-medium"><i class="ri-alert-line mr-0.5"></i>Belum sinkron</span>@endif
                                     </td>
                                     <td>{{ $item->kode_poli ?? '-' }}</td>
                                     <td>{{ $item->kode_dokter ?? '-' }}</td>
@@ -249,8 +249,9 @@ class AntrianPage extends Component
                                     </td>
                                     <td class="text-center">
                                         <div class="flex flex-wrap justify-center gap-1">
+                                            <a href="{{ route('antrian.cetak', $item->id) }}" target="_blank" class="flex h-7 px-2 items-center justify-center rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-600 hover:text-white transition-all text-[10px] font-bold gap-1" title="Cetak Tiket"><i class="ri-printer-line"></i></a>
                                             @if(in_array($item->status, ['menunggu','dipanggil']))
-                                                <button wire:click="editAntrian({{ $item->id }})" class="flex h-7 px-2 items-center justify-center rounded bg-gray-100 text-gray-600 hover:bg-gray-600 hover:text-white transition-all text-[10px] font-bold gap-1" title="Edit Antrian"><i class="ri-edit-line"></i></button>
+                                                <button wire:click="editAntrian({{ $item->id }})" class="flex h-7 px-2 items-center justify-center rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-600 hover:text-white transition-all text-[10px] font-bold gap-1" title="Edit Antrian"><i class="ri-edit-line"></i></button>
                                             @endif
                                             @if($item->status === 'menunggu')
                                                 <button wire:click="ubahStatus({{ $item->id }}, 'dipanggil')" class="flex h-7 px-2 items-center justify-center rounded bg-blue-100 text-blue-600 hover:bg-blue-600 hover:text-white transition-all text-[10px] font-bold gap-1" title="Panggil"><i class="ri-notification-3-line"></i></button>

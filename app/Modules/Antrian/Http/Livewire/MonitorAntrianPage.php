@@ -11,6 +11,7 @@ class MonitorAntrianPage extends Component
     public $currentCalled = null;
     public $waitingList = [];
     public $isOpen = true;
+    public $runningText = '';
 
     public function mount()
     {
@@ -32,6 +33,13 @@ class MonitorAntrianPage extends Component
             ->orderBy('nomor_antrian')
             ->limit(10)
             ->get();
+
+        $setting = \App\Models\MstSettingAntrian::first();
+        if ($setting && $setting->running_text) {
+            $this->runningText = $setting->running_text;
+        } else {
+            $this->runningText = "Selamat datang di SIGI Dental Clinic! Mohon menunggu antrian Anda dipanggil.";
+        }
     }
 
     public function getListeners()
@@ -112,6 +120,13 @@ class MonitorAntrianPage extends Component
                 </div>
             </div>
 
+            <!-- Running Text -->
+            <div class="bg-[#405189]/50 border-t border-b border-white/10 text-white overflow-hidden py-3 flex relative whitespace-nowrap overflow-x-hidden">
+                <div class="animate-marquee inline-block text-xl font-bold tracking-widest text-[#f7b84b]">
+                    *** {{ $runningText }} ***
+                </div>
+            </div>
+
             <!-- Footer -->
             <div class="px-8 py-3 bg-black/20 text-center">
                 <p class="text-xs text-white/40">SIGI Dental EMR © {{ date('Y') }} — Sistem Antrian Digital</p>
@@ -120,6 +135,12 @@ class MonitorAntrianPage extends Component
             <style>
                 @keyframes pulse-slow { 0%, 100% { opacity: 1; } 50% { opacity: 0.85; } }
                 .animate-pulse-slow { animation: pulse-slow 3s ease-in-out infinite; }
+                
+                @keyframes marquee {
+                    0% { transform: translateX(100vw); }
+                    100% { transform: translateX(-100%); }
+                }
+                .animate-marquee { animation: marquee 25s linear infinite; }
             </style>
         </div>
         HTML;

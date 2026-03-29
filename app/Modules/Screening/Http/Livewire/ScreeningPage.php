@@ -79,15 +79,15 @@ class ScreeningPage extends Component
                 <!-- Table -->
                 <div class="lg:col-span-3">
                     <div class="card overflow-hidden border-t-2 border-[#405189]">
-                        <div class="p-4 border-b border-[#eff2f7] bg-white">
+                        <div class="p-4 border-b border-[#eff2f7]">
                             <div class="flex overflow-x-auto scrollbar-hide"><ul class="nav-pills-custom">
                                 <li class="nav-item"><a class="nav-link {{ $selectedTab === 'belum' ? 'active active-pill-warning' : '' }}" wire:click="setTab('belum')" role="button"><i class="ri-time-line"></i><span>Belum Screening ({{ $totalBelum }})</span></a></li>
                                 <li class="nav-item"><a class="nav-link {{ $selectedTab === 'sudah' ? 'active active-pill-success' : '' }}" wire:click="setTab('sudah')" role="button"><i class="ri-checkbox-circle-line"></i><span>Sudah Screening ({{ $totalSudah }})</span></a></li>
                             </ul></div>
                         </div>
-                        <div class="card-body p-0"><div class="table-responsive bg-white">
-                            <table id="screeningTable" class="display w-full">
-                            <thead><tr><th>No Kunjungan</th><th>Pasien</th><th>Poli</th><th>Dokter</th><th>Status</th><th class="!text-center" style="text-align:center!important;">Aksi</th></tr></thead>
+                        <div class="card-body p-0"><div class="table-responsive dark:bg-transparent">
+                            <table id="screeningTable" class="table align-middle table-nowrap w-full">
+                            <thead class="table-light text-muted"><tr><th>No Kunjungan</th><th>Pasien</th><th>Poli</th><th>Dokter</th><th>Status</th><th class="!text-center" style="text-align:center!important;">Aksi</th></tr></thead>
                             <tbody>
                                 @foreach($pendaftaranList as $item)
                                 <tr wire:key="scr-{{ $item->id }}">

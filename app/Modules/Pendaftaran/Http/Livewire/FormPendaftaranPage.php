@@ -130,6 +130,30 @@ class FormPendaftaranPage extends Component
 
             $this->validate($rules);
 
+            // Duplicate Validation
+            $duplicateCheck = \App\Models\TrxPendaftaran::whereDate('created_at', now()->format('Y-m-d'))
+                ->where('asuransi_id', $this->asuransi_id)
+                ->where(function($q) {
+                    if ($this->modePasien === 'lama' && $this->pasien_id) {
+                        $q->where('pasien_id', $this->pasien_id);
+                    } else {
+                        $q->whereHas('pasien', function($sq) {
+                            if ($this->nik) {
+                                $sq->where('nik', $this->nik);
+                            } else {
+                                $sq->where('nama_pasien', $this->nama_pasien);
+                            }
+                        });
+                    }
+                })
+                ->exists();
+
+            if ($duplicateCheck) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'general' => 'Pasien ini sudah terdaftar dengan asuransi yang sama pada hari ini.'
+                ]);
+            }
+
             // Simpan pasien baru jika perlu
             if ($this->modePasien === 'baru') {
                 $lastRm = MstPasien::withTrashed()->orderBy('id', 'desc')->first();
@@ -240,6 +264,7 @@ class FormPendaftaranPage extends Component
 
             <div class="max-w-4xl mx-auto">
                 <form wire:submit.prevent="save">
+                @error('general') <div class="bg-red-500/10 border border-red-500/50 text-red-500 px-4 py-3 rounded-xl mb-4 text-sm font-semibold"><i class="ri-alert-line mr-2"></i>{{ $message }}</div> @enderror
                 <!-- Mode Toggle -->
                 <div class="card overflow-hidden border-t-2 border-[#405189] mb-6">
                     <div class="p-5">

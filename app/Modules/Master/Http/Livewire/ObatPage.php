@@ -132,7 +132,7 @@ class ObatPage extends Component
             </div>
 
             <div class="card overflow-hidden border-t-2 border-[#405189]">
-                <div class="p-4 border-b border-[#eff2f7] bg-white"><div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                <div class="p-4 border-b border-[#eff2f7]"><div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                     <div class="flex overflow-x-auto scrollbar-hide -mx-2 px-2 lg:mx-0 lg:px-0"><ul class="nav-pills-custom">
                         <li class="nav-item"><a class="nav-link {{ $selectedStatus === 'all' ? 'active active-pill-primary' : '' }}" wire:click="setStatus('all')" role="button"><i class="ri-layout-grid-line"></i><span>Semua Obat</span></a></li>
                         <li class="nav-item"><a class="nav-link {{ $selectedStatus === 'Aktif' ? 'active active-pill-success' : '' }}" wire:click="setStatus('Aktif')" role="button"><i class="ri-checkbox-circle-line"></i><span>Aktif</span></a></li>
@@ -140,15 +140,15 @@ class ObatPage extends Component
                         <li class="nav-item"><a class="nav-link {{ $selectedStatus === 'Stok Habis' ? 'active active-pill-warning' : '' }}" wire:click="setStatus('Stok Habis')" role="button"><i class="ri-error-warning-line"></i><span>Stok Habis</span></a></li>
                     </ul></div>
                     <div class="flex flex-wrap items-center gap-3 justify-start lg:justify-end">
-                        <div class="relative flex-grow md:flex-none"><input type="text" id="customSearch" class="h-10 w-full md:w-64 rounded-lg bg-[#f3f6f9] border border-[#e9ecef] pl-10 pr-4 text-sm outline-none focus:border-[#405189] focus:bg-white transition-all placeholder:text-[#adb5bd]" placeholder="Cari obat..."><i class="ri-search-line absolute left-3.5 top-1/2 -translate-y-1/2 text-[#878a99] text-base"></i></div>
-                        <div class="flex items-center gap-1.5 p-1 bg-[#f3f6f9] rounded-lg border border-[#e9ecef]"><a href="{{ route('master.obat.print', ['status' => $selectedStatus]) }}" target="_blank" class="h-8 w-8 rounded-md flex items-center justify-center text-indigo-500 hover:bg-white hover:shadow-sm transition-all" title="Cetak PDF"><i class="ri-printer-line text-lg"></i></a><div class="w-[1px] h-4 bg-[#e9ecef]"></div><a href="{{ route('master.obat.export', ['status' => $selectedStatus]) }}" target="_blank" class="h-8 w-8 rounded-md flex items-center justify-center text-emerald-500 hover:bg-white hover:shadow-sm transition-all" title="Unduh Excel"><i class="ri-file-excel-2-line text-lg"></i></a></div>
+                        <div class="relative flex-grow md:flex-none"><input type="text" id="customSearch" class="h-10 w-full md:w-64 rounded-lg border border-[#e9ecef] pl-10 pr-4 text-sm outline-none focus:border-[#405189] focus:bg-white transition-all placeholder:text-[#adb5bd]" placeholder="Cari obat..."><i class="ri-search-line absolute left-3.5 top-1/2 -translate-y-1/2 text-[#878a99] text-base"></i></div>
+                        <div class="flex items-center gap-1.5 p-1 rounded-lg border border-[#e9ecef]"><a href="{{ route('master.obat.print', ['status' => $selectedStatus]) }}" target="_blank" class="h-8 w-8 rounded-md flex items-center justify-center text-indigo-500 hover:bg-white hover:shadow-sm transition-all" title="Cetak PDF"><i class="ri-printer-line text-lg"></i></a><div class="w-[1px] h-4 bg-[#e9ecef]"></div><a href="{{ route('master.obat.export', ['status' => $selectedStatus]) }}" target="_blank" class="h-8 w-8 rounded-md flex items-center justify-center text-emerald-500 hover:bg-white hover:shadow-sm transition-all" title="Unduh Excel"><i class="ri-file-excel-2-line text-lg"></i></a></div>
                         <div class="hidden lg:block h-6 w-[1px] bg-[#e9ecef] mx-1"></div>
                         <button @click="$wire.create()" class="btn btn-primary h-10 px-5 shadow-sm flex items-center justify-center gap-2 transition-all hover:translate-y-[-2px] hover:shadow-lg active:scale-95 w-full sm:w-auto"><i class="ri-add-line text-lg"></i><span class="font-semibold text-xs uppercase tracking-wider">Tambah Obat</span></button>
                     </div>
                 </div></div>
-                <div class="card-body p-0"><div class="table-responsive bg-white">
-                    <table id="obatTable" class="display w-full">
-                    <thead><tr><th>Kode</th><th>Nama Obat</th><th>Satuan</th><th>Stok</th><th>Harga Jual</th><th>Status</th><th class="!text-center" style="text-align: center !important;">Aksi</th></tr></thead>
+                <div class="card-body p-0"><div class="table-responsive dark:bg-transparent">
+                    <table id="obatTable" class="table align-middle table-nowrap w-full">
+                    <thead class="table-light text-muted"><tr><th>Kode</th><th>Nama Obat</th><th>Satuan</th><th>Stok</th><th>Harga Jual</th><th>Status</th><th class="!text-center" style="text-align: center !important;">Aksi</th></tr></thead>
                     <tbody>
                         @foreach($obatList as $item)
                         <tr wire:key="obat-{{ $item->id }}">

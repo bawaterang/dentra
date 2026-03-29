@@ -63,7 +63,7 @@ class PendaftaranPage extends Component
                 <!-- Table -->
                 <div class="lg:col-span-3">
                     <div class="card overflow-hidden border-t-2 border-[#405189]">
-                        <div class="p-4 border-b border-[#eff2f7] bg-white"><div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                        <div class="p-4 border-b border-[#eff2f7]"><div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                             <div class="flex overflow-x-auto scrollbar-hide -mx-2 px-2 lg:mx-0 lg:px-0"><ul class="nav-pills-custom">
                                 <li class="nav-item"><a class="nav-link {{ $selectedStatus === 'all' ? 'active active-pill-primary' : '' }}" wire:click="setStatus('all')" role="button"><i class="ri-layout-grid-line"></i><span>Semua</span></a></li>
                                 <li class="nav-item"><a class="nav-link {{ $selectedStatus === 'terdaftar' ? 'active active-pill-success' : '' }}" wire:click="setStatus('terdaftar')" role="button"><i class="ri-checkbox-circle-line"></i><span>Terdaftar</span></a></li>
@@ -71,9 +71,9 @@ class PendaftaranPage extends Component
                                 <li class="nav-item"><a class="nav-link {{ $selectedStatus === 'selesai' ? 'active active-pill-success' : '' }}" wire:click="setStatus('selesai')" role="button"><i class="ri-check-double-line"></i><span>Selesai</span></a></li>
                             </ul></div>
                         </div></div>
-                        <div class="card-body p-0"><div class="table-responsive bg-white">
-                            <table id="pendaftaranTable" class="display w-full">
-                            <thead><tr><th>No Kunjungan</th><th>Pasien</th><th>Poli</th><th>Dokter</th><th>Asuransi</th><th>Status</th><th class="!text-center" style="text-align:center!important;">Aksi</th></tr></thead>
+                        <div class="card-body p-0"><div class="table-responsive dark:bg-transparent">
+                            <table id="pendaftaranTable" class="table align-middle table-nowrap w-full">
+                            <thead class="table-light text-muted"><tr><th>No Kunjungan</th><th>Pasien</th><th>Poli</th><th>Dokter</th><th>Asuransi</th><th>Status</th><th class="!text-center" style="text-align:center!important;">Aksi</th></tr></thead>
                             <tbody>
                                 @foreach($pendaftaranList as $item)
                                 <tr wire:key="daftar-{{ $item->id }}">
