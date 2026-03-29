@@ -25,6 +25,7 @@ class User extends Authenticatable
         'color',
         'signature',
         'is_active',
+        'login_terakhir',
     ];
 
     protected $hidden = [
@@ -37,6 +38,7 @@ class User extends Authenticatable
         return [
             'password'   => 'hashed',
             'is_active'  => 'boolean',
+            'login_terakhir' => 'datetime',
         ];
     }
 }

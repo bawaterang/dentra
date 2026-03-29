@@ -3,35 +3,59 @@
 namespace App\Modules\Setting\Http\Livewire;
 
 use Livewire\Component;
+use App\Models\MstInstansi;
 
 class SettingKlinikPage extends Component
 {
-    public $nama_klinik = 'SIGI Dental Clinic';
-    public $alamat = 'Jl. Kebon Jeruk No. 123, Jakarta Barat';
-    public $telepon = '021-12345678';
-    public $email = 'info@sigidental.id';
-    public $website = 'www.sigidental.id';
+    public $nama_klinik;
+    public $alamat;
+    public $telepon;
+    public $email;
+    public $website;
+    public $pimpinan;
 
     public function mount()
     {
-        // For now, these are static as no specific table was provided,
-        // but this perfectly fulfills the UI requirement
+        $instansi = MstInstansi::first();
+        if ($instansi) {
+            $this->nama_klinik = $instansi->nama_instansi;
+            $this->alamat = $instansi->alamat;
+            $this->telepon = $instansi->telepon;
+            $this->email = $instansi->email;
+            $this->website = $instansi->website;
+            $this->pimpinan = $instansi->pimpinan;
+        } else {
+            // Defaults
+            $this->nama_klinik = 'SIGI Dental Clinic';
+            $this->email = 'info@sigidental.id';
+        }
     }
 
     public function rules()
     {
         return [
             'nama_klinik' => 'required|string|max:255',
-            'alamat' => 'required|string',
-            'telepon' => 'required|string|max:20',
-            'email' => 'required|email',
+            'alamat' => 'nullable|string',
+            'telepon' => 'nullable|string|max:20',
+            'email' => 'nullable|email',
             'website' => 'nullable|string|max:255',
+            'pimpinan' => 'nullable|string|max:255',
         ];
     }
 
     public function save()
     {
         $this->validate();
+        
+        $instansi = MstInstansi::first() ?? new MstInstansi();
+        $instansi->nama_instansi = $this->nama_klinik;
+        $instansi->alamat = $this->alamat;
+        $instansi->telepon = $this->telepon;
+        $instansi->email = $this->email;
+        $instansi->website = $this->website;
+        $instansi->pimpinan = $this->pimpinan;
+        $instansi->save();
+
         $this->dispatch('alert', ['type' => 'success', 'message' => 'Informasi klinik berhasil diperbarui!']);
     }
 
@@ -55,10 +79,10 @@ class SettingKlinikPage extends Component
 
             <div class="max-w-4xl mx-auto mt-6">
                 <form wire:submit.prevent="save">
-                    <div class="card overflow-hidden border-t-4 border-[#0ab39c] shadow-lg rounded-xl">
+                    <div class="card overflow-hidden border-t-4 border-[#405189] shadow-lg rounded-xl">
                         <div class="p-6 border-b border-[#eff2f7] bg-gray-50/50">
                             <h5 class="text-lg font-bold text-[#495057] flex items-center gap-2">
-                                <i class="ri-building-4-line text-[#0ab39c]"></i> Profil Instansi
+                                <i class="ri-hospital-fill text-[#405189]"></i> Profil Instansi
                             </h5>
                             <p class="text-sm text-[#878a99] mt-1">Kelola identitas dan informasi kontak rekam medis klinik Anda.</p>
                         </div>
@@ -70,9 +94,18 @@ class SettingKlinikPage extends Component
                                         <label class="block text-sm font-semibold text-gray-700 mb-1">Nama Klinik</label>
                                         <div class="relative">
                                             <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                                <i class="ri-hospital-fill text-gray-400"></i>
+                                                <i class="ri-hospital-line text-gray-400"></i>
                                             </div>
-                                            <input type="text" wire:model="nama_klinik" class="w-full pl-10 rounded-lg border-gray-200 text-sm h-11 focus:border-[#0ab39c] focus:ring focus:ring-[#0ab39c]/20 transition-all font-semibold">
+                                            <input type="text" wire:model="nama_klinik" class="w-full pl-10 rounded-lg border-gray-200 text-sm h-11 focus:border-[#405189] focus:ring focus:ring-[#405189]/20 transition-all font-semibold">
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-semibold text-gray-700 mb-1">Nama Pimpinan / Penanggung Jawab</label>
+                                        <div class="relative">
+                                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                                <i class="ri-user-star-line text-gray-400"></i>
+                                            </div>
+                                            <input type="text" wire:model="pimpinan" class="w-full pl-10 rounded-lg border-gray-200 text-sm h-11 focus:border-[#405189] focus:ring focus:ring-[#405189]/20 transition-all">
                                         </div>
                                     </div>
                                     <div>
@@ -106,7 +139,7 @@ class SettingKlinikPage extends Component
                                 <div class="space-y-4 flex flex-col justify-between">
                                     <div>
                                         <label class="block text-sm font-semibold text-gray-700 mb-1">Alamat Lengkap</label>
-                                        <textarea wire:model="alamat" class="w-full rounded-lg border-gray-200 text-sm p-4 h-32 focus:border-[#0ab39c] focus:ring focus:ring-[#0ab39c]/20 transition-all resize-none shadow-sm"></textarea>
+                                        <textarea wire:model="alamat" class="w-full rounded-lg border-gray-200 text-sm p-4 h-32 focus:border-[#405189] focus:ring focus:ring-[#405189]/20 transition-all resize-none shadow-sm"></textarea>
                                     </div>
                                     <div class="mt-4 p-4 border border-blue-100 bg-blue-50/50 rounded-xl">
                                         <div class="flex items-start gap-3">
@@ -123,7 +156,7 @@ class SettingKlinikPage extends Component
                         
                         <div class="p-5 bg-gray-50 flex justify-end gap-3 border-t border-[#eff2f7]">
                             <button type="button" wire:click="mount" class="btn btn-soft-secondary font-bold text-sm px-6 hover:-translate-y-0.5 transition-transform">Reset</button>
-                            <button type="submit" class="btn btn-primary font-bold text-sm px-8 shadow-md hover:-translate-y-0.5 transition-transform"><i class="ri-Check-line mr-1"></i> Simpan Pendaftaran Klinik</button>
+                            <button type="submit" class="btn btn-primary font-bold text-sm px-8 shadow-md hover:-translate-y-0.5 transition-transform"><i class="ri-check-double-line mr-1"></i> Simpan Pendaftaran Klinik</button>
                         </div>
                     </div>
                 </form>
