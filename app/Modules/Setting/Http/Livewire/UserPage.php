@@ -478,6 +478,7 @@ class UserPage extends Component
                                                     style="background-color: {{ $c }}">
                                                 </button>
                                             @endforeach
+                                            <input type="color" wire:model.live="color" class="w-7 h-7 rounded-full border-none p-0 cursor-pointer overflow-hidden bg-transparent">
                                         </div>
                                     </div>
                                     

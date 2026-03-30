@@ -8,6 +8,7 @@ use App\Modules\Setting\Http\Livewire\ProfilPage;
 use App\Modules\Setting\Http\Livewire\JadwalDokterPage;
 use App\Modules\Setting\Http\Livewire\UserPage;
 use App\Modules\Setting\Http\Livewire\RoleUserPage;
+use App\Modules\Setting\Http\Livewire\BackupPage;
 
 Route::middleware(['web', 'auth'])->group(function () {
     Route::get('/setting-klinik', SettingKlinikPage::class)->name('setting.klinik');
@@ -24,5 +25,7 @@ Route::middleware(['web', 'auth'])->group(function () {
         Route::get('/role-user', RoleUserPage::class)->name('role_user');
         Route::get('/role-user/print', [\App\Modules\Setting\Http\Controllers\RoleExportController::class, 'print'])->name('role_user.print');
         Route::get('/role-user/export', [\App\Modules\Setting\Http\Controllers\RoleExportController::class, 'exportExcel'])->name('role_user.export');
+        
+        Route::get('/backup-database', BackupPage::class)->name('backup_database');
     });
 });

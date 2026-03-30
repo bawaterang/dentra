@@ -505,7 +505,7 @@ class RoleUserPage extends Component
                     </div>
                     
                     <div class="p-5 border-t border-[#eff2f7] bg-gray-50 flex justify-end">
-                        <button type="button" wire:click="saveMapping" class="btn bg-[#0ab39c] text-white px-8 h-10 shadow-md flex items-center gap-2 transition-all hover:bg-teal-600 hover:translate-y-[-2px] hover:shadow-lg">
+                        <button type="button" wire:click="saveMapping" class="btn bg-[#0d6efd] text-white px-8 h-10 shadow-md flex items-center gap-2 transition-all hover:bg-blue-600 hover:translate-y-[-2px] hover:shadow-lg">
                             <i class="ri-save-3-line text-lg"></i> <span class="font-bold">Simpan Pemetaan</span>
                         </button>
                     </div>
