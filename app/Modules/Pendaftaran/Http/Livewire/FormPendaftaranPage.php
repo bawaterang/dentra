@@ -23,9 +23,10 @@ class FormPendaftaranPage extends Component
     public $pasienResults = [];
     public $selectedPasien = null;
 
-    // Pasien baru fields
+    // Pasien baru fields (also used for editing lama)
     public $nama_pasien, $jenis_kelamin, $tempat_lahir, $tanggal_lahir, $alamat;
     public $no_telepon, $agama, $pekerjaan, $nik, $golongan_darah;
+    public $showEditPasienModal = false;
 
     // Pendaftaran fields
     public $poli_id, $dokter_id, $asuransi_id, $no_kartu_asuransi;
@@ -110,6 +111,49 @@ class FormPendaftaranPage extends Component
         $this->selectedPasien = null;
         $this->pasien_id = null;
         $this->searchPasien = '';
+    }
+
+    public function editPasien()
+    {
+        if ($this->selectedPasien) {
+            $this->nama_pasien = $this->selectedPasien['nama_pasien'] ?? '';
+            $this->jenis_kelamin = $this->selectedPasien['jenis_kelamin'] ?? '';
+            $this->tempat_lahir = $this->selectedPasien['tempat_lahir'] ?? '';
+            $this->tanggal_lahir = $this->selectedPasien['tanggal_lahir'] ?? '';
+            $this->alamat = $this->selectedPasien['alamat'] ?? '';
+            $this->no_telepon = $this->selectedPasien['no_telepon'] ?? '';
+            $this->agama = $this->selectedPasien['agama'] ?? '';
+            $this->pekerjaan = $this->selectedPasien['pekerjaan'] ?? '';
+            $this->nik = $this->selectedPasien['nik'] ?? '';
+            $this->golongan_darah = $this->selectedPasien['golongan_darah'] ?? '';
+            $this->showEditPasienModal = true;
+        }
+    }
+
+    public function updatePasienLama()
+    {
+        $this->validate([
+            'nama_pasien' => 'required|string|max:100',
+            'jenis_kelamin' => 'required|in:Laki-laki,Perempuan',
+        ]);
+        
+        $pasien = MstPasien::findOrFail($this->pasien_id);
+        $pasien->update([
+            'nama_pasien' => $this->nama_pasien,
+            'jenis_kelamin' => $this->jenis_kelamin,
+            'tempat_lahir' => $this->tempat_lahir,
+            'tanggal_lahir' => $this->tanggal_lahir,
+            'alamat' => $this->alamat,
+            'no_telepon' => $this->no_telepon,
+            'agama' => $this->agama,
+            'pekerjaan' => $this->pekerjaan,
+            'nik' => $this->nik,
+            'golongan_darah' => $this->golongan_darah,
+        ]);
+        
+        $this->selectedPasien = $pasien->fresh()->toArray();
+        $this->showEditPasienModal = false;
+        $this->dispatch('alert', ['type' => 'success', 'message' => 'Data pasien berhasil diperbarui.']);
     }
 
     public function save()
@@ -266,7 +310,7 @@ class FormPendaftaranPage extends Component
                 <form wire:submit.prevent="save">
                 @error('general') <div class="bg-red-500/10 border border-red-500/50 text-red-500 px-4 py-3 rounded-xl mb-4 text-sm font-semibold"><i class="ri-alert-line mr-2"></i>{{ $message }}</div> @enderror
                 <!-- Mode Toggle -->
-                <div class="card overflow-hidden border-t-2 border-[#405189] mb-6">
+                <div class="card border-t-2 border-[#405189] mb-6" style="overflow: visible !important;">
                     <div class="p-5">
                         <div class="flex items-center gap-3 mb-4">
                             <button type="button" wire:click="$set('modePasien','lama')" class="flex-1 p-4 rounded-xl border-2 transition-all {{ $modePasien === 'lama' ? 'border-[#405189] bg-[#405189]/5' : 'border-gray-200 hover:border-gray-300' }}">
@@ -322,8 +366,29 @@ class FormPendaftaranPage extends Component
                     </div>
                 </div>
 
+                <!-- Profil Pasien (Hanya tampil jika Pasien Lama dipilih) -->
+                @if($modePasien === 'lama' && $selectedPasien)
+                <div class="card border-t-2 border-[#f7b84b] mb-6 relative z-10" style="overflow: visible !important;">
+                    <div class="px-6 py-4 border-b border-gray-100 bg-[#f3f6f9]/50 flex justify-between items-center">
+                        <h6 class="text-sm font-bold text-[#f7b84b]"><i class="ri-user-heart-line mr-2"></i>Data Profil Pasien</h6>
+                        <button type="button" wire:click="editPasien" class="btn bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-[#405189] px-3 py-1.5 text-xs font-bold rounded-lg flex items-center gap-1 transition-all shadow-sm"><i class="ri-edit-2-line"></i> Edit Data</button>
+                    </div>
+                    <div class="p-6">
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <div><p class="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-1">NIK</p><p class="text-sm font-semibold text-gray-800">{{ $selectedPasien['nik'] ?? '-' }}</p></div>
+                            <div><p class="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-1">Tempat, Tanggal Lahir</p><p class="text-sm font-semibold text-gray-800">{{ $selectedPasien['tempat_lahir'] ?? '-' }}, {{ $selectedPasien['tanggal_lahir'] ? \Carbon\Carbon::parse($selectedPasien['tanggal_lahir'])->format('d M Y') : '-' }}</p></div>
+                            <div><p class="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-1">Gol. Darah</p><p class="text-sm font-semibold text-gray-800">{{ $selectedPasien['golongan_darah'] ?? '-' }}</p></div>
+                            <div><p class="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-1">Agama</p><p class="text-sm font-semibold text-gray-800">{{ $selectedPasien['agama'] ?? '-' }}</p></div>
+                            <div><p class="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-1">Pekerjaan</p><p class="text-sm font-semibold text-gray-800">{{ $selectedPasien['pekerjaan'] ?? '-' }}</p></div>
+                            <div><p class="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-1">No Telepon</p><p class="text-sm font-semibold text-gray-800">{{ $selectedPasien['no_telepon'] ?? '-' }}</p></div>
+                            <div class="col-span-2"><p class="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-1">Alamat Lengkap</p><p class="text-sm font-semibold text-gray-800">{{ $selectedPasien['alamat'] ?? '-' }}</p></div>
+                        </div>
+                    </div>
+                </div>
+                @endif
+
                 <!-- Informasi Kunjungan -->
-                <div class="card overflow-hidden border-t-2 border-[#0ab39c] mb-6">
+                <div class="card border-t-2 border-[#0ab39c] mb-6 relative z-50" style="overflow: visible !important;">
                     <div class="px-6 py-4 border-b border-gray-100 bg-[#f3f6f9]/50"><h6 class="text-sm font-bold text-[#0ab39c]"><i class="ri-hospital-line mr-2"></i>Informasi Kunjungan</h6></div>
                     <div class="p-6 space-y-4">
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -341,7 +406,7 @@ class FormPendaftaranPage extends Component
                 </div>
 
                 <!-- Data Medis Awal -->
-                <div class="card overflow-hidden border-t-2 border-[#f7b84b] mb-6">
+                <div class="card border-t-2 border-[#f7b84b] mb-6 relative z-10" style="overflow: visible !important;">
                     <div class="px-6 py-4 border-b border-gray-100 bg-[#f3f6f9]/50"><h6 class="text-sm font-bold text-[#f7b84b]"><i class="ri-heart-pulse-line mr-2"></i>Data Medis Awal</h6></div>
                     <div class="p-6 space-y-4">
                         <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -369,6 +434,42 @@ class FormPendaftaranPage extends Component
                 </div>
                 </form>
             </div>
+
+            <!-- Modal Edit Pasien Lama -->
+            @if($showEditPasienModal)
+            <div class="fixed inset-0 z-[1050] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+                <div class="w-full max-w-3xl bg-white rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+                    <div class="px-6 py-4 flex items-center justify-between border-b border-gray-100 bg-[#f3f6f9]/50">
+                        <h5 class="text-lg font-bold text-[#495057]"><i class="ri-edit-2-line mr-2 text-[#405189]"></i>Edit Profil Pasien</h5>
+                        <button type="button" wire:click="$set('showEditPasienModal', false)" class="text-gray-400 hover:text-gray-600"><i class="ri-close-line text-2xl"></i></button>
+                    </div>
+                    <div class="px-8 py-6 overflow-y-auto flex-1">
+                        <div class="space-y-4">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div><label class="block text-xs font-semibold text-gray-500 mb-1">Nama Pasien <span class="text-red-500">*</span></label><input type="text" wire:model="nama_pasien" class="w-full rounded-lg border-gray-200 text-sm px-4 h-[42px] focus:border-[#405189] transition-all">@error('nama_pasien')<span class="text-[11px] text-red-500 italic">{{ $message }}</span>@enderror</div>
+                                <div><label class="block text-xs font-semibold text-gray-500 mb-1">NIK</label><input type="text" wire:model="nik" class="w-full rounded-lg border-gray-200 text-sm px-4 h-[42px] focus:border-[#405189] transition-all"></div>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div><label class="block text-xs font-semibold text-gray-500 mb-1">Jenis Kelamin <span class="text-red-500">*</span></label><x-custom-dropdown model="jenis_kelamin" :options="$jkList" placeholder="Pilih JK" /></div>
+                                <div><label class="block text-xs font-semibold text-gray-500 mb-1">Tempat Lahir</label><input type="text" wire:model="tempat_lahir" class="w-full rounded-lg border-gray-200 text-sm px-4 h-[42px] focus:border-[#405189] transition-all"></div>
+                                <div><label class="block text-xs font-semibold text-gray-500 mb-1">Tanggal Lahir</label><input type="date" wire:model="tanggal_lahir" class="w-full rounded-lg border-gray-200 text-sm px-4 h-[42px] focus:border-[#405189] transition-all"></div>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div><label class="block text-xs font-semibold text-gray-500 mb-1">Agama</label><x-custom-dropdown model="agama" :options="$agamaList" placeholder="Pilih Agama" /></div>
+                                <div><label class="block text-xs font-semibold text-gray-500 mb-1">Gol. Darah</label><x-custom-dropdown model="golongan_darah" :options="$golDarahList" placeholder="Pilih" /></div>
+                                <div><label class="block text-xs font-semibold text-gray-500 mb-1">No Telepon</label><input type="text" wire:model="no_telepon" class="w-full rounded-lg border-gray-200 text-sm px-4 h-[42px] focus:border-[#405189] transition-all"></div>
+                            </div>
+                            <div><label class="block text-xs font-semibold text-gray-500 mb-1">Alamat</label><textarea wire:model="alamat" rows="2" class="w-full rounded-lg border-gray-200 text-sm px-4 py-2.5 focus:border-[#405189] transition-all"></textarea></div>
+                            <div><label class="block text-xs font-semibold text-gray-500 mb-1">Pekerjaan</label><input type="text" wire:model="pekerjaan" class="w-full rounded-lg border-gray-200 text-sm px-4 h-[42px] focus:border-[#405189] transition-all"></div>
+                        </div>
+                    </div>
+                    <div class="px-8 py-5 bg-gray-50/80 flex justify-end gap-3 border-t border-gray-100">
+                        <button type="button" wire:click="$set('showEditPasienModal', false)" class="btn bg-gray-500 text-white px-6 h-10 flex items-center gap-2 transition-all hover:bg-gray-600"><i class="ri-close-line"></i> Batal</button>
+                        <button type="button" wire:click="updatePasienLama" class="btn bg-[#0d6efd] text-white px-8 h-10 shadow-md flex items-center justify-center gap-2 transition-all hover:bg-[#0b5ed7]"><i class="ri-save-line"></i> Simpan Perubahan</button>
+                    </div>
+                </div>
+            </div>
+            @endif
         </div>
         HTML;
     }

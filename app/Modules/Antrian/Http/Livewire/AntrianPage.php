@@ -168,7 +168,7 @@ class AntrianPage extends Component
 
     public function render()
     {
-        $query = TrxAntrian::with('pasien')->where(fn($q) => $q->where('tanggal_antrian', $this->selectedDate));
+        $query = TrxAntrian::with(['pasien', 'poli', 'dokter'])->where(fn($q) => $q->where('tanggal_antrian', $this->selectedDate));
         
         if ($this->selectedStatus !== 'all') {
             $query->where(fn($q) => $q->where('status', $this->selectedStatus));
@@ -247,8 +247,8 @@ class AntrianPage extends Component
                                         <div class="font-semibold text-[#495057] dark:text-gray-200">{{ $item->pasien?->nama_pasien ?? $item->nama_pasien_input_manual ?? '-' }}</div>
                                         @if(!$item->pasien_id)<span class="text-[10px] text-orange-500 font-medium"><i class="ri-alert-line mr-0.5"></i>Belum sinkron</span>@endif
                                     </td>
-                                    <td>{{ $item->kode_poli ?? '-' }}</td>
-                                    <td>{{ $item->kode_dokter ?? '-' }}</td>
+                                    <td>{{ $item->poli?->nama_poli ?? $item->kode_poli ?? '-' }}</td>
+                                    <td>{{ $item->dokter?->nama_dokter ?? $item->kode_dokter ?? '-' }}</td>
                                     <td><span class="badge {{ $item->jenis_antrian === 'online' ? 'bg-info-subtle' : 'bg-secondary-subtle' }}">{{ ucfirst($item->jenis_antrian) }}</span></td>
                                     <td>
                                         @php $statusColors = ['menunggu'=>'bg-warning-subtle','dipanggil'=>'bg-primary-subtle','hadir'=>'bg-success-subtle','tidak_hadir'=>'bg-danger-subtle','batal'=>'bg-secondary-subtle','selesai'=>'bg-success-subtle']; @endphp

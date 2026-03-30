@@ -45,6 +45,16 @@ class TrxAntrian extends Model
         return $this->hasOne(TrxPendaftaran::class, 'antrian_id');
     }
 
+    public function poli()
+    {
+        return $this->belongsTo(MstPoli::class, 'kode_poli', 'kode_poli');
+    }
+
+    public function dokter()
+    {
+        return $this->belongsTo(MstDokter::class, 'kode_dokter', 'kode_dokter');
+    }
+
     public function getNamaPasienAttribute()
     {
         return $this->pasien?->nama_pasien ?? $this->nama_pasien_input_manual ?? '-';

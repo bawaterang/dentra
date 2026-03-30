@@ -23,13 +23,13 @@ class MonitorAntrianPage extends Component
 
     public function refreshData()
     {
-        $this->currentCalled = TrxAntrian::with('pasien')
+        $this->currentCalled = TrxAntrian::with(['pasien', 'poli'])
             ->where('tanggal_antrian', $this->tanggalAntrian)
             ->where('status', 'dipanggil')
             ->orderBy('waktu_panggil', 'desc')
             ->first();
 
-        $this->waitingList = TrxAntrian::with('pasien')
+        $this->waitingList = TrxAntrian::with(['pasien', 'poli'])
             ->where('tanggal_antrian', $this->tanggalAntrian)
             ->where('status', 'menunggu')
             ->orderBy('nomor_antrian')
@@ -100,7 +100,7 @@ class MonitorAntrianPage extends Component
                             <h1 class="text-[10rem] font-black leading-none bg-gradient-to-b from-white to-white/70 bg-clip-text text-transparent">{{ $currentCalled->nomor_antrian }}</h1>
                             <p class="text-3xl font-bold mt-4 text-white/90">{{ $currentCalled->pasien?->nama_pasien ?? $currentCalled->nama_pasien_input_manual }}</p>
                             @if($currentCalled->kode_poli)
-                            <p class="text-lg mt-2 text-white/60">Poli: {{ $currentCalled->kode_poli }}</p>
+                            <p class="text-lg mt-2 text-white/60">Poli: {{ $currentCalled->poli?->nama_poli ?? $currentCalled->kode_poli }}</p>
                             @endif
                         </div>
                     </div>
@@ -124,7 +124,7 @@ class MonitorAntrianPage extends Component
                                 <div class="flex items-center justify-center h-12 w-12 rounded-xl bg-white/10 text-xl font-black">{{ $item->nomor_antrian }}</div>
                                 <div class="flex-1 min-w-0">
                                     <p class="font-semibold text-sm truncate">{{ $item->pasien?->nama_pasien ?? $item->nama_pasien_input_manual }}</p>
-                                    @if($item->kode_poli)<p class="text-xs text-white/50">{{ $item->kode_poli }}</p>@endif
+                                    @if($item->kode_poli)<p class="text-xs text-white/50">{{ $item->poli?->nama_poli ?? $item->kode_poli }}</p>@endif
                                 </div>
                                 <span class="px-3 py-1 rounded-full text-[10px] font-bold bg-yellow-500/20 text-yellow-300 uppercase">Menunggu</span>
                             </div>
