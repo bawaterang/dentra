@@ -11,7 +11,7 @@ class DokterPage extends Component
     // Form Properties
     public $dokterId;
     public $kode_dokter, $nama_dokter, $nik, $jenis_kelamin, $tempat_lahir, $tanggal_lahir;
-    public $alamat, $no_telepon, $agama, $spesialisasi, $no_sip, $no_str, $status;
+    public $alamat, $no_telepon, $agama, $spesialisasi, $no_sip, $no_str, $status, $color;
     
     // View Properties
     public $dokterList = [];
@@ -44,6 +44,7 @@ class DokterPage extends Component
             'spesialisasi' => 'nullable|string|max:100',
             'no_sip' => 'nullable|string|max:50',
             'no_str' => 'nullable|string|max:50',
+            'color' => 'nullable|string|max:20',
         ];
     }
 
@@ -51,6 +52,7 @@ class DokterPage extends Component
     {
         $this->reset(['dokterId', 'kode_dokter', 'nama_dokter', 'nik', 'jenis_kelamin', 'tempat_lahir', 'tanggal_lahir', 'alamat', 'no_telepon', 'agama', 'spesialisasi', 'no_sip', 'no_str', 'isEdit']);
         $this->status = 'Aktif';
+        $this->color = '#405189';
         $this->resetErrorBag();
     }
 
@@ -97,6 +99,7 @@ class DokterPage extends Component
         $this->no_sip = $dokter->no_sip;
         $this->no_str = $dokter->no_str;
         $this->status = $dokter->status;
+        $this->color = $dokter->color ?? '#405189';
         
         $this->isEdit = true;
         $this->dispatch('open-dokter-modal');
@@ -140,6 +143,7 @@ class DokterPage extends Component
                         'no_sip' => $this->no_sip,
                         'no_str' => $this->no_str,
                         'status' => $this->status ?? 'Aktif',
+                        'color' => $this->color,
                     ]);
 
                     $dokter->save();
@@ -617,6 +621,20 @@ class DokterPage extends Component
                                                 <i class="ri-close-circle-line text-lg mb-0.5"></i>
                                                 <span class="text-[10px] font-bold uppercase">Off</span>
                                             </button>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mt-4">
+                                        <label class="block text-[11px] font-bold text-gray-600 uppercase tracking-tight mb-2">Warna Identitas Dokter</label>
+                                        <div class="flex flex-wrap gap-2">
+                                            @foreach(['#405189', '#0ab39c', '#f7b84b', '#f06548', '#299cdb', '#878a99', '#6559cc', '#f672a7'] as $c)
+                                                <button type="button" 
+                                                    wire:click="$set('color', '{{ $c }}')"
+                                                    class="w-8 h-8 rounded-full border-2 transition-all hover:scale-110 {{ $color === $c ? 'border-gray-800 ring-2 ring-gray-200' : 'border-transparent' }}"
+                                                    style="background-color: {{ $c }}; shadow: {{ $color === $c ? '0 0 10px '.$c : 'none' }}">
+                                                </button>
+                                            @endforeach
+                                            <input type="color" wire:model="color" class="w-8 h-8 rounded-full border-none p-0 cursor-pointer overflow-hidden bg-transparent">
                                         </div>
                                     </div>
                                 </div>

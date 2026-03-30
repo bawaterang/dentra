@@ -26,6 +26,7 @@ class MstDokter extends Model
         'no_sip',
         'no_str',
         'status',
+        'color',
     ];
 
     protected $casts = [

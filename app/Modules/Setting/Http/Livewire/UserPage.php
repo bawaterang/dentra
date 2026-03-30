@@ -12,6 +12,8 @@ class UserPage extends Component
     public $userId;
     public $username, $email, $password, $full_name, $phone;
     public $is_active = true;
+    public $color = '#405189';
+    public $user_code;
 
     // View Properties
     public $selectedStatus = 'all';
@@ -31,6 +33,7 @@ class UserPage extends Component
             'full_name' => 'required|string|max:255',
             'phone' => 'nullable|string|max:20',
             'is_active' => 'boolean',
+            'color' => 'nullable|string|max:20',
         ];
 
         if (!$this->isEdit || $this->password) {
@@ -48,8 +51,9 @@ class UserPage extends Component
 
     public function resetForm()
     {
-        $this->reset(['userId', 'username', 'email', 'password', 'full_name', 'phone']);
+        $this->reset(['userId', 'username', 'email', 'password', 'full_name', 'phone', 'user_code']);
         $this->is_active = true;
+        $this->color = '#405189';
         $this->isEdit = false;
         $this->resetErrorBag();
     }
@@ -57,7 +61,19 @@ class UserPage extends Component
     public function create()
     {
         $this->resetForm();
+        $this->user_code = $this->generateUserCode();
         $this->dispatch('open-user-modal');
+    }
+
+    private function generateUserCode()
+    {
+        $lastUser = User::orderBy('id', 'desc')->first();
+        $nextNumber = 1;
+        if ($lastUser && $lastUser->user_code) {
+            $lastNumber = (int) substr($lastUser->user_code, 1);
+            $nextNumber = $lastNumber + 1;
+        }
+        return 'U' . str_pad($nextNumber, 5, '0', STR_PAD_LEFT);
     }
 
     public function edit($id)
@@ -71,6 +87,8 @@ class UserPage extends Component
         $this->full_name = $user->full_name;
         $this->phone = $user->phone;
         $this->is_active = $user->is_active;
+        $this->color = $user->color ?? '#405189';
+        $this->user_code = $user->user_code;
         $this->password = ''; 
         
         $this->isEdit = true;
@@ -85,9 +103,10 @@ class UserPage extends Component
             $user = $this->userId ? User::findOrFail($this->userId) : new User();
 
             if (!$this->userId) {
-                $lastUser = User::orderBy('id', 'desc')->first();
-                $newId = $lastUser ? $lastUser->id + 1 : 1;
-                $user->user_code = 'USR' . str_pad($newId, 4, '0', STR_PAD_LEFT);
+                if (empty($this->user_code)) {
+                    $this->user_code = $this->generateUserCode();
+                }
+                $user->user_code = $this->user_code;
             }
 
             $user->username = $this->username;
@@ -95,6 +114,7 @@ class UserPage extends Component
             $user->full_name = $this->full_name;
             $user->phone = $this->phone;
             $user->is_active = $this->is_active;
+            $user->color = $this->color;
 
             if ($this->password) {
                 $user->password = Hash::make($this->password);
@@ -391,13 +411,22 @@ class UserPage extends Component
                     <div class="px-8 py-6 max-h-[75vh] overflow-y-auto">
                         <form wire:submit.prevent="save">
                             <div class="space-y-4">
-                                <div>
-                                    <label class="block text-xs font-semibold text-gray-500 mb-1">Nama Lengkap <span class="text-red-500">*</span></label>
-                                    <div class="relative">
-                                        <input type="text" wire:model="full_name" x-ref="firstInput" class="w-full rounded-lg border-gray-200 text-sm pl-10 pr-4 h-[42px] focus:border-[#405189] transition-all" placeholder="John Doe">
-                                        <i class="ri-user-line absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-xs font-semibold text-gray-500 mb-1">User Code <span class="text-red-500">*</span></label>
+                                        <div class="relative">
+                                            <input type="text" wire:model="user_code" class="w-full rounded-lg border-gray-100 bg-gray-50/50 text-sm pl-10 pr-4 h-[42px] font-bold text-[#405189]" readonly tabindex="-1">
+                                            <i class="ri-fingerprint-line absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                                        </div>
                                     </div>
-                                    @error('full_name') <span class="text-[11px] text-red-500 mt-1 italic">{{ $message }}</span> @enderror
+                                    <div>
+                                        <label class="block text-xs font-semibold text-gray-500 mb-1">Nama Lengkap <span class="text-red-500">*</span></label>
+                                        <div class="relative">
+                                            <input type="text" wire:model="full_name" x-ref="firstInput" class="w-full rounded-lg border-gray-200 text-sm pl-10 pr-4 h-[42px] focus:border-[#405189] transition-all" placeholder="John Doe">
+                                            <i class="ri-user-line absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                                        </div>
+                                        @error('full_name') <span class="text-[11px] text-red-500 mt-1 italic">{{ $message }}</span> @enderror
+                                    </div>
                                 </div>
 
                                 <div class="grid grid-cols-2 gap-4">
@@ -438,9 +467,37 @@ class UserPage extends Component
                                     </div>
                                 </div>
                                 
-                                <div class="flex items-center gap-2 mt-4 p-3 bg-gray-50 rounded-lg border border-gray-100">
-                                    <input type="checkbox" id="isActiveCheckUser" wire:model="is_active" class="h-4 w-4 rounded border-gray-300 text-[#405189] focus:ring-[#405189]">
-                                    <label for="isActiveCheckUser" class="text-sm font-semibold text-gray-700">User Aktif (Dapat Login)</label>
+                                <div class="grid grid-cols-2 gap-4 items-end">
+                                    <div class="space-y-2">
+                                        <label class="block text-[11px] font-bold text-gray-600 uppercase tracking-tight mb-2">Pilih Warna Profil</label>
+                                        <div class="flex flex-wrap gap-2">
+                                            @foreach(['#405189', '#0ab39c', '#f7b84b', '#f06548', '#299cdb', '#878a99', '#6559cc', '#f672a7'] as $c)
+                                                <button type="button" 
+                                                    wire:click="$set('color', '{{ $c }}')"
+                                                    class="w-7 h-7 rounded-full border-2 transition-all hover:scale-110 {{ $color === $c ? 'border-gray-800 ring-2 ring-gray-200' : 'border-transparent' }}"
+                                                    style="background-color: {{ $c }}">
+                                                </button>
+                                            @endforeach
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="flex items-center justify-between p-3 bg-gray-50/50 rounded-xl border border-dashed border-gray-200 hover:bg-gray-50 transition-colors">
+                                        <div class="flex items-center gap-2">
+                                            <div class="w-2 h-2 rounded-full {{ $is_active ? 'bg-green-500 animate-pulse' : 'bg-red-500' }}"></div>
+                                            <span class="text-[11px] font-bold text-gray-600 uppercase tracking-tight">Status Login</span>
+                                        </div>
+                                        <div class="flex items-center gap-3">
+                                            <span class="text-[10px] font-extrabold {{ $is_active ? 'text-green-600' : 'text-red-500' }}">
+                                                {{ $is_active ? 'AKTIF' : 'NONAKTIF' }}
+                                            </span>
+                                            <label class="relative inline-flex items-center cursor-pointer">
+                                                <input type="checkbox" class="sr-only peer" 
+                                                    {{ $is_active ? 'checked' : '' }}
+                                                    @click="$wire.set('is_active', !{{ $is_active ? 'true' : 'false' }})">
+                                                <div class="w-9 h-5 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#0ab39c]"></div>
+                                            </label>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </form>

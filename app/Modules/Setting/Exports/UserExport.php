@@ -37,6 +37,7 @@ class UserExport implements FromCollection, WithHeadings, WithMapping
             $user->full_name,
             $user->email,
             $user->phone ?? '-',
+            $user->color ?? '-',
             $user->is_active ? 'Aktif' : 'Tidak Aktif',
         ];
     }
@@ -49,6 +50,7 @@ class UserExport implements FromCollection, WithHeadings, WithMapping
             'Nama Lengkap',
             'Email',
             'No. Telepon',
+            'Warna',
             'Status',
         ];
     }

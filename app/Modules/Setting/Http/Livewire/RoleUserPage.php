@@ -539,9 +539,22 @@ class RoleUserPage extends Component
                                     @error('deskripsi') <span class="text-[11px] text-red-500 mt-1 italic">{{ $message }}</span> @enderror
                                 </div>
                                 
-                                <div class="flex items-center gap-2 mt-4 p-3 bg-gray-50 rounded-lg border border-gray-100">
-                                    <input type="checkbox" id="isActiveCheckRole" wire:model="is_active" class="h-4 w-4 rounded border-gray-300 text-[#405189] focus:ring-[#405189]">
-                                    <label for="isActiveCheckRole" class="text-sm font-semibold text-gray-700">Role Aktif (Dapat Diberikan ke User)</label>
+                                <div class="flex items-center justify-between p-3 bg-gray-50/50 rounded-xl border border-dashed border-gray-200 mt-2 hover:bg-gray-50 transition-colors">
+                                    <div class="flex items-center gap-2">
+                                        <div class="w-2 h-2 rounded-full {{ $is_active ? 'bg-green-500 animate-pulse' : 'bg-red-500' }}"></div>
+                                        <span class="text-[11px] font-bold text-gray-600 uppercase tracking-tight">Status Role</span>
+                                    </div>
+                                    <div class="flex items-center gap-3">
+                                        <span class="text-[10px] font-extrabold {{ $is_active ? 'text-green-600' : 'text-red-500' }}">
+                                            {{ $is_active ? 'AKTIF' : 'OFF' }}
+                                        </span>
+                                        <label class="relative inline-flex items-center cursor-pointer">
+                                            <input type="checkbox" class="sr-only peer" 
+                                                {{ $is_active ? 'checked' : '' }}
+                                                @click="$wire.set('is_active', !{{ $is_active ? 'true' : 'false' }})">
+                                            <div class="w-9 h-5 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#0ab39c]"></div>
+                                        </label>
+                                    </div>
                                 </div>
                             </div>
                         </form>
