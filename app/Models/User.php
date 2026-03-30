@@ -41,4 +41,9 @@ class User extends Authenticatable
             'login_terakhir' => 'datetime',
         ];
     }
+
+    public function roles()
+    {
+        return $this->belongsToMany(MstRoleUser::class, 'trx_role_user', 'user_id', 'role_id')->withTimestamps();
+    }
 }

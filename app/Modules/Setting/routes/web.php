@@ -6,6 +6,8 @@ use Illuminate\Support\Facades\Route;
 use App\Modules\Setting\Http\Livewire\SettingKlinikPage;
 use App\Modules\Setting\Http\Livewire\ProfilPage;
 use App\Modules\Setting\Http\Livewire\JadwalDokterPage;
+use App\Modules\Setting\Http\Livewire\UserPage;
+use App\Modules\Setting\Http\Livewire\RoleUserPage;
 
 Route::middleware(['web', 'auth'])->group(function () {
     Route::get('/setting-klinik', SettingKlinikPage::class)->name('setting.klinik');
@@ -14,5 +16,7 @@ Route::middleware(['web', 'auth'])->group(function () {
     // Setting prefixed group
     Route::prefix('setting')->name('setting.')->group(function () {
         Route::get('/jadwal-dokter', JadwalDokterPage::class)->name('jadwal_dokter');
+        Route::get('/user', UserPage::class)->name('user');
+        Route::get('/role-user', RoleUserPage::class)->name('role_user');
     });
 });
