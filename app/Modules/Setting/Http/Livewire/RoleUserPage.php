@@ -22,10 +22,18 @@ class RoleUserPage extends Component
 
     public $isEdit = false;
 
+    // View Properties
+    public $selectedStatus = 'all';
+
     // View data as public properties
     public $roles = [];
     public $allRoles = [];
     public $listUsers = [];
+
+    // Stats
+    public $totalRoles = 0;
+    public $activeRolesCount = 0;
+    public $inactiveRolesCount = 0;
 
     protected function rules()
     {
@@ -34,6 +42,12 @@ class RoleUserPage extends Component
             'deskripsi' => 'nullable|string',
             'is_active' => 'boolean',
         ];
+    }
+
+    public function setStatus($status)
+    {
+        $this->selectedStatus = $status;
+        $this->dispatch('refresh-table');
     }
 
     public function updatedSelectedRoleId($value)
@@ -153,11 +167,23 @@ class RoleUserPage extends Component
     public function render()
     {
         // For Roles Tab Data
-        $this->roles = MstRoleUser::withCount('users')->get();
+        $query = MstRoleUser::withCount('users');
+        if ($this->selectedStatus === 'Aktif') {
+            $query->where('is_active', true);
+        } elseif ($this->selectedStatus === 'Tidak Aktif') {
+            $query->where('is_active', false);
+        }
+
+        $this->roles = $query->get();
 
         // For Mapping Tab Data
         $this->allRoles = MstRoleUser::where('is_active', true)->get();
         $this->listUsers = User::where('is_active', true)->orderBy('full_name')->get();
+
+        // Stats
+        $this->totalRoles = MstRoleUser::count();
+        $this->activeRolesCount = MstRoleUser::where('is_active', true)->count();
+        $this->inactiveRolesCount = MstRoleUser::where('is_active', false)->count();
 
         return <<<'HTML'
         <div x-data="{ 
@@ -209,6 +235,45 @@ class RoleUserPage extends Component
                 </div>
             </div>
 
+            <!-- Infographic Cards (Consistent with UserPage) -->
+            <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 mb-6">
+                <div class="card shadow-sm hover:shadow-md transition-all duration-300" style="border-top: 3px solid #405189;">
+                    <div class="flex items-center p-5 gap-4">
+                        <div class="flex h-12 w-12 items-center justify-center rounded-lg bg-indigo-50 text-[#405189] shrink-0">
+                            <i class="ri-shield-user-line text-xl"></i>
+                        </div>
+                        <div>
+                            <p class="mb-1 text-[#878a99] font-medium text-xs uppercase tracking-wider">Total Role</p>
+                            <h4 class="mb-0 font-bold text-2xl text-[#495057]">{{ number_format($totalRoles) }}</h4>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card shadow-sm hover:shadow-md transition-all duration-300" style="border-top: 3px solid #0ab39c;">
+                    <div class="flex items-center p-5 gap-4">
+                        <div class="flex h-12 w-12 items-center justify-center rounded-lg bg-emerald-50 text-emerald-500 shrink-0">
+                            <i class="ri-shield-check-line text-xl"></i>
+                        </div>
+                        <div>
+                            <p class="mb-1 text-[#878a99] font-medium text-xs uppercase tracking-wider">Role Aktif</p>
+                            <h4 class="mb-0 font-bold text-2xl text-[#495057]">{{ number_format($activeRolesCount) }}</h4>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card shadow-sm hover:shadow-md transition-all duration-300" style="border-top: 3px solid #f06548;">
+                    <div class="flex items-center p-5 gap-4">
+                        <div class="flex h-12 w-12 items-center justify-center rounded-lg bg-red-50 text-red-500 shrink-0">
+                            <i class="ri-shield-cross-line text-xl"></i>
+                        </div>
+                        <div>
+                            <p class="mb-1 text-[#878a99] font-medium text-xs uppercase tracking-wider">Role Tak Aktif</p>
+                            <h4 class="mb-0 font-bold text-2xl text-[#495057]">{{ number_format($inactiveRolesCount) }}</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Tab Navigation -->
             <div class="card mb-6">
                 <div class="card-body p-0">
@@ -234,15 +299,52 @@ class RoleUserPage extends Component
             <div class="card overflow-hidden border-t-2 border-[#405189] animate-fade-in-up">
                 <div class="p-4 border-b border-[#eff2f7]">
                     <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                        <button wire:click="createRole" class="btn btn-primary h-10 px-5 shadow-sm flex items-center justify-center gap-2 transition-all hover:translate-y-[-2px] hover:shadow-lg active:scale-95 w-full sm:w-auto">
-                            <i class="ri-add-line text-lg"></i><span class="font-semibold text-xs uppercase tracking-wider">Tambah Role</span>
-                        </button>
+                        <!-- Left: Filter Tabs -->
+                        <div class="flex overflow-x-auto scrollbar-hide -mx-2 px-2 lg:mx-0 lg:px-0">
+                            <ul class="nav-pills-custom">
+                                <li class="nav-item">
+                                    <a class="nav-link {{ $selectedStatus === 'all' ? 'active active-pill-primary' : '' }}" wire:click="setStatus('all')" role="button">
+                                        <i class="ri-layout-grid-line"></i>
+                                        <span>Semua Role</span>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link {{ $selectedStatus === 'Aktif' ? 'active active-pill-success' : '' }}" wire:click="setStatus('Aktif')" role="button">
+                                        <i class="ri-shield-check-line"></i>
+                                        <span>Aktif</span>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link {{ $selectedStatus === 'Tidak Aktif' ? 'active active-pill-danger' : '' }}" wire:click="setStatus('Tidak Aktif')" role="button">
+                                        <i class="ri-shield-cross-line"></i>
+                                        <span>Tidak Aktif</span>
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
                         
                         <div class="flex flex-wrap items-center gap-3 justify-start lg:justify-end">
                             <div class="relative flex-grow md:flex-none">
                                 <input type="text" id="customSearchRole" class="h-10 w-full md:w-64 rounded-lg border border-[#e9ecef] pl-10 pr-4 text-sm outline-none focus:border-[#405189] focus:bg-white transition-all placeholder:text-[#adb5bd]" placeholder="Cari nama role...">
                                 <i class="ri-search-line absolute left-3.5 top-1/2 -translate-y-1/2 text-[#878a99] text-base"></i>
                             </div>
+
+                            <!-- Export Group -->
+                            <div class="flex items-center gap-1.5 p-1 rounded-lg border border-[#e9ecef]">
+                                <a href="{{ route('setting.role_user.print', ['status' => $selectedStatus]) }}" target="_blank" class="h-8 w-8 rounded-md flex items-center justify-center text-indigo-500 hover:bg-indigo-50 hover:shadow-sm transition-all" title="Cetak PDF">
+                                    <i class="ri-printer-line text-lg"></i>
+                                </a>
+                                <div class="w-[1px] h-4 bg-[#e9ecef]"></div>
+                                <a href="{{ route('setting.role_user.export', ['status' => $selectedStatus]) }}" target="_blank" class="h-8 w-8 rounded-md flex items-center justify-center text-emerald-500 hover:bg-emerald-50 hover:shadow-sm transition-all" title="Unduh Excel">
+                                    <i class="ri-file-excel-2-line text-lg"></i>
+                                </a>
+                            </div>
+
+                            <div class="hidden lg:block h-6 w-[1px] bg-[#e9ecef] mx-1"></div>
+
+                            <button wire:click="createRole" class="btn btn-primary h-10 px-5 shadow-sm flex items-center justify-center gap-2 transition-all hover:translate-y-[-2px] hover:shadow-lg active:scale-95 w-full sm:w-auto">
+                                <i class="ri-add-line text-lg"></i><span class="font-semibold text-xs uppercase tracking-wider">Tambah Role</span>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -325,15 +427,17 @@ class RoleUserPage extends Component
                 <div class="card overflow-hidden border-t-2 border-[#f7b84b]">
                     <div class="p-5 border-b border-[#eff2f7] bg-[#f3f6f9]/50">
                         <h6 class="text-sm font-bold text-[#f7b84b]"><i class="ri-shield-flash-line mr-2"></i>Pilih Role Target</h6>
-                        <p class="text-xs text-gray-500 mt-1">Pilih role untuk melihat dan mengatur anggota user.</p>
+                        <p class="text-xs text-gray-500 mt-1">Pilih role untuk mengatur anggota user.</p>
                     </div>
                     <div class="p-5">
-                        <select wire:model.live="selectedRoleId" class="w-full rounded-lg border-gray-300 text-sm focus:border-[#f7b84b] focus:ring-[#f7b84b] transition-all p-3 bg-gray-50 cursor-pointer shadow-sm">
-                            <option value="">-- Silakan Pilih Role --</option>
-                            @foreach($allRoles as $role)
-                                <option value="{{ $role->id }}">{{ $role->nama_role }}</option>
-                            @endforeach
-                        </select>
+                        <x-custom-dropdown 
+                            model="selectedRoleId" 
+                            :options="collect($allRoles)->map(fn($r) => ['value' => $r->id, 'label' => $r->nama_role, 'icon' => 'ri-shield-user-fill text-[#405189]'])->toArray()"
+                            placeholder="Pilih Role Target"
+                            searchable="true"
+                            icon="ri-shield-star-line"
+                            live="true"
+                        />
                         
                         @if($selectedRoleId)
                             @php $selR = collect($allRoles)->firstWhere('id', (int)$selectedRoleId); @endphp
@@ -347,7 +451,7 @@ class RoleUserPage extends Component
                         @else
                             <div class="mt-4 p-6 rounded-xl border border-dashed border-gray-300 flex flex-col items-center justify-center text-center">
                                 <i class="ri-focus-3-line text-3xl text-gray-300 mb-2"></i>
-                                <span class="text-sm text-gray-500">Pilih role di atas untuk mulai memetakan.</span>
+                                <span class="text-sm text-gray-500">Gunakan dropdown di atas untuk memilih role.</span>
                             </div>
                         @endif
                     </div>
@@ -359,15 +463,15 @@ class RoleUserPage extends Component
                     @if(!$selectedRoleId)
                     <div class="absolute inset-0 bg-white/60 backdrop-blur-sm z-50 flex flex-col items-center justify-center border border-gray-200 shadow-sm rounded-lg m-2">
                         <i class="ri-lock-2-line text-4xl text-gray-400 mb-3"></i>
-                        <h5 class="text-gray-600 font-bold">Kunci Pemetaan Aktif</h5>
-                        <p class="text-sm text-gray-500">Pilih Role di panel sebelah kiri untuk membuka akses.</p>
+                        <h5 class="text-gray-600 font-bold">Akses Pemetaan Terkunci</h5>
+                        <p class="text-sm text-gray-500">Pilih Role di panel sebelah kiri untuk membuka daftar user.</p>
                     </div>
                     @endif
 
                     <div class="p-5 border-b border-[#eff2f7] flex flex-col sm:flex-row justify-between sm:items-center gap-4 bg-[#f3f6f9]/50">
                         <div>
                             <h6 class="text-sm font-bold text-[#0ab39c]"><i class="ri-group-line mr-2"></i>Daftar User (Beri Centang)</h6>
-                            <p class="text-xs text-gray-500 mt-1">Satu user dapat dimetakan ke lebih dari satu role.</p>
+                            <p class="text-xs text-gray-500 mt-1">Satu user dapat memegang beberapa role sekaligus.</p>
                         </div>
                         <div class="relative w-full sm:w-64">
                             <input type="text" x-model="userSearch" class="h-9 w-full rounded-lg border border-[#e9ecef] pl-9 pr-3 text-xs outline-none focus:border-[#0ab39c] focus:bg-white transition-all placeholder:text-[#adb5bd]" placeholder="Cari user (Filter UI)...">

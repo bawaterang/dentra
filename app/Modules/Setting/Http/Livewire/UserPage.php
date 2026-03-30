@@ -283,13 +283,13 @@ class UserPage extends Component
 
                             <!-- Utility Actions (Print & Export) - Standard Layout -->
                             <div class="flex items-center gap-1.5 p-1 rounded-lg border border-[#e9ecef]">
-                                <button type="button" class="h-8 w-8 rounded-md flex items-center justify-center text-indigo-500 hover:bg-indigo-50 hover:shadow-sm transition-all" title="Cetak PDF">
+                                <a href="{{ route('setting.user.print', ['status' => $selectedStatus]) }}" target="_blank" class="h-8 w-8 rounded-md flex items-center justify-center text-indigo-500 hover:bg-indigo-50 hover:shadow-sm transition-all" title="Cetak PDF">
                                     <i class="ri-printer-line text-lg"></i>
-                                </button>
+                                </a>
                                 <div class="w-[1px] h-4 bg-[#e9ecef]"></div>
-                                <button type="button" class="h-8 w-8 rounded-md flex items-center justify-center text-emerald-500 hover:bg-emerald-50 hover:shadow-sm transition-all" title="Unduh Excel">
+                                <a href="{{ route('setting.user.export', ['status' => $selectedStatus]) }}" target="_blank" class="h-8 w-8 rounded-md flex items-center justify-center text-emerald-500 hover:bg-emerald-50 hover:shadow-sm transition-all" title="Unduh Excel">
                                     <i class="ri-file-excel-2-line text-lg"></i>
-                                </button>
+                                </a>
                             </div>
 
                             <!-- Visual Divider -->

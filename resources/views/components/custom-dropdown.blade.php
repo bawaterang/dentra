@@ -4,13 +4,14 @@
     'searchable' => false, 
     'placeholder' => 'Pilih opsi...', 
     'icon' => 'ri-list-check',
-    'id' => null
+    'id' => null,
+    'live' => false
 ])
 
 <div x-data="{ 
     open: false, 
     search: '',
-    selected: @entangle($model),
+    selected: @entangle($model){{ $live ? '.live' : '' }},
     options: {{ json_encode($options) }},
     get filteredOptions() {
         if (!this.search) return this.options;
