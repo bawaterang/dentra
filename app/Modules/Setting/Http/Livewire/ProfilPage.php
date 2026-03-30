@@ -97,6 +97,12 @@ class ProfilPage extends Component
 
         $user->save();
 
+        if (!empty($this->new_password)) {
+            Auth::logout();
+            session()->flash('success', 'Password berhasil diubah. Silakan login kembali dengan password baru Anda.');
+            return redirect()->route('login');
+        }
+
         $this->current_password = '';
         $this->new_password = '';
         $this->confirm_password = '';
