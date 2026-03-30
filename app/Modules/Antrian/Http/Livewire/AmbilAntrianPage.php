@@ -70,9 +70,9 @@ class AmbilAntrianPage extends Component
             }
 
             // Duplicate Validation
-            $duplicateCheck = clone TrxAntrian::query()
-                ->where(['tanggal_antrian' => $this->tanggal_antrian])
-                ->where(['asuransi' => $this->asuransi]);
+            $duplicateCheck = TrxAntrian::query()
+                ->where(fn($q) => $q->where('tanggal_antrian', $this->tanggal_antrian))
+                ->where(fn($q) => $q->where('asuransi', $this->asuransi));
                 
             if ($pasienId) {
                 $duplicateCheck->where('pasien_id', $pasienId);

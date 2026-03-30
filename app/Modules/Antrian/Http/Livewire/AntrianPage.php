@@ -25,8 +25,8 @@ class AntrianPage extends Component
 
     // Edit Antrian Modal
     public $editAntrianId;
-    public $editNamaPasien, $editPoli, $editDokter;
-    public $poliList = [], $dokterList = [];
+    public $editNamaPasien, $editPoli, $editDokter, $editTanggal, $editAsuransi, $editNoAsuransi;
+    public $poliList = [], $dokterList = [], $asuransiList = [];
     public $showEditModal = false;
 
     public function mount()
@@ -135,19 +135,26 @@ class AntrianPage extends Component
         $this->editNamaPasien = $antrian->pasien?->nama_pasien ?? $antrian->nama_pasien_input_manual;
         $this->editPoli = $antrian->kode_poli;
         $this->editDokter = $antrian->kode_dokter;
+        $this->editTanggal = $antrian->tanggal_antrian;
+        $this->editAsuransi = $antrian->asuransi;
+        $this->editNoAsuransi = $antrian->no_asuransi;
+        
         $this->poliList = \App\Models\MstPoli::where('status', 'Aktif')->get()->toArray();
         $this->dokterList = \App\Models\MstDokter::where('status', 'Aktif')->get()->toArray();
+        $this->asuransiList = \App\Models\MstAsuransi::where('status', 'Aktif')->get()->toArray();
         $this->showEditModal = true;
     }
 
     public function updateAntrian()
     {
-        $this->validate(['editNamaPasien' => 'required|string|max:100']);
         $antrian = TrxAntrian::findOrFail($this->editAntrianId);
         
         $data = [
+            'tanggal_antrian' => $this->editTanggal,
             'kode_poli' => $this->editPoli,
             'kode_dokter' => $this->editDokter,
+            'asuransi' => $this->editAsuransi,
+            'no_asuransi' => $this->editNoAsuransi,
         ];
         if (!$antrian->pasien_id) {
             $data['nama_pasien_input_manual'] = $this->editNamaPasien;
@@ -161,19 +168,19 @@ class AntrianPage extends Component
 
     public function render()
     {
-        $query = TrxAntrian::with('pasien')->where('tanggal_antrian', $this->selectedDate);
+        $query = TrxAntrian::with('pasien')->where(fn($q) => $q->where('tanggal_antrian', $this->selectedDate));
         
         if ($this->selectedStatus !== 'all') {
-            $query->where('status', $this->selectedStatus);
+            $query->where(fn($q) => $q->where('status', $this->selectedStatus));
         }
 
         $this->antrianList = $query->orderBy('nomor_antrian')->get();
         
-        $dayQuery = TrxAntrian::where('tanggal_antrian', $this->selectedDate);
+        $dayQuery = TrxAntrian::where(fn($q) => $q->where('tanggal_antrian', $this->selectedDate));
         $this->totalAntrian = (clone $dayQuery)->count();
-        $this->menunggu = (clone $dayQuery)->where('status', 'menunggu')->count();
-        $this->dipanggil = (clone $dayQuery)->where('status', 'dipanggil')->count();
-        $this->selesai = (clone $dayQuery)->where('status', 'selesai')->count();
+        $this->menunggu = (clone $dayQuery)->where(fn($q) => $q->where('status', 'menunggu'))->count();
+        $this->dipanggil = (clone $dayQuery)->where(fn($q) => $q->where('status', 'dipanggil'))->count();
+        $this->selesai = (clone $dayQuery)->where(fn($q) => $q->where('status', 'selesai'))->count();
 
         return <<<'HTML'
         <div x-data="{ 
@@ -340,6 +347,25 @@ class AntrianPage extends Component
                                             <option value="{{ $d['kode_dokter'] }}">{{ $d['nama_dokter'] }}</option>
                                         @endforeach
                                     </select>
+                                </div>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-xs font-semibold text-gray-500 mb-1">Tanggal Antrian <span class="text-red-500">*</span></label>
+                                        <input type="date" wire:model="editTanggal" class="w-full rounded-lg border-gray-200 text-sm px-4 h-[42px] focus:border-[#405189] transition-all">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-semibold text-gray-500 mb-1">Asuransi</label>
+                                        <select wire:model="editAsuransi" class="w-full rounded-lg border-gray-200 text-sm px-4 h-[42px] focus:border-[#405189] transition-all">
+                                            <option value="">-- Tanpa Asuransi / Umum --</option>
+                                            @foreach($asuransiList as $a)
+                                                <option value="{{ $a['nama_asuransi'] }}">{{ $a['nama_asuransi'] }}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-gray-500 mb-1">No Asuransi</label>
+                                    <input type="text" wire:model="editNoAsuransi" class="w-full rounded-lg border-gray-200 text-sm px-4 h-[42px] focus:border-[#405189] transition-all" placeholder="Nomor kartu asuransi">
                                 </div>
                             </div>
                         </form>

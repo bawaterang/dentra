@@ -39,10 +39,10 @@ class AmbilAntrianKioskPage extends Component
         ]);
 
         try {
-            $duplicateCheck = clone TrxAntrian::query()
-                ->where(['tanggal_antrian' => $this->tanggal_antrian])
-                ->where(['nama_pasien_input_manual' => $this->nama_pasien])
-                ->where(['kode_poli' => $this->kode_poli])
+            $duplicateCheck = TrxAntrian::query()
+                ->where('tanggal_antrian', $this->tanggal_antrian)
+                ->where('nama_pasien_input_manual', $this->nama_pasien)
+                ->where('kode_poli', $this->kode_poli)
                 ->exists();
                 
             if ($duplicateCheck) {
@@ -81,7 +81,7 @@ class AmbilAntrianKioskPage extends Component
     public function render()
     {
         return <<<'HTML'
-        <div class="min-h-screen bg-gradient-to-br from-[#1a1d3e] via-[#2d3561] to-[#405189] flex flex-col items-center justify-center p-6 text-white" 
+        <div class="min-h-screen bg-gradient-to-br from-[#1a1d3e] via-[#2d3561] to-[#405189] flex flex-col items-center py-10 md:py-20 px-4 sm:px-6 text-white" 
              x-data="{ 
                  isFullscreen: false,
                  toggleFullscreen() {
@@ -108,8 +108,8 @@ class AmbilAntrianKioskPage extends Component
                 <div class="inline-flex h-20 w-20 items-center justify-center rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 text-white shadow-xl mb-4">
                     <i class="ri-hospital-line text-4xl"></i>
                 </div>
-                <h1 class="text-4xl font-black tracking-wide uppercase">SIGI Dental Clinic</h1>
-                <p class="text-lg opacity-70 tracking-widest uppercase mt-2">Self-Service Kiosk Antrian</p>
+                <h1 class="text-3xl md:text-4xl font-black tracking-wide uppercase">SIGI Dental Clinic</h1>
+                <p class="text-base md:text-lg opacity-70 tracking-widest uppercase mt-2">Self-Service Kiosk Antrian</p>
             </div>
 
             @if($generatedAntrian)
@@ -118,8 +118,8 @@ class AmbilAntrianKioskPage extends Component
                 <!-- Screen UI (Hidden on Print) -->
                 <div class="bg-white rounded-3xl shadow-2xl overflow-hidden text-center text-[#333] print:hidden">
                     <div class="bg-gradient-to-br from-[#405189] to-[#3577f1] p-8 text-white">
-                        <p class="text-sm font-semibold uppercase tracking-widest opacity-80 mb-2">Nomor Antrian Anda</p>
-                        <h1 class="text-8xl font-black my-4 leading-none">{{ $generatedAntrian->nomor_antrian }}</h1>
+                        <p class="text-xs md:text-sm font-semibold uppercase tracking-widest opacity-80 mb-2">Nomor Antrian Anda</p>
+                        <h1 class="text-6xl md:text-8xl font-black my-4 leading-none">{{ $generatedAntrian->nomor_antrian }}</h1>
                         <p class="text-base opacity-90 font-medium">{{ \Carbon\Carbon::parse($generatedAntrian->tanggal_antrian)->translatedFormat('l, d F Y') }}</p>
                     </div>
                     <div class="p-8 space-y-4">
@@ -158,14 +158,14 @@ class AmbilAntrianKioskPage extends Component
                     </div>
                 </div>
                 
-                <div class="flex gap-4 mt-8 print:hidden">
-                    <button onclick="window.print()" class="flex-1 bg-white select-none text-[#405189] rounded-2xl py-5 text-lg font-bold shadow-xl hover:bg-gray-50 transition-all active:scale-95 flex items-center justify-center gap-3"><i class="ri-printer-line text-2xl"></i> CETAK TIKET</button>
-                    <button wire:click="ambilLagi" class="flex-1 bg-[#0ab39c] select-none text-white rounded-2xl py-5 text-lg font-bold shadow-xl hover:bg-[#099885] transition-all active:scale-95 flex items-center justify-center gap-3"><i class="ri-add-line text-2xl"></i> AMBIL LAGI</button>
+                <div class="flex flex-col sm:flex-row gap-4 mt-8 print:hidden">
+                    <button onclick="window.print()" class="flex-1 bg-white select-none text-[#405189] rounded-2xl py-4 md:py-5 text-lg font-bold shadow-xl hover:bg-gray-50 transition-all active:scale-95 flex items-center justify-center gap-3"><i class="ri-printer-line text-2xl"></i> CETAK TIKET</button>
+                    <button wire:click="ambilLagi" class="flex-1 bg-[#0ab39c] select-none text-white rounded-2xl py-4 md:py-5 text-lg font-bold shadow-xl hover:bg-[#099885] transition-all active:scale-95 flex items-center justify-center gap-3"><i class="ri-add-line text-2xl"></i> AMBIL LAGI</button>
                 </div>
             </div>
             @else
             <!-- Kiosk Form -->
-            <div class="w-full max-w-2xl bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl p-10 shadow-2xl">
+            <div class="w-full max-w-2xl bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl p-6 md:p-10 shadow-2xl">
                 <form wire:submit.prevent="simpan" class="space-y-8">
                     @error('general') <div class="bg-red-500/20 border border-red-500/50 text-white px-4 py-3 rounded-xl text-center">{{ $message }}</div> @enderror
 
@@ -182,13 +182,13 @@ class AmbilAntrianKioskPage extends Component
                     <!-- Pilih Poli -->
                     <div>
                         <label class="block text-white/80 font-bold mb-3 text-lg">Pilih Poli Tujuan</label>
-                        <div class="grid grid-cols-2 gap-4">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             @foreach($poliList as $poli)
-                            <button type="button" wire:click="setPoli('{{ $poli->kode_poli }}')" class="flex items-center gap-4 p-5 rounded-2xl border-2 transition-all active:scale-95 select-none {{ $kode_poli === $poli->kode_poli ? 'bg-white text-[#405189] border-white' : 'bg-transparent text-white border-white/20 hover:bg-white/5' }}">
-                                <div class="h-12 w-12 rounded-full flex items-center justify-center text-2xl {{ $kode_poli === $poli->kode_poli ? 'bg-[#405189]/10 text-[#405189]' : 'bg-white/10 text-white' }}">
+                            <button type="button" wire:click="setPoli('{{ $poli->kode_poli }}')" class="flex items-center gap-3 md:gap-4 p-4 md:p-5 rounded-2xl border-2 transition-all active:scale-95 select-none {{ $kode_poli === $poli->kode_poli ? 'bg-white text-[#405189] border-white' : 'bg-transparent text-white border-white/20 hover:bg-white/5' }}">
+                                <div class="h-10 w-10 md:h-12 md:w-12 rounded-full flex items-center justify-center text-xl md:text-2xl {{ $kode_poli === $poli->kode_poli ? 'bg-[#405189]/10 text-[#405189]' : 'bg-white/10 text-white' }}">
                                     <i class="ri-hospital-line"></i>
                                 </div>
-                                <span class="font-bold text-xl">{{ $poli->nama_poli }}</span>
+                                <span class="font-bold text-lg md:text-xl">{{ $poli->nama_poli }}</span>
                             </button>
                             @endforeach
                         </div>
@@ -197,9 +197,9 @@ class AmbilAntrianKioskPage extends Component
 
                     <!-- Tombol Ambil -->
                     <div class="pt-6">
-                        <button type="submit" class="w-full bg-[#0ab39c] text-white rounded-2xl py-6 text-2xl font-black shadow-lg shadow-[#0ab39c]/30 hover:bg-[#099885] transition-all active:scale-[0.98] tracking-widest relative overflow-hidden group">
+                        <button type="submit" class="w-full bg-[#0ab39c] text-white rounded-2xl py-5 md:py-6 text-xl md:text-2xl font-black shadow-lg shadow-[#0ab39c]/30 hover:bg-[#099885] transition-all active:scale-[0.98] tracking-widest relative overflow-hidden group">
                             <span class="relative z-10 flex items-center justify-center gap-3">
-                                <i class="ri-ticket-line text-3xl"></i> AMBIL NOMOR ANTRIAN
+                                <i class="ri-ticket-line text-2xl md:text-3xl"></i> AMBIL NOMOR ANTRIAN
                             </span>
                             <div class="absolute inset-0 h-full w-full bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
                         </button>

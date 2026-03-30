@@ -9,7 +9,7 @@
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
     @livewireStyles
 </head>
-<body class="m-0 p-0 overflow-hidden">
+<body class="m-0 p-0 min-h-screen">
     {{ $slot }}
     @livewireScripts
 </body>

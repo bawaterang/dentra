@@ -28,7 +28,7 @@ class SettingAntrianPage extends Component
             $this->is_active = $setting->is_active;
         } else {
             // Default values
-            $this->mode_antrian = 'nomor_urut';
+            $this->mode_antrian = 'Nomor Urut';
             $this->jam_buka = '08:00';
             $this->jam_tutup = '21:00';
             $this->durasi_slot = 15;
@@ -40,14 +40,20 @@ class SettingAntrianPage extends Component
     public function rules()
     {
         return [
-            'mode_antrian' => 'required|in:nomor_urut,time_slot',
-            'jam_buka' => 'required|date_format:H:i',
-            'jam_tutup' => 'required|date_format:H:i|after:jam_buka',
+            'mode_antrian' => 'required|in:Nomor Urut,Waktu Periksa,Keduanya',
+            'jam_buka' => 'required|string',
+            'jam_tutup' => 'required|string',
             'durasi_slot' => 'required|integer|min:5|max:120',
             'max_antrian' => 'required|integer|min:1|max:500',
             'running_text' => 'nullable|string|max:255',
             'is_active' => 'boolean',
         ];
+    }
+
+    public function resetSettings()
+    {
+        $this->mount();
+        $this->resetValidation();
     }
 
     public function save()
@@ -107,22 +113,22 @@ class SettingAntrianPage extends Component
                                     <div>
                                         <label class="block text-sm font-semibold text-gray-700 mb-2">Mode Antrian</label>
                                         <div class="flex flex-col gap-3">
-                                            <label class="flex items-center gap-3 p-3 border rounded-xl cursor-pointer hover:bg-gray-50 transition-all {{ $mode_antrian === 'nomor_urut' ? 'border-[#405189] bg-blue-50/30' : 'border-gray-200' }}">
-                                                <input type="radio" wire:model="mode_antrian" value="nomor_urut" class="w-4 h-4 text-[#405189] focus:ring-[#405189]">
+                                            <label class="flex items-center gap-3 p-3 border rounded-xl cursor-pointer hover:bg-gray-50 transition-all {{ $mode_antrian === 'Nomor Urut' ? 'border-[#405189] bg-blue-50/30' : 'border-gray-200' }}">
+                                                <input type="radio" wire:model="mode_antrian" value="Nomor Urut" class="w-4 h-4 text-[#405189] focus:ring-[#405189]">
                                                 <div>
                                                     <p class="font-bold text-sm text-gray-800">Nomor Urut</p>
                                                     <p class="text-[11px] text-gray-500">Pasien dipanggil berdasarkan urutan kedatangan.</p>
                                                 </div>
                                             </label>
-                                            <label class="flex items-center gap-3 p-3 border rounded-xl cursor-pointer hover:bg-gray-50 transition-all {{ $mode_antrian === 'time_slot' ? 'border-[#0ab39c] bg-green-50/30' : 'border-gray-200' }}">
-                                                <input type="radio" wire:model="mode_antrian" value="time_slot" class="w-4 h-4 text-[#0ab39c] focus:ring-[#0ab39c]">
+                                            <label class="flex items-center gap-3 p-3 border rounded-xl cursor-pointer hover:bg-gray-50 transition-all {{ $mode_antrian === 'Waktu Periksa' ? 'border-[#0ab39c] bg-green-50/30' : 'border-gray-200' }}">
+                                                <input type="radio" wire:model="mode_antrian" value="Waktu Periksa" class="w-4 h-4 text-[#0ab39c] focus:ring-[#0ab39c]">
                                                 <div>
                                                     <p class="font-bold text-sm text-gray-800">Waktu Periksa</p>
                                                     <p class="text-[11px] text-gray-500">Pasien datang sesuai dengan jam reservasi.</p>
                                                 </div>
                                             </label>
-                                            <label class="flex items-center gap-3 p-3 border rounded-xl cursor-pointer hover:bg-gray-50 transition-all {{ $mode_antrian === 'time_slot' ? 'border-[#0ab39c] bg-green-50/30' : 'border-gray-200' }}">
-                                                <input type="radio" wire:model="mode_antrian" value="keduanya" class="w-4 h-4 text-[#a62ea2] focus:ring-[#a62ea2]">
+                                            <label class="flex items-center gap-3 p-3 border rounded-xl cursor-pointer hover:bg-gray-50 transition-all {{ $mode_antrian === 'Keduanya' ? 'border-[#a62ea2] bg-purple-50/30' : 'border-gray-200' }}">
+                                                <input type="radio" wire:model="mode_antrian" value="Keduanya" class="w-4 h-4 text-[#a62ea2] focus:ring-[#a62ea2]">
                                                 <div>
                                                     <p class="font-bold text-sm text-gray-800">Keduanya</p>
                                                     <p class="text-[11px] text-gray-500">Waktu periksa diatur berbanding lurus dengan nomor urut.</p>
@@ -193,7 +199,7 @@ class SettingAntrianPage extends Component
                         </div>
                         
                         <div class="p-5 bg-gray-50 flex justify-end gap-3 border-t border-[#eff2f7]">
-                            <button type="button" class="btn bg-gray-500 text-white font-bold text-sm px-6 hover:bg-gray-600 hover:-translate-y-0.5 transition-all" wire:click="mount"><i class="ri-refresh-line mr-1"></i> Reset</button>
+                            <button type="button" class="btn bg-gray-500 text-white font-bold text-sm px-6 hover:bg-gray-600 hover:-translate-y-0.5 transition-all" wire:click="resetSettings"><i class="ri-refresh-line mr-1"></i> Reset</button>
                             <button type="submit" class="btn bg-[#0d6efd] text-white font-bold text-sm px-8 shadow-md hover:bg-[#0b5ed7] hover:-translate-y-0.5 transition-all"><i class="ri-save-3-line mr-1"></i> Simpan Pengaturan</button>
                         </div>
                     </div>

@@ -3,8 +3,10 @@
 namespace App\Modules\Antrian\Http\Livewire;
 
 use Livewire\Component;
+use Livewire\Attributes\Layout;
 use App\Models\TrxAntrian;
 
+#[Layout('components.layouts.blank')]
 class MonitorAntrianPage extends Component
 {
     public $tanggalAntrian;
@@ -72,8 +74,8 @@ class MonitorAntrianPage extends Component
                     <div class="flex items-center gap-2">
                         <div class="h-3 w-3 rounded-full {{ $isOpen ? 'bg-green-400 animate-pulse' : 'bg-red-400' }}"></div>
                         <span class="text-sm font-semibold uppercase tracking-wider opacity-80 mr-4">{{ $isOpen ? 'Antrian Dibuka' : 'Antrian Ditutup' }}</span>
-                        <button @click="toggleFullscreen" class="flex items-center justify-center p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-all text-white border border-white/20" :title="isFullscreen ? 'Keluar Layar Penuh' : 'Layar Penuh'">
-                            <i :class="isFullscreen ? 'ri-fullscreen-exit-line' : 'ri-fullscreen-line'" class="text-xl"></i>
+                        <button x-show="!isFullscreen" @click="toggleFullscreen" class="flex items-center justify-center p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-all text-white border border-white/20" title="Layar Penuh">
+                            <i class="ri-fullscreen-line text-xl"></i>
                         </button>
                     </div>
                 </div>
@@ -160,10 +162,5 @@ class MonitorAntrianPage extends Component
             </style>
         </div>
         HTML;
-    }
-
-    public function layout()
-    {
-        return 'components.layouts.blank';
     }
 }
