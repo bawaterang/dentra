@@ -46,4 +46,9 @@ class User extends Authenticatable
     {
         return $this->belongsToMany(MstRoleUser::class, 'trx_role_user', 'user_id', 'role_id')->withTimestamps();
     }
+
+    public function polis()
+    {
+        return $this->belongsToMany(MstPoli::class, 'trx_user_poli', 'user_id', 'poli_id')->withTimestamps();
+    }
 }

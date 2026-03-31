@@ -17,4 +17,9 @@ class MstPoli extends Model
         'nama_poli',
         'status',
     ];
+
+    public function users()
+    {
+        return $this->belongsToMany(User::class, 'trx_user_poli', 'poli_id', 'user_id')->withTimestamps();
+    }
 }
