@@ -10,4 +10,5 @@ return [
     App\Modules\Pendaftaran\Providers\PendaftaranServiceProvider::class,
     App\Modules\Screening\Providers\ScreeningServiceProvider::class,
     App\Modules\Setting\Providers\SettingServiceProvider::class,
+    App\Modules\Bridging\Providers\BridgingServiceProvider::class,
 ];
