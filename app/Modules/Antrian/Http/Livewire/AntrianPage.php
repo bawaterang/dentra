@@ -258,9 +258,9 @@ class AntrianPage extends Component
                                     </td>
                                     <td class="text-center">
                                         <div class="flex flex-wrap justify-center gap-1">
-                                            <a href="{{ route('antrian.cetak', $item->id) }}" target="_blank" class="flex h-7 px-2 items-center justify-center rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-600 hover:text-white transition-all text-[10px] font-bold gap-1" title="Cetak Tiket"><i class="ri-printer-line"></i></a>
+                                            <a href="{{ route('antrian.cetak', $item->id) }}" target="_blank" class="flex h-7 px-2 items-center justify-center rounded bg-[#405189]/10 text-[#405189] hover:bg-[#405189] hover:text-white transition-all text-[10px] font-bold gap-1" title="Cetak Tiket"><i class="ri-printer-line"></i></a>
                                             @if(in_array($item->status, ['menunggu','dipanggil']))
-                                                <button wire:click="editAntrian({{ $item->id }})" class="flex h-7 px-2 items-center justify-center rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-600 hover:text-white transition-all text-[10px] font-bold gap-1" title="Edit Antrian"><i class="ri-edit-line"></i></button>
+                                                <button wire:click="editAntrian({{ $item->id }})" class="flex h-7 px-2 items-center justify-center rounded bg-orange-100 text-orange-600 hover:bg-orange-600 hover:text-white transition-all text-[10px] font-bold gap-1" title="Edit Antrian"><i class="ri-edit-line"></i></button>
                                             @endif
                                             @if($item->status === 'menunggu')
                                                 <button wire:click="ubahStatus({{ $item->id }}, 'dipanggil')" class="flex h-7 px-2 items-center justify-center rounded bg-blue-100 text-blue-600 hover:bg-blue-600 hover:text-white transition-all text-[10px] font-bold gap-1" title="Panggil"><i class="ri-notification-3-line"></i></button>

@@ -26,7 +26,15 @@ class PendaftaranPage extends Component
     public function mount()
     {
         $this->selectedDate = now()->format('Y-m-d');
-        $this->kesadaranList = ['Compos Mentis', 'Apatis', 'Delirium', 'Somnolen', 'Sopor', 'Semi-Koma', 'Koma'];
+        $this->kesadaranList = [
+            ['value' => 'Compos Mentis', 'label' => 'Compos Mentis', 'icon' => 'ri-checkbox-circle-line text-green-500'],
+            ['value' => 'Apatis', 'label' => 'Apatis', 'icon' => 'ri-eye-close-line text-blue-500'],
+            ['value' => 'Delirium', 'label' => 'Delirium', 'icon' => 'ri-error-warning-line text-yellow-500'],
+            ['value' => 'Somnolen', 'label' => 'Somnolen', 'icon' => 'ri-eye-close-line text-orange-500'],
+            ['value' => 'Sopor', 'label' => 'Sopor', 'icon' => 'ri-eye-off-line text-orange-400'],
+            ['value' => 'Semi-Koma', 'label' => 'Semi-Koma', 'icon' => 'ri-close-circle-line text-red-500'],
+            ['value' => 'Koma', 'label' => 'Koma', 'icon' => 'ri-close-circle-fill text-red-600'],
+        ];
     }
 
     public function updatedSelectedDate() { $this->dispatch('refresh-table'); }
@@ -88,6 +96,12 @@ class PendaftaranPage extends Component
         $this->dispatch('alert', ['type' => 'success', 'message' => 'Pendaftaran berhasil diperbarui.']);
     }
 
+    public function closeEditModal()
+    {
+        $this->showEditModal = false;
+        $this->dispatch('refresh-table');
+    }
+
     public function render()
     {
         $query = TrxPendaftaran::with(['pasien', 'poli', 'dokter', 'asuransi'])
@@ -104,7 +118,24 @@ class PendaftaranPage extends Component
             initDataTable() { 
                 const t='#pendaftaranTable'; 
                 if($.fn.DataTable.isDataTable(t)){$(t).DataTable().destroy()} 
-                $(t).DataTable({scrollX:false,dom:'lrtip',pageLength:25,language:{lengthMenu:'_MENU_',info:'Menampilkan _START_ sampai _END_ dari _TOTAL_ data',infoEmpty:'Tidak ada data',zeroRecords:'Tidak ada pendaftaran',emptyTable:'Belum ada pendaftaran hari ini',paginate:{previous:'<i class=ri-arrow-left-s-line></i>',next:'<i class=ri-arrow-right-s-line></i>'}}});
+                $(t).DataTable({
+                    scrollX:false,
+                    dom:'lrtip',
+                    pageLength:25,
+                    autoWidth: false,
+                    responsive: true,
+                    language:{
+                        lengthMenu:'_MENU_',
+                        info:'Menampilkan _START_ sampai _END_ dari _TOTAL_ data',
+                        infoEmpty:'Tidak ada data',
+                        zeroRecords:'Tidak ada pendaftaran',
+                        emptyTable:'Belum ada pendaftaran hari ini',
+                        paginate:{
+                            previous:'<i class=ri-arrow-left-s-line></i>',
+                            next:'<i class=ri-arrow-right-s-line></i>'
+                        }
+                    }
+                });
             },
             init(){ $nextTick(()=>this.initDataTable()) }
         }" @refresh-table.window="$nextTick(()=>initDataTable())" x-init="initDataTable()">
@@ -155,7 +186,7 @@ class PendaftaranPage extends Component
                                         <span class="badge {{ $sc[$item->status] ?? 'bg-secondary-subtle' }}">{{ ucfirst(str_replace('_',' ',$item->status)) }}</span>
                                     </td>
                                     <td class="text-center"><div class="flex justify-center gap-1">
-                                        <button wire:click="editPendaftaran({{ $item->id }})" class="flex h-7 px-2 items-center justify-center rounded bg-[#0ab39c]/10 text-[#0ab39c] hover:bg-[#0ab39c] hover:text-white transition-all text-[10px] font-bold gap-1" title="Edit"><i class="ri-edit-line"></i></button>
+                                        <button wire:click="editPendaftaran({{ $item->id }})" class="flex h-7 px-2 items-center justify-center rounded bg-orange-100 text-orange-600 hover:bg-orange-600 hover:text-white transition-all text-[10px] font-bold gap-1" title="Edit"><i class="ri-edit-line"></i></button>
                                         <a href="{{ route('pendaftaran.print', $item->id) }}" target="_blank" class="flex h-7 px-2 items-center justify-center rounded bg-[#405189]/10 text-[#405189] hover:bg-[#405189] hover:text-white transition-all text-[10px] font-bold gap-1" title="Cetak"><i class="ri-printer-line"></i></a>
                                     </div></td>
                                 </tr>
@@ -176,7 +207,7 @@ class PendaftaranPage extends Component
                     <div class="inline-block align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full relative z-10" x-show="$wire.showEditModal" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100" x-transition:leave="ease-in duration-200" x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100" x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95">
                         <div class="bg-[#405189] px-6 py-4 flex justify-between items-center shadow-lg">
                             <h3 class="text-white font-bold flex items-center gap-2"><i class="ri-edit-box-line text-xl"></i> Edit Pendaftaran</h3>
-                            <button @click="$wire.set('showEditModal', false)" class="text-white/80 hover:text-white transition-colors"><i class="ri-close-line text-2xl"></i></button>
+                            <button wire:click="closeEditModal" type="button" class="text-white/80 hover:text-white transition-colors"><i class="ri-close-line text-2xl"></i></button>
                         </div>
                         <form wire:submit.prevent="updatePendaftaran">
                             <div class="px-8 py-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
@@ -192,9 +223,18 @@ class PendaftaranPage extends Component
                                         </div>
                                         
                                         <div class="bg-gray-50/50 p-6 rounded-2xl border border-gray-100 shadow-sm space-y-5">
-                                            <x-custom-dropdown label="Poli Tujuan" model="editPoliId" :options="$poliList" placeholder="Pilih Poli..." />
-                                            <x-custom-dropdown label="Dokter" model="editDokterId" :options="$dokterList" placeholder="Pilih Dokter..." />
-                                            <x-custom-dropdown label="Asuransi / Penjamin" model="editAsuransiId" :options="$asuransiList" placeholder="Pilih Asuransi..." />
+                                            <div>
+                                                <label class="block text-xs font-bold text-gray-500 ml-1 uppercase tracking-wider mb-1.5">Poli Tujuan <span class="text-red-500">*</span></label>
+                                                <x-custom-dropdown model="editPoliId" :options="$poliList" placeholder="Pilih Poli..." />
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs font-bold text-gray-500 ml-1 uppercase tracking-wider mb-1.5">Dokter <span class="text-red-500">*</span></label>
+                                                <x-custom-dropdown model="editDokterId" :options="$dokterList" placeholder="Pilih Dokter..." />
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs font-bold text-gray-500 ml-1 uppercase tracking-wider mb-1.5">Asuransi / Penjamin</label>
+                                                <x-custom-dropdown model="editAsuransiId" :options="$asuransiList" placeholder="Pilih Asuransi..." />
+                                            </div>
                                             
                                             <div class="space-y-1.5">
                                                 <label class="block text-xs font-bold text-gray-500 ml-1 uppercase tracking-wider">No Kartu Asuransi</label>
@@ -223,31 +263,42 @@ class PendaftaranPage extends Component
                                             <div class="grid grid-cols-2 gap-4">
                                                 <div class="col-span-2">
                                                     <label class="block text-xs font-bold text-gray-500 mb-1.5 ml-1 uppercase tracking-wider text-[10px]">Tingkat Kesadaran</label>
-                                                    <select wire:model="editKesadaran" wire:key="edit-kesadaran" class="block w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-4 focus:ring-[#0ab39c]/10 focus:border-[#0ab39c] transition-all">
-                                                        @foreach($kesadaranList as $k)
-                                                        <option value="{{ $k }}">{{ $k }}</option>
-                                                        @endforeach
-                                                    </select>
+                                                    <x-custom-dropdown model="editKesadaran" :options="$kesadaranList" placeholder="Pilih Kesadaran" />
                                                 </div>
                                                 <div>
                                                     <label class="block text-xs font-bold text-gray-500 mb-1.5 ml-1 uppercase tracking-wider text-[10px]">Tekanan Darah</label>
-                                                    <input type="text" wire:model="editTd" wire:key="edit-td" class="block w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-[#0ab39c] transition-all" placeholder="120/80">
+                                                    <div class="relative">
+                                                        <input type="text" wire:model="editTd" wire:key="edit-td" class="block w-full pl-4 pr-16 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-[#0ab39c] transition-all" placeholder="120/80">
+                                                        <div class="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none text-xs font-bold text-gray-400">mmHg</div>
+                                                    </div>
                                                 </div>
                                                 <div>
-                                                    <label class="block text-xs font-bold text-gray-500 mb-1.5 ml-1 uppercase tracking-wider text-[10px]">Nadi (bpm)</label>
-                                                    <input type="text" wire:model="editNadi" wire:key="edit-nadi" class="block w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-[#0ab39c] transition-all" placeholder="80">
+                                                    <label class="block text-xs font-bold text-gray-500 mb-1.5 ml-1 uppercase tracking-wider text-[10px]">Nadi</label>
+                                                    <div class="relative">
+                                                        <input type="text" wire:model="editNadi" wire:key="edit-nadi" class="block w-full pl-4 pr-12 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-[#0ab39c] transition-all" placeholder="80">
+                                                        <div class="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none text-xs font-bold text-gray-400">bpm</div>
+                                                    </div>
                                                 </div>
                                                 <div>
-                                                    <label class="block text-xs font-bold text-gray-500 mb-1.5 ml-1 uppercase tracking-wider text-[10px]">Suhu (deg. C)</label>
-                                                    <input type="number" step="0.1" wire:model="editSuhu" wire:key="edit-suhu" class="block w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-[#0ab39c] transition-all" placeholder="36.5">
+                                                    <label class="block text-xs font-bold text-gray-500 mb-1.5 ml-1 uppercase tracking-wider text-[10px]">Suhu</label>
+                                                    <div class="relative">
+                                                        <input type="number" step="0.1" wire:model="editSuhu" wire:key="edit-suhu" class="block w-full pl-4 pr-12 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-[#0ab39c] transition-all" placeholder="36.5">
+                                                        <div class="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none text-xs font-bold text-gray-400">°C</div>
+                                                    </div>
                                                 </div>
                                                 <div>
-                                                    <label class="block text-xs font-bold text-gray-500 mb-1.5 ml-1 uppercase tracking-wider text-[10px]">Berat Badan (kg)</label>
-                                                    <input type="number" step="0.1" wire:model="editBb" wire:key="edit-bb" class="block w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-[#0ab39c] transition-all" placeholder="60">
+                                                    <label class="block text-xs font-bold text-gray-500 mb-1.5 ml-1 uppercase tracking-wider text-[10px]">Berat Badan</label>
+                                                    <div class="relative">
+                                                        <input type="number" step="0.1" wire:model="editBb" wire:key="edit-bb" class="block w-full pl-4 pr-10 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-[#0ab39c] transition-all" placeholder="60">
+                                                        <div class="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none text-xs font-bold text-gray-400">kg</div>
+                                                    </div>
                                                 </div>
                                                 <div class="col-span-2">
-                                                    <label class="block text-xs font-bold text-gray-500 mb-1.5 ml-1 uppercase tracking-wider text-[10px]">Tinggi Badan (cm)</label>
-                                                    <input type="number" step="0.1" wire:model="editTb" wire:key="edit-tb" class="block w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-[#0ab39c] transition-all" placeholder="170">
+                                                    <label class="block text-xs font-bold text-gray-500 mb-1.5 ml-1 uppercase tracking-wider text-[10px]">Tinggi Badan</label>
+                                                    <div class="relative">
+                                                        <input type="number" step="0.1" wire:model="editTb" wire:key="edit-tb" class="block w-full pl-4 pr-10 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-[#0ab39c] transition-all" placeholder="170">
+                                                        <div class="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none text-xs font-bold text-gray-400">cm</div>
+                                                    </div>
                                                 </div>
                                             </div>
 
@@ -270,8 +321,8 @@ class PendaftaranPage extends Component
                                 </div>
                             </div>
                             <div class="bg-gray-50 px-8 py-5 flex justify-end gap-3 rounded-b-2xl border-t border-gray-100">
-                                <button type="button" @click="$wire.set('showEditModal', false)" class="px-6 py-2.5 rounded-xl text-sm font-bold text-gray-500 hover:bg-gray-200 transition-all">Batal</button>
-                                <button type="submit" class="px-8 py-2.5 bg-[#405189] text-white rounded-xl text-sm font-bold shadow-lg shadow-[#405189]/30 hover:bg-[#364574] hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2"><i class="ri-save-3-line"></i> Simpan Perubahan</button>
+                                <button type="button" wire:click="closeEditModal" class="btn bg-gray-500 text-white px-6 h-10 flex items-center gap-2 transition-all hover:bg-gray-600 rounded-xl font-bold"><i class="ri-close-line"></i> Batal</button>
+                                <button type="submit" class="btn bg-[#0d6efd] text-white px-8 h-10 shadow-md flex items-center justify-center gap-2 transition-all hover:bg-[#0b5ed7] hover:translate-y-[-2px] rounded-xl font-bold"><i class="ri-save-line"></i> Simpan Perubahan</button>
                             </div>
                         </form>
                     </div>

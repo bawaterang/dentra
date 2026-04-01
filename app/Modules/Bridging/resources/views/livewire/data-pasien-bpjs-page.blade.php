@@ -103,7 +103,7 @@
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-50">
-                        @forelse($pasiens as $pasien)
+                        @forelse ($pasiens as $pasien)
                         <tr class="hover:bg-gray-50/50 transition-colors">
                             <td class="px-4 py-4">
                                 <span class="block font-bold text-[#405189]">{{ $pasien->no_kartu }}</span>
