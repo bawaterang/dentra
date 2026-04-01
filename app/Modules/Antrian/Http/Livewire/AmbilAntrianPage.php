@@ -72,7 +72,8 @@ class AmbilAntrianPage extends Component
             // Duplicate Validation
             $duplicateCheck = TrxAntrian::query()
                 ->where(fn($q) => $q->where('tanggal_antrian', $this->tanggal_antrian))
-                ->where(fn($q) => $q->where('asuransi', $this->asuransi));
+                ->where(fn($q) => $q->where('asuransi', $this->asuransi))
+                ->where(fn($q) => $q->where('status', '!=', 'batal'));
                 
             if ($pasienId) {
                 $duplicateCheck->where(fn($q) => $q->where('pasien_id', $pasienId));
@@ -245,9 +246,9 @@ class AmbilAntrianPage extends Component
                                 <h6 class="text-xs font-bold text-[#405189] uppercase tracking-widest border-b pb-2">Data Pasien</h6>
                                 <div>
                                     <label class="block text-xs font-semibold text-gray-500 mb-1">Nama Pasien <span class="text-red-500">*</span></label>
-                                    <div class="flex gap-2">
-                                        <input type="text" wire:model="nama_pasien" class="flex-1 rounded-lg border-gray-200 text-sm px-4 h-[42px] focus:border-[#405189] transition-all @error('nama_pasien') border-red-400 @enderror" placeholder="Nama lengkap pasien">
-                                        <button type="button" @click="showSearchModal = true; $wire.set('searchPasien', ''); $wire.set('pasienResults', [])" class="btn bg-[#299cdb] text-white h-[42px] px-3 flex items-center gap-1 text-[10px] font-bold whitespace-nowrap"><i class="ri-search-2-line"></i> CARI PASIEN</button>
+                                    <div class="flex flex-col sm:flex-row gap-2">
+                                        <input type="text" wire:model="nama_pasien" class="flex-1 w-full rounded-lg border-gray-200 text-sm px-4 h-[42px] focus:border-[#405189] transition-all @error('nama_pasien') border-red-400 @enderror" placeholder="Nama lengkap pasien">
+                                        <button type="button" @click="showSearchModal = true; $wire.set('searchPasien', ''); $wire.set('pasienResults', [])" class="btn bg-[#299cdb] text-white h-[42px] px-4 flex items-center justify-center gap-1 text-[10px] font-bold whitespace-nowrap"><i class="ri-search-2-line"></i> CARI PASIEN</button>
                                     </div>
                                     @error('nama_pasien') <span class="text-[11px] text-red-500 mt-1 italic">{{ $message }}</span> @enderror
                                 </div>

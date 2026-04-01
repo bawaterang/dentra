@@ -40,9 +40,10 @@ class AmbilAntrianKioskPage extends Component
 
         try {
             $duplicateCheck = TrxAntrian::query()
-                ->where('tanggal_antrian', $this->tanggal_antrian)
-                ->where('nama_pasien_input_manual', $this->nama_pasien)
-                ->where('kode_poli', $this->kode_poli)
+                ->where(fn($q) => $q->where('tanggal_antrian', $this->tanggal_antrian))
+                ->where(fn($q) => $q->where('nama_pasien_input_manual', $this->nama_pasien))
+                ->where(fn($q) => $q->where('kode_poli', $this->kode_poli))
+                ->where(fn($q) => $q->where('status', '!=', 'batal'))
                 ->exists();
                 
             if ($duplicateCheck) {
@@ -50,7 +51,7 @@ class AmbilAntrianKioskPage extends Component
                 return;
             }
 
-            $lastAntrian = TrxAntrian::where('tanggal_antrian', $this->tanggal_antrian)
+            $lastAntrian = TrxAntrian::where(fn($q) => $q->where('tanggal_antrian', $this->tanggal_antrian))
                 ->orderBy('nomor_antrian', 'desc')
                 ->first();
             $nextNumber = $lastAntrian ? ((int)$lastAntrian->nomor_antrian + 1) : 1;

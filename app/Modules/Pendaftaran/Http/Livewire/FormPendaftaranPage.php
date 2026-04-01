@@ -176,7 +176,8 @@ class FormPendaftaranPage extends Component
 
             // Duplicate Validation
             $duplicateCheck = \App\Models\TrxPendaftaran::whereDate('created_at', now()->format('Y-m-d'))
-                ->where('asuransi_id', $this->asuransi_id)
+                ->where(fn($q) => $q->where('asuransi_id', $this->asuransi_id))
+                ->where(fn($q) => $q->where('status', '!=', 'batal'))
                 ->where(function($q) {
                     if ($this->modePasien === 'lama' && $this->pasien_id) {
                         $q->where('pasien_id', $this->pasien_id);
