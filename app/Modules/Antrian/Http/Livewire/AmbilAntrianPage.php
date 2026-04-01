@@ -59,12 +59,12 @@ class AmbilAntrianPage extends Component
             // Auto-sinkronisasi pasien
             $pasienId = null;
             if ($this->nik) {
-                $pasien = MstPasien::where('nik', $this->nik)->first();
+                $pasien = MstPasien::where(fn($q) => $q->where('nik', $this->nik))->first();
                 if ($pasien) { $pasienId = $pasien->id; }
             }
             if (!$pasienId && $this->nama_pasien) {
-                $pasien = MstPasien::where('nama_pasien', $this->nama_pasien)
-                    ->when($this->no_telepon, fn($q) => $q->where('no_telepon', $this->no_telepon))
+                $pasien = MstPasien::where(fn($q) => $q->where('nama_pasien', $this->nama_pasien))
+                    ->when($this->no_telepon, fn($q) => $q->where(fn($q2) => $q2->where('no_telepon', $this->no_telepon)))
                     ->first();
                 if ($pasien) { $pasienId = $pasien->id; }
             }
@@ -75,9 +75,9 @@ class AmbilAntrianPage extends Component
                 ->where(fn($q) => $q->where('asuransi', $this->asuransi));
                 
             if ($pasienId) {
-                $duplicateCheck->where('pasien_id', $pasienId);
+                $duplicateCheck->where(fn($q) => $q->where('pasien_id', $pasienId));
             } else {
-                $duplicateCheck->where('nama_pasien_input_manual', $this->nama_pasien);
+                $duplicateCheck->where(fn($q) => $q->where('nama_pasien_input_manual', $this->nama_pasien));
             }
 
             if ($duplicateCheck->exists()) {
@@ -87,7 +87,7 @@ class AmbilAntrianPage extends Component
             }
 
             // Generate nomor antrian
-            $lastAntrian = TrxAntrian::where('tanggal_antrian', $this->tanggal_antrian)
+            $lastAntrian = TrxAntrian::where(fn($q) => $q->where('tanggal_antrian', $this->tanggal_antrian))
                 ->orderBy('nomor_antrian', 'desc')
                 ->first();
             $nextNumber = $lastAntrian ? ((int)$lastAntrian->nomor_antrian + 1) : 1;
@@ -236,7 +236,7 @@ class AmbilAntrianPage extends Component
             @else
             <!-- Form Ambil Antrian -->
             <div class="max-w-2xl mx-auto">
-                <div class="card overflow-hidden border-t-2 border-[#405189]">
+                <div class="card border-t-2 border-[#405189] relative z-30" style="overflow: visible !important;">
                     <div class="px-6 py-4 border-b border-gray-100 bg-[#f3f6f9]/50"><h5 class="text-lg font-bold text-[#495057]"><i class="ri-ticket-line mr-2 text-[#405189]"></i>Form Pengambilan Antrian</h5></div>
                     <div class="px-8 py-6">
                         <form wire:submit.prevent="save">

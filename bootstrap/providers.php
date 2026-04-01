@@ -11,4 +11,5 @@ return [
     App\Modules\Screening\Providers\ScreeningServiceProvider::class,
     App\Modules\Setting\Providers\SettingServiceProvider::class,
     App\Modules\Bridging\Providers\BridgingServiceProvider::class,
+    App\Modules\Transaksi\Providers\TransaksiServiceProvider::class,
 ];

@@ -47,8 +47,8 @@ class AntrianPage extends Component
 
     public function panggilBerikutnya()
     {
-        $next = TrxAntrian::where('tanggal_antrian', $this->selectedDate)
-            ->where('status', 'menunggu')
+        $next = TrxAntrian::where(fn($q) => $q->where('tanggal_antrian', $this->selectedDate))
+            ->where(fn($q) => $q->where('status', 'menunggu'))
             ->orderBy('nomor_antrian')
             ->first();
 
@@ -135,14 +135,16 @@ class AntrianPage extends Component
         $this->editNamaPasien = $antrian->pasien?->nama_pasien ?? $antrian->nama_pasien_input_manual;
         $this->editPoli = $antrian->kode_poli;
         $this->editDokter = $antrian->kode_dokter;
-        $this->editTanggal = $antrian->tanggal_antrian;
+        $this->editTanggal = $antrian->tanggal_antrian->format('Y-m-d');
         $this->editAsuransi = $antrian->asuransi;
         $this->editNoAsuransi = $antrian->no_asuransi;
         
-        $this->poliList = \App\Models\MstPoli::where('status', 'Aktif')->get()->toArray();
-        $this->dokterList = \App\Models\MstDokter::where('status', 'Aktif')->get()->toArray();
-        $this->asuransiList = \App\Models\MstAsuransi::where('status', 'Aktif')->get()->toArray();
+        $this->poliList = \App\Models\MstPoli::where(fn($q) => $q->where('status', 'Aktif'))->get()->toArray();
+        $this->dokterList = \App\Models\MstDokter::where(fn($q) => $q->where('status', 'Aktif'))->get()->toArray();
+        $this->asuransiList = \App\Models\MstAsuransi::where(fn($q) => $q->where('status', 'Aktif'))->get()->toArray();
         $this->showEditModal = true;
+        
+        $this->dispatch('refresh-table');
     }
 
     public function updateAntrian()
