@@ -289,6 +289,18 @@ class TransaksiPage extends Component
 
         if (!$this->selectedPendaftaran) return;
 
+        // Check duplicates
+        $exists = DB::table('trx_obat')
+            ->where('nomor_kunjungan', $this->selectedPendaftaran->nomor_kunjungan)
+            ->where('kode_obat', $this->kode_obat)
+            ->whereNull('deleted_at')
+            ->exists();
+
+        if ($exists) {
+            $this->addError('kode_obat', 'Obat ini sudah ditambahkan sebelumnya.');
+            return;
+        }
+
         DB::table('trx_obat')->insert([
             'nomor_kunjungan' => $this->selectedPendaftaran->nomor_kunjungan,
             'kode_obat' => $this->kode_obat,
@@ -338,9 +350,10 @@ class TransaksiPage extends Component
     public function updatedKodeTindakan($value)
     {
         if ($value && $this->selectedPendaftaran) {
+            $asuransi_kode = $this->selectedPendaftaran->asuransi->kode_asuransi ?? 'UMUM';
             $tarif = DB::table('mst_tarif')
                 ->where('kode_tindakan', $value)
-                ->where('kode_asuransi', $this->selectedPendaftaran->asuransi_id ?? 'UMUM')
+                ->where('kode_asuransi', $asuransi_kode)
                 ->first();
             
             if ($tarif) {
@@ -878,6 +891,17 @@ class TransaksiPage extends Component
                                                     <p class="text-xs text-gray-400 text-center max-w-[200px]">Silakan klik tombol "Tambah Diagnosis" untuk mulai menginput data.</p>
                                                 </div>
                                             @endforelse
+
+                                            <!-- Empty Search Results: Diagnosis -->
+                                            <div x-show="searchDiag !== '' && $el.parentElement.querySelectorAll('.group:not([style*=\'display: none\'])').length === 0" 
+                                                 class="flex flex-col items-center justify-center py-16 px-4 bg-gray-50/50 rounded-3xl border-2 border-dashed border-gray-200"
+                                                 x-cloak>
+                                                <div class="w-16 h-16 bg-white rounded-2xl shadow-sm flex items-center justify-center mb-4">
+                                                    <i class="ri-search-2-line text-3xl text-gray-300 transition-all"></i>
+                                                </div>
+                                                <h3 class="text-sm font-bold text-gray-500 mb-1">Data Tidak Ditemukan</h3>
+                                                <p class="text-xs text-gray-400 text-center max-w-[200px]">Tidak ada diagnosis yang cocok dengan kata kunci "<span x-text="searchDiag" class="font-bold text-[#405189]"></span>"</p>
+                                            </div>
                                         </div>
                                     </div>
 
@@ -919,9 +943,16 @@ class TransaksiPage extends Component
 
                                                     <div class="flex-grow">
                                                         <span class="text-sm font-bold text-[#2d3748] tracking-tight group-hover:text-[#405189] transition-colors block mb-1">{{ $tdk['nama'] }}</span>
-                                                        <div class="flex items-center gap-2">
-                                                            <span class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Biaya Tindakan:</span>
-                                                            <span class="text-xs font-black text-[#405189]">Rp {{ number_format($tdk['biaya'], 0, ',', '.') }}</span>
+                                                        <div class="flex flex-wrap items-center gap-3">
+                                                            <div class="flex items-center gap-2">
+                                                                <span class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Biaya:</span>
+                                                                <span class="text-xs font-black text-[#405189]">Rp {{ number_format($tdk['biaya'], 0, ',', '.') }}</span>
+                                                            </div>
+                                                            <div class="w-1 h-1 rounded-full bg-gray-200"></div>
+                                                            <div class="flex items-center gap-2">
+                                                                <span class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">BHP:</span>
+                                                                <span class="text-xs font-bold text-orange-600">Rp {{ number_format($tdk['bhp'] ?? 0, 0, ',', '.') }}</span>
+                                                            </div>
                                                         </div>
                                                     </div>
 
@@ -956,6 +987,17 @@ class TransaksiPage extends Component
                                                     <p class="text-xs text-gray-400 text-center max-w-[200px]">Silakan masukkan nama tindakan pada kolom pencarian di atas lalu tekan Enter atau klik tombol Tambah.</p>
                                                 </div>
                                             @endforelse
+
+                                            <!-- Empty Search Results: Tindakan -->
+                                            <div x-show="searchTind !== '' && $el.parentElement.querySelectorAll('.group:not([style*=\'display: none\'])').length === 0" 
+                                                 class="flex flex-col items-center justify-center py-16 px-4 bg-gray-50/50 rounded-3xl border-2 border-dashed border-gray-200"
+                                                 x-cloak>
+                                                <div class="w-16 h-16 bg-white rounded-2xl shadow-sm flex items-center justify-center mb-4">
+                                                    <i class="ri-search-2-line text-3xl text-gray-300 transition-all"></i>
+                                                </div>
+                                                <h3 class="text-sm font-bold text-gray-500 mb-1">Data Tidak Ditemukan</h3>
+                                                <p class="text-xs text-gray-400 text-center max-w-[200px]">Tidak ada tindakan yang cocok dengan kata kunci "<span x-text="searchTind" class="font-bold text-[#405189]"></span>"</p>
+                                            </div>
                                         </div>
                                     </div>
 
@@ -1037,6 +1079,17 @@ class TransaksiPage extends Component
                                                     <p class="text-xs text-gray-400 text-center max-w-[200px]">Silakan masukkan data resep obat pada isian di atas.</p>
                                                 </div>
                                             @endforelse
+
+                                            <!-- Empty Search Results: Resep -->
+                                            <div x-show="searchObat !== '' && $el.parentElement.querySelectorAll('.group:not([style*=\'display: none\'])').length === 0" 
+                                                 class="flex flex-col items-center justify-center py-16 px-4 bg-gray-50/50 rounded-3xl border-2 border-dashed border-gray-200"
+                                                 x-cloak>
+                                                <div class="w-16 h-16 bg-white rounded-2xl shadow-sm flex items-center justify-center mb-4">
+                                                    <i class="ri-search-2-line text-3xl text-gray-300 transition-all"></i>
+                                                </div>
+                                                <h3 class="text-sm font-bold text-gray-500 mb-1">Data Tidak Ditemukan</h3>
+                                                <p class="text-xs text-gray-400 text-center max-w-[200px]">Tidak ada resep yang cocok dengan kata kunci "<span x-text="searchObat" class="font-bold text-[#405189]"></span>"</p>
+                                            </div>
                                         </div>
                                     </div>
 
@@ -1076,8 +1129,14 @@ class TransaksiPage extends Component
                                                         {{ $idx + 1 }}
                                                     </div>
 
-                                                    <div class="flex-grow text-sm font-bold text-[#2d3748] tracking-tight group-hover:text-[#405189] transition-colors">
-                                                        {{ $bm['nama'] }}
+                                                    <div class="flex-grow">
+                                                        <div class="text-sm font-bold text-[#2d3748] tracking-tight group-hover:text-[#405189] transition-colors mb-0.5">
+                                                            {{ $bm['nama'] }}
+                                                        </div>
+                                                        <div class="flex items-center gap-2">
+                                                            <i class="ri-stack-line text-gray-400 text-[10px]"></i>
+                                                            <span class="text-[11px] font-bold text-purple-600 uppercase tracking-wider italic">Jumlah: {{ $bm['jumlah'] }} {{ $bm['satuan'] }}</span>
+                                                        </div>
                                                     </div>
 
                                                     <div class="flex-none flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all transform translate-x-2 group-hover:translate-x-0">
@@ -1111,6 +1170,17 @@ class TransaksiPage extends Component
                                                     <p class="text-xs text-gray-400 text-center max-w-[200px]">Silakan masukkan data BMHP pada isian di atas.</p>
                                                 </div>
                                             @endforelse
+
+                                            <!-- Empty Search Results: BMHP -->
+                                            <div x-show="searchBmhp !== '' && $el.parentElement.querySelectorAll('.group:not([style*=\'display: none\'])').length === 0" 
+                                                 class="flex flex-col items-center justify-center py-16 px-4 bg-gray-50/50 rounded-3xl border-2 border-dashed border-gray-200"
+                                                 x-cloak>
+                                                <div class="w-16 h-16 bg-white rounded-2xl shadow-sm flex items-center justify-center mb-4">
+                                                    <i class="ri-search-2-line text-3xl text-gray-300 transition-all"></i>
+                                                </div>
+                                                <h3 class="text-sm font-bold text-gray-500 mb-1">Data Tidak Ditemukan</h3>
+                                                <p class="text-xs text-gray-400 text-center max-w-[200px]">Tidak ada BMHP yang cocok dengan kata kunci "<span x-text="searchBmhp" class="font-bold text-[#405189]"></span>"</p>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -1158,6 +1228,7 @@ class TransaksiPage extends Component
                                     :options="$diagnosisListOptions"
                                     placeholder="Pilih Diagnosis (ICD-10)"
                                     searchable="true"
+                                    live="true"
                                 />
                                 @error('kode_diagnosa') <span class="text-[11px] text-red-500 mt-1 italic">{{ $message }}</span> @enderror
                             </div>
@@ -1237,6 +1308,7 @@ class TransaksiPage extends Component
                                     :options="$tindakanListOptions"
                                     placeholder="Cari tindakan..."
                                     searchable="true"
+                                    live="true"
                                 />
                                 @error('kode_tindakan') <span class="text-[11px] text-red-500 mt-1 italic">{{ $message }}</span> @enderror
                             </div>
@@ -1246,27 +1318,27 @@ class TransaksiPage extends Component
                                     <label class="block text-xs font-semibold text-gray-500 mb-1">Tarif / Biaya <span class="text-red-500">*</span></label>
                                     <div class="relative">
                                         <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-xs">Rp</span>
-                                        <input type="number" wire:model="biaya_tindakan" class="h-11 w-full rounded-xl border border-gray-200 pl-10 pr-4 text-sm font-bold text-[#405189] outline-none focus:border-[#405189] focus:ring-4 focus:ring-[#405189]/5 transition-all bg-gray-50/50">
+                                        <input type="number" wire:model="biaya_tindakan" class="h-11 w-full rounded-xl border border-gray-200 pl-10 pr-4 text-sm font-bold text-[#405189] outline-none focus:border-[#405189] focus:ring-4 focus:ring-[#405189]/5 transition-all bg-gray-50/50" readonly>
                                     </div>
                                     @error('biaya_tindakan') <span class="text-[11px] text-red-500 mt-1 italic">{{ $message }}</span> @enderror
                                 </div>
                                 <div>
-                                    <label class="block text-xs font-semibold text-gray-500 mb-1">Jasa Medis</label>
+                                    <label class="block text-xs font-semibold text-gray-500 mb-1">Jasa Medis (Jasmed)</label>
                                     <div class="relative">
                                         <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-xs">Rp</span>
-                                        <input type="number" wire:model="jasmed_tindakan" class="h-11 w-full rounded-xl border border-gray-200 pl-10 pr-4 text-sm font-bold text-emerald-600 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/5 transition-all bg-gray-50/50">
+                                        <input type="number" wire:model="jasmed_tindakan" class="h-11 w-full rounded-xl border border-gray-200 pl-10 pr-4 text-sm font-bold text-emerald-600 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/5 transition-all bg-gray-50/50" readonly>
                                     </div>
                                 </div>
                                 <div>
-                                    <label class="block text-xs font-semibold text-gray-500 mb-1">BHP (Barang Habis Pakai)</label>
+                                    <label class="block text-xs font-semibold text-gray-500 mb-1">BHP (Habis Pakai)</label>
                                     <div class="relative">
                                         <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-xs">Rp</span>
-                                        <input type="number" wire:model="bhp_tindakan" class="h-11 w-full rounded-xl border border-gray-200 pl-10 pr-4 text-sm font-bold text-orange-600 outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-500/5 transition-all bg-gray-50/50">
+                                        <input type="number" wire:model="bhp_tindakan" class="h-11 w-full rounded-xl border border-gray-200 pl-10 pr-4 text-sm font-bold text-orange-600 outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-500/5 transition-all bg-gray-50/50" readonly>
                                     </div>
                                 </div>
                                 <div>
-                                    <label class="block text-xs font-semibold text-gray-500 mb-1">Satuan</label>
-                                    <input type="text" wire:model="satuan_tindakan" class="h-11 w-full rounded-xl border border-gray-200 px-4 text-sm outline-none focus:border-[#405189] focus:ring-4 focus:ring-[#405189]/5 transition-all bg-gray-50/50 text-gray-600" placeholder="Sesi / Tindakan">
+                                    <label class="block text-xs font-semibold text-gray-500 mb-1">Satuan Jasmed</label>
+                                    <input type="text" wire:model="satuan_tindakan" class="h-11 w-full rounded-xl border border-gray-200 px-4 text-sm outline-none focus:border-[#405189] focus:ring-4 focus:ring-[#405189]/5 transition-all bg-gray-50/50 text-gray-600 font-medium" placeholder="Sesi / Tindakan" readonly>
                                 </div>
                             </div>
                         </div>
@@ -1317,6 +1389,7 @@ class TransaksiPage extends Component
                                     :options="$obatListOptions"
                                     placeholder="Cari nama obat..."
                                     searchable="true"
+                                    live="true"
                                 />
                                 @error('kode_obat') <span class="text-[11px] text-red-500 mt-1 italic">{{ $message }}</span> @enderror
                             </div>
@@ -1381,6 +1454,7 @@ class TransaksiPage extends Component
                                     :options="$bmhpListOptions"
                                     placeholder="Cari BMHP..."
                                     searchable="true"
+                                    live="true"
                                 />
                                 @error('kode_bmhp') <span class="text-[11px] text-red-500 mt-1 italic">{{ $message }}</span> @enderror
                             </div>
