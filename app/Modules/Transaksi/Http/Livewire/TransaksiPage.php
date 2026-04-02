@@ -5,7 +5,9 @@ namespace App\Modules\Transaksi\Http\Livewire;
 use Livewire\Component;
 use App\Models\TrxPendaftaran;
 use App\Models\MstPoli;
+use App\Models\MstDiagnosis;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class TransaksiPage extends Component
 {
@@ -47,6 +49,13 @@ class TransaksiPage extends Component
     public $tempQty = 1;
     public $tempBmhp = '';
 
+    // Diagnosis Modal State
+    public $showDiagnosisModal = false;
+    public $kode_diagnosa = '';
+    public $jenis_icd = 'Utama';
+    public $kasus_icd = 'Baru';
+    public $diagnosisListOptions = [];
+
     public function mount()
     {
         $this->selectedDate = now()->format('Y-m-d');
@@ -57,11 +66,19 @@ class TransaksiPage extends Component
         $this->selectedPendaftaranId = $id;
         $this->selectedPendaftaran = TrxPendaftaran::with(['pasien', 'poli', 'dokter', 'asuransi'])->find($id);
         
-        // SOAP (Simulated)
-        $this->subyektif = '';
-        $this->obyektif = '';
-        $this->assessment = '';
-        $this->planning = '';
+        // Load Pemeriksaan (SOAP) from DB
+        $pemeriksaan = DB::table('trx_pemeriksaan')->where('nomor_kunjungan', $this->selectedPendaftaran->nomor_kunjungan)->first();
+        if ($pemeriksaan) {
+            $this->subyektif = $pemeriksaan->subjective ?? '';
+            $this->obyektif = $pemeriksaan->objective ?? '';
+            $this->assessment = $pemeriksaan->assessment ?? '';
+            $this->planning = $pemeriksaan->planning ?? '';
+        } else {
+            $this->subyektif = '';
+            $this->obyektif = '';
+            $this->assessment = '';
+            $this->planning = '';
+        }
         
         // Vitals / Pemeriksaan Awal (From Pendaftaran)
         $this->kesadaran = $this->selectedPendaftaran->kesadaran ?? '';
@@ -74,8 +91,8 @@ class TransaksiPage extends Component
         $this->alergi = $this->selectedPendaftaran->alergi ?? '';
         $this->keterangan_lain = $this->selectedPendaftaran->keterangan_lain ?? '';
         
-        // Load existing data if any (Simulated)
-        $this->diagnoses = [];
+        // Load existing data if any
+        $this->loadDiagnoses();
         $this->tindakans = [];
         $this->reseps = [];
         $this->bmhps = [];
@@ -83,8 +100,88 @@ class TransaksiPage extends Component
         $this->dispatch('patient-selected');
     }
 
+    public function loadDiagnoses()
+    {
+        if (!$this->selectedPendaftaran) return;
+        
+        $diags = DB::table('trx_diagnosis')
+            ->join('mst_diagnosis', 'trx_diagnosis.kode_diagnosa', '=', 'mst_diagnosis.kode_diagnosa')
+            ->where('trx_diagnosis.nomor_kunjungan', $this->selectedPendaftaran->nomor_kunjungan)
+            ->whereNull('trx_diagnosis.deleted_at')
+            ->select('trx_diagnosis.id', 'mst_diagnosis.nama_diagnosa as nama', 'trx_diagnosis.kode_diagnosa as kode', 'trx_diagnosis.jenis_icd', 'trx_diagnosis.kasus_icd')
+            ->orderBy('trx_diagnosis.created_at', 'asc')
+            ->get();
+            
+        $this->diagnoses = json_decode(json_encode($diags), true);
+    }
+
+    public function savePemeriksaan()
+    {
+        if (!$this->selectedPendaftaran) return;
+
+        DB::table('trx_pemeriksaan')->updateOrInsert(
+            ['nomor_kunjungan' => $this->selectedPendaftaran->nomor_kunjungan],
+            [
+                'kode_dokter' => $this->selectedPendaftaran->dokter_id ?? '',
+                'subjective' => $this->subyektif,
+                'objective' => $this->obyektif,
+                'assessment' => $this->assessment,
+                'planning' => $this->planning,
+                'created_by' => auth()->user()->name ?? 'System',
+                'updated_at' => now(),
+            ]
+        );
+
+        $this->dispatch('alert', ['type' => 'success', 'message' => 'Clinical Notes berhasil disimpan.']);
+    }
+
+    public function saveDiagnosis()
+    {
+        $this->validate([
+            'kode_diagnosa' => 'required',
+            'jenis_icd' => 'required',
+            'kasus_icd' => 'required',
+        ], [
+            'kode_diagnosa.required' => 'Pilih diagnosis terlebih dahulu.',
+        ]);
+
+        if (!$this->selectedPendaftaran) return;
+
+        // Check duplicates
+        $exists = DB::table('trx_diagnosis')
+            ->where('nomor_kunjungan', $this->selectedPendaftaran->nomor_kunjungan)
+            ->where('kode_diagnosa', $this->kode_diagnosa)
+            ->whereNull('deleted_at')
+            ->exists();
+
+        if ($exists) {
+            $this->addError('kode_diagnosa', 'Diagnosis ini sudah ditambahkan sebelumnya.');
+            return;
+        }
+
+        DB::table('trx_diagnosis')->insert([
+            'nomor_kunjungan' => $this->selectedPendaftaran->nomor_kunjungan,
+            'kode_diagnosa' => $this->kode_diagnosa,
+            'jenis_icd' => $this->jenis_icd,
+            'kasus_icd' => $this->kasus_icd,
+            'created_by' => auth()->user()->name ?? 'System',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->showDiagnosisModal = false;
+        $this->kode_diagnosa = '';
+        $this->jenis_icd = 'Utama';
+        $this->kasus_icd = 'Baru';
+        
+        $this->loadDiagnoses();
+        $this->dispatch('refresh-table');
+        $this->dispatch('alert', ['type' => 'success', 'message' => 'Diagnosis berhasil ditambahkan.']);
+    }
+
     public function addDiagnosis()
     {
+        // Deprecated, use saveDiagnosis via modal instead
         if ($this->tempDiagnosis) {
             $this->diagnoses[] = ['id' => count($this->diagnoses) + 1, 'nama' => $this->tempDiagnosis, 'kode' => 'ICD-' . rand(100, 999)];
             $this->tempDiagnosis = '';
@@ -118,6 +215,13 @@ class TransaksiPage extends Component
 
     public function removeItem($list, $index)
     {
+        if ($list === 'diagnoses' && isset($this->diagnoses[$index]['id'])) {
+            DB::table('trx_diagnosis')->where('id', $this->diagnoses[$index]['id'])->update(['deleted_at' => now()]);
+            $this->loadDiagnoses();
+            $this->dispatch('refresh-table');
+            return;
+        }
+
         unset($this->{$list}[$index]);
         $this->{$list} = array_values($this->{$list});
     }
@@ -142,6 +246,13 @@ class TransaksiPage extends Component
             ['value' => 'Coma', 'label' => 'Coma', 'icon' => 'ri-close-circle-line text-red-500'],
         ];
 
+        if (empty($this->diagnosisListOptions)) {
+            $this->diagnosisListOptions = MstDiagnosis::select('kode_diagnosa', 'nama_diagnosa')
+                ->get()
+                ->map(fn($d) => ['value' => $d->kode_diagnosa, 'label' => $d->kode_diagnosa . ' - ' . $d->nama_diagnosa, 'icon' => 'ri-microscope-line text-warning'])
+                ->toArray();
+        }
+
         $query = TrxPendaftaran::with(['pasien', 'poli', 'dokter'])
             ->whereDate('created_at', $this->selectedDate)
             ->whereIn('status', ['terdaftar', 'menunggu_screening', 'selesai']);
@@ -163,24 +274,24 @@ class TransaksiPage extends Component
         <div x-data="{ 
             activeTab: 'soap',
             medicalTab: 'diagnosis',
-            dtConfig: {scrollX:false,dom:'lrtip',pageLength:10,language:{lengthMenu:'_MENU_',info:'Menampilkan _START_ - _END_ dari _TOTAL_ data',infoEmpty:'Menampilkan 0 data',infoFiltered:'(disaring dari _MAX_ total)',zeroRecords:'Tidak ada data ditemukan',emptyTable:'Tidak ada data',paginate:{previous:'<i class=ri-arrow-left-s-line></i>',next:'<i class=ri-arrow-right-s-line></i>'}}},
+            searchDiag: '',
+            searchTind: '',
+            searchObat: '',
+            searchBmhp: '',
             initDataTable() { 
                 const t='#patientTable'; 
                 if($.fn.DataTable.isDataTable(t)){$(t).DataTable().destroy()} 
                 $(t).DataTable({scrollX:false,dom:'rtp',pageLength:10,language:{zeroRecords:'Tidak ada pasien',emptyTable:'Belum ada pendaftaran',paginate:{previous:'<i class=ri-arrow-left-s-line></i>',next:'<i class=ri-arrow-right-s-line></i>'}}});
             },
-            initMedicalTable(tableId, searchId) {
-                if($.fn.DataTable.isDataTable(tableId)){$(tableId).DataTable().destroy()}
-                const tbl = $(tableId).DataTable(this.dtConfig);
-                $(searchId).off('keyup').on('keyup', function(){ tbl.search(this.value).draw(); });
-            },
-            initCurrentMedicalTab() {
-                const map = {diagnosis:['#diagnosisTable','#searchDiagnosis'], tindakan:['#tindakanTable','#searchTindakan'], resep:['#resepTable','#searchResep'], bmhp:['#bmhpTable','#searchBmhp']};
-                const cfg = map[this.medicalTab];
-                if(cfg) this.initMedicalTable(cfg[0], cfg[1]);
-            },
-            init(){ $nextTick(()=>this.initDataTable()) }
-        }" @refresh-table.window="$nextTick(()=>{ initDataTable(); initCurrentMedicalTab(); })" x-init="initDataTable()" x-effect="if(medicalTab){ $nextTick(()=>initCurrentMedicalTab()) }">
+            init(){ 
+                $nextTick(()=>{ this.initDataTable(); });
+                if (window.Livewire) {
+                    Livewire.hook('morph.updated', () => {
+                        $nextTick(() => { this.initDataTable(); });
+                    });
+                }
+            }
+        }" @patient-selected.window="$nextTick(()=>{ initDataTable(); })" @refresh-table.window="$nextTick(()=>{ initDataTable(); })" x-init="initDataTable()">
             
             <div class="page-header">
                 <div class="page-header-title">
@@ -419,6 +530,17 @@ class TransaksiPage extends Component
                                                 <textarea wire:model.defer="planning" rows="5" class="w-full rounded-2xl border border-gray-200 text-sm focus:border-[#405189] focus:ring-4 focus:ring-[#405189]/10 transition-all p-5 bg-gray-50/30 font-medium" placeholder="Tuliskan rencana tindakan..."></textarea>
                                             </div>
                                         </div>
+                                        <div class="flex justify-end pt-4 mt-6 border-t border-gray-100">
+                                            <button type="button" wire:click="savePemeriksaan" wire:loading.attr="disabled" class="btn bg-[#0d6efd] text-white px-8 h-10 shadow-md flex items-center justify-center gap-2 transition-all hover:bg-[#0b5ed7] hover:translate-y-[-2px] disabled:opacity-70 disabled:cursor-not-allowed">
+                                                <svg wire:loading wire:target="savePemeriksaan" class="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                </svg>
+                                                <i wire:loading.remove wire:target="savePemeriksaan" class="ri-save-line"></i>
+                                                <span wire:loading.remove wire:target="savePemeriksaan">Simpan Data</span>
+                                                <span wire:loading wire:target="savePemeriksaan">Memproses...</span>
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -458,221 +580,327 @@ class TransaksiPage extends Component
                                 </div>
                                 <div class="card-body p-0">
                                     <!-- TAB: Diagnosis -->
-                                    <div x-show="medicalTab === 'diagnosis'" x-cloak>
-                                        <div class="p-4 border-b border-[#eff2f7]">
-                                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                                                <h6 class="text-sm font-black text-[#405189] uppercase tracking-widest mb-0 flex items-center gap-2">
-                                                    <i class="ri-microscope-line text-orange-500"></i> Diagnosis Pasien
-                                                </h6>
+                                    <div x-show="medicalTab === 'diagnosis'" x-cloak class="p-4" x-transition>
+                                        <div class="mb-5">
+                                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                                <div class="flex items-center gap-3">
+                                                    <div class="p-2 bg-orange-50 rounded-lg">
+                                                        <i class="ri-microscope-line text-orange-500 text-xl"></i>
+                                                    </div>
+                                                    <div>
+                                                        <h6 class="text-base font-bold text-[#405189] mb-0">Diagnosis Pasien</h6>
+                                                        <p class="text-[11px] text-gray-500 mb-0">Kelola daftar ICD-10 untuk kunjungan ini</p>
+                                                    </div>
+                                                </div>
                                                 <div class="flex flex-wrap items-center gap-3">
                                                     <div class="relative flex-grow sm:flex-none">
-                                                        <input type="text" id="searchDiagnosis" wire:model.defer="tempDiagnosis" wire:keydown.enter="addDiagnosis" class="h-10 w-full sm:w-64 rounded-lg border border-[#e9ecef] pl-10 pr-4 text-sm outline-none focus:border-[#405189] focus:bg-white transition-all placeholder:text-[#adb5bd]" placeholder="Cari kode ICD-10...">
-                                                        <i class="ri-search-line absolute left-3.5 top-1/2 -translate-y-1/2 text-[#878a99] text-base"></i>
+                                                        <input type="text" x-model="searchDiag" class="h-10 w-full sm:w-64 rounded-xl border border-gray-200 pl-10 pr-4 text-sm outline-none focus:border-[#405189] focus:ring-4 focus:ring-[#405189]/5 transition-all placeholder:text-gray-400 bg-gray-50/50" placeholder="Cari diagnosis...">
+                                                        <i class="ri-search-line absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-base"></i>
                                                     </div>
-                                                    <button wire:click="addDiagnosis" class="btn btn-primary h-10 px-5 shadow-sm flex items-center justify-center gap-2 transition-all hover:translate-y-[-2px] hover:shadow-lg active:scale-95 w-full sm:w-auto">
+                                                    <button @click="$wire.set('showDiagnosisModal', true)" class="btn btn-primary text-white h-10 px-5 rounded-xl shadow-md flex items-center justify-center gap-2 transition-all hover:translate-y-[-2px] hover:shadow-lg active:scale-95 w-full sm:w-auto border-0">
                                                         <i class="ri-add-line text-lg"></i>
                                                         <span class="font-semibold text-xs uppercase tracking-wider">Tambah</span>
                                                     </button>
                                                 </div>
                                             </div>
                                         </div>
-                                        <div class="table-responsive">
-                                            <table id="diagnosisTable" class="table align-middle table-nowrap w-full">
-                                                <thead class="table-light text-muted">
-                                                    <tr>
-                                                        <th class="!text-center" style="width:50px">#</th>
-                                                        <th>Diagnosis / ICD-10</th>
-                                                        <th class="!text-center" style="width:60px">Aksi</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    @forelse($diagnoses as $idx => $diag)
-                                                        <tr>
-                                                            <td class="text-center"><span class="text-[#878a99] font-semibold">{{ $idx + 1 }}</span></td>
-                                                            <td>
-                                                                <div class="flex items-center gap-2">
-                                                                    <span class="font-semibold text-[#495057]">{{ $diag['nama'] }}</span>
-                                                                    <span class="badge bg-warning-subtle text-warning">{{ $diag['kode'] }}</span>
-                                                                </div>
-                                                            </td>
-                                                            <td class="text-center">
-                                                                <button wire:click="removeItem('diagnoses', {{ $idx }})" class="flex h-7 w-7 items-center justify-center rounded bg-[#f06548]/10 text-[#f06548] hover:bg-[#f06548] hover:text-white transition-all" title="Hapus"><i class="ri-delete-bin-line"></i></button>
-                                                            </td>
-                                                        </tr>
-                                                    @empty
-                                                        <tr>
-                                                            <td colspan="3" class="text-center py-8">
-                                                                <div class="opacity-40">
-                                                                    <i class="ri-microscope-line text-3xl block mb-2"></i>
-                                                                    <p class="text-xs font-bold mb-0">Belum ada diagnosis terpilih</p>
-                                                                </div>
-                                                            </td>
-                                                        </tr>
-                                                    @endforelse
-                                                </tbody>
-                                            </table>
+
+                                        <!-- Premium Card Table Replacement -->
+                                        <div class="space-y-3 min-h-[200px]" wire:loading.class="opacity-50">
+                                            @forelse($diagnoses as $idx => $diag)
+                                                <div wire:key="diag-card-{{ $diag['id'] ?? $idx }}"
+                                                     x-show="searchDiag === '' || '{{ strtolower($diag['nama']) }} {{ strtolower($diag['kode']) }}'.includes(searchDiag.toLowerCase())" 
+                                                     class="group relative flex items-center gap-4 p-4 rounded-2xl bg-white border border-gray-100 shadow-sm hover:shadow-md hover:border-[#405189]/20 hover:bg-[#405189]/[0.02] transition-all duration-300">
+                                                    
+                                                    <!-- Index / Number -->
+                                                    <div class="flex-none w-10 h-10 flex items-center justify-center rounded-xl bg-gray-50 text-gray-400 font-bold text-xs group-hover:bg-[#405189] group-hover:text-white transition-all">
+                                                        {{ $idx + 1 }}
+                                                    </div>
+
+                                                    <!-- Diagnosis Data -->
+                                                    <div class="flex-grow">
+                                                        <div class="flex flex-wrap items-center gap-2 mb-1">
+                                                            <span class="text-sm font-bold text-[#2d3748] tracking-tight group-hover:text-[#405189] transition-colors line-clamp-1">{{ $diag['nama'] }}</span>
+                                                            <span class="inline-flex items-center px-1.5 py-0.5 rounded-md bg-orange-100 text-orange-700 text-[10px] font-bold tracking-wider uppercase">{{ $diag['kode'] }}</span>
+                                                        </div>
+                                                        <div class="flex items-center gap-3">
+                                                            <div class="flex items-center gap-1.5">
+                                                                <div class="w-1.5 h-1.5 rounded-full {{ ($diag['jenis_icd'] ?? '') === 'Utama' ? 'bg-indigo-500' : 'bg-gray-300' }}"></div>
+                                                                <span class="text-[11px] font-medium text-gray-500 uppercase tracking-widest">{{ $diag['jenis_icd'] ?? 'Sekunder' }}</span>
+                                                            </div>
+                                                            <div class="w-1 h-1 rounded-full bg-gray-200"></div>
+                                                            <div class="flex items-center gap-1.5">
+                                                                <span class="text-[11px] font-medium text-gray-500">Kasus:</span>
+                                                                <span class="px-2 py-0.5 rounded-full {{ ($diag['kasus_icd'] ?? '') === 'Baru' ? 'bg-emerald-50 text-emerald-600' : 'bg-purple-50 text-purple-600' }} text-[9px] font-bold uppercase tracking-wider">{{ $diag['kasus_icd'] ?? '-' }}</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    <!-- Actions -->
+                                                    <div class="flex-none flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all transform translate-x-2 group-hover:translate-x-0">
+                                                        <button @click="
+                                                            Swal.fire({
+                                                                title: 'Konfirmasi Hapus',
+                                                                text: 'Apakah Anda yakin ingin menghapus diagnosis ini?',
+                                                                icon: 'warning',
+                                                                showCancelButton: true,
+                                                                confirmButtonColor: '#f06548',
+                                                                cancelButtonColor: '#6c757d',
+                                                                confirmButtonText: 'Ya, Hapus!',
+                                                                cancelButtonText: 'Batal',
+                                                                reverseButtons: true
+                                                                }).then((result) => {
+                                                                    if (result.isConfirmed) {
+                                                                        $wire.removeItem('diagnoses', {{ $idx }})
+                                                                    }
+                                                                })
+                                                            " class="flex h-9 w-9 items-center justify-center rounded-xl bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition-all shadow-sm" title="Hapus">
+                                                            <i class="ri-delete-bin-line text-lg"></i>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            @empty
+                                                <div wire:key="empty-diag-{{ $selectedPendaftaran->id ?? 'none' }}" class="flex flex-col items-center justify-center py-16 px-4 bg-gray-50/50 rounded-3xl border-2 border-dashed border-gray-200">
+                                                    <div class="w-16 h-16 bg-white rounded-2xl shadow-sm flex items-center justify-center mb-4">
+                                                        <i class="ri-microscope-line text-3xl text-gray-300"></i>
+                                                    </div>
+                                                    <h3 class="text-sm font-bold text-gray-500 mb-1">Belum Ada Diagnosis</h3>
+                                                    <p class="text-xs text-gray-400 text-center max-w-[200px]">Silakan klik tombol "Tambah Diagnosis" untuk mulai menginput data.</p>
+                                                </div>
+                                            @endforelse
                                         </div>
                                     </div>
 
                                     <!-- TAB: Tindakan Medis -->
-                                    <div x-show="medicalTab === 'tindakan'" x-cloak>
-                                        <div class="p-4 border-b border-[#eff2f7]">
-                                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                                                <h6 class="text-sm font-black text-[#405189] uppercase tracking-widest mb-0 flex items-center gap-2">
-                                                    <i class="ri-hand-heart-line text-blue-500"></i> Tindakan Medis
-                                                </h6>
+                                    <div x-show="medicalTab === 'tindakan'" x-cloak class="p-4" x-transition>
+                                        <div class="mb-5">
+                                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                                <div class="flex items-center gap-3">
+                                                    <div class="p-2 bg-blue-50 rounded-lg">
+                                                        <i class="ri-hand-heart-line text-blue-500 text-xl"></i>
+                                                    </div>
+                                                    <div>
+                                                        <h6 class="text-base font-bold text-[#405189] mb-0">Tindakan Medis</h6>
+                                                        <p class="text-[11px] text-gray-500 mb-0">Layanan dan tindakan yang diberikan kepada pasien</p>
+                                                    </div>
+                                                </div>
                                                 <div class="flex flex-wrap items-center gap-3">
                                                     <div class="relative flex-grow sm:flex-none">
-                                                        <input type="text" id="searchTindakan" wire:model.defer="tempTindakan" wire:keydown.enter="addTindakan" class="h-10 w-full sm:w-64 rounded-lg border border-[#e9ecef] pl-10 pr-4 text-sm outline-none focus:border-[#405189] focus:bg-white transition-all placeholder:text-[#adb5bd]" placeholder="Cari tindakan / layanan...">
-                                                        <i class="ri-search-line absolute left-3.5 top-1/2 -translate-y-1/2 text-[#878a99] text-base"></i>
+                                                        <input type="text" x-model="searchTind" class="h-10 w-full sm:w-64 rounded-xl border border-gray-200 pl-10 pr-4 text-sm outline-none focus:border-[#405189] focus:ring-4 focus:ring-[#405189]/5 transition-all placeholder:text-gray-400 bg-gray-50/50" placeholder="Cari tindakan / layanan...">
+                                                        <i class="ri-search-line absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-base"></i>
                                                     </div>
-                                                    <button wire:click="addTindakan" class="btn btn-primary h-10 px-5 shadow-sm flex items-center justify-center gap-2 transition-all hover:translate-y-[-2px] hover:shadow-lg active:scale-95 w-full sm:w-auto">
+                                                    <button wire:click="addTindakan" class="btn btn-primary text-white h-10 px-5 rounded-xl shadow-md flex items-center justify-center gap-2 transition-all hover:translate-y-[-2px] hover:shadow-lg active:scale-95 w-full sm:w-auto border-0">
                                                         <i class="ri-add-line text-lg"></i>
                                                         <span class="font-semibold text-xs uppercase tracking-wider">Tambah</span>
                                                     </button>
                                                 </div>
                                             </div>
                                         </div>
-                                        <div class="table-responsive">
-                                            <table id="tindakanTable" class="table align-middle table-nowrap w-full">
-                                                <thead class="table-light text-muted">
-                                                    <tr>
-                                                        <th class="!text-center" style="width:50px">#</th>
-                                                        <th>Nama Tindakan</th>
-                                                        <th class="!text-right">Biaya</th>
-                                                        <th class="!text-center" style="width:60px">Aksi</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    @forelse($tindakans as $idx => $tdk)
-                                                        <tr>
-                                                            <td class="text-center"><span class="text-[#878a99] font-semibold">{{ $idx + 1 }}</span></td>
-                                                            <td><span class="font-semibold text-[#495057]">{{ $tdk['nama'] }}</span></td>
-                                                            <td class="text-right"><span class="font-bold text-[#405189]">Rp {{ number_format($tdk['biaya'], 0, ',', '.') }}</span></td>
-                                                            <td class="text-center">
-                                                                <button wire:click="removeItem('tindakans', {{ $idx }})" class="flex h-7 w-7 items-center justify-center rounded bg-[#f06548]/10 text-[#f06548] hover:bg-[#f06548] hover:text-white transition-all" title="Hapus"><i class="ri-delete-bin-line"></i></button>
-                                                            </td>
-                                                        </tr>
-                                                    @empty
-                                                        <tr>
-                                                            <td colspan="4" class="text-center py-8">
-                                                                <div class="opacity-40">
-                                                                    <i class="ri-hand-heart-line text-3xl block mb-2"></i>
-                                                                    <p class="text-xs font-bold mb-0">Belum ada tindakan medis</p>
-                                                                </div>
-                                                            </td>
-                                                        </tr>
-                                                    @endforelse
-                                                </tbody>
-                                            </table>
+
+                                        <div class="space-y-3 min-h-[200px]" wire:loading.class="opacity-50">
+                                            @forelse($tindakans as $idx => $tdk)
+                                                <div wire:key="tindakan-card-{{ $tdk['id'] ?? $idx }}"
+                                                     x-show="searchTind === '' || '{{ strtolower($tdk['nama'] ?? '') }}'.includes(searchTind.toLowerCase())" 
+                                                     class="group relative flex items-center gap-4 p-4 rounded-2xl bg-white border border-gray-100 shadow-sm hover:shadow-md hover:border-[#405189]/20 hover:bg-[#405189]/[0.02] transition-all duration-300">
+                                                    
+                                                    <div class="flex-none w-10 h-10 flex items-center justify-center rounded-xl bg-gray-50 text-gray-400 font-bold text-xs group-hover:bg-[#405189] group-hover:text-white transition-all">
+                                                        {{ $idx + 1 }}
+                                                    </div>
+
+                                                    <div class="flex-grow">
+                                                        <span class="text-sm font-bold text-[#2d3748] tracking-tight group-hover:text-[#405189] transition-colors block mb-1">{{ $tdk['nama'] }}</span>
+                                                        <div class="flex items-center gap-2">
+                                                            <span class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Biaya Tindakan:</span>
+                                                            <span class="text-xs font-black text-[#405189]">Rp {{ number_format($tdk['biaya'], 0, ',', '.') }}</span>
+                                                        </div>
+                                                    </div>
+
+                                                    <div class="flex-none flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all transform translate-x-2 group-hover:translate-x-0">
+                                                        <button @click="
+                                                            Swal.fire({
+                                                                title: 'Konfirmasi Hapus',
+                                                                text: 'Apakah Anda yakin ingin menghapus tindakan ini?',
+                                                                icon: 'warning',
+                                                                showCancelButton: true,
+                                                                confirmButtonColor: '#f06548',
+                                                                cancelButtonColor: '#6c757d',
+                                                                confirmButtonText: 'Ya, Hapus!',
+                                                                cancelButtonText: 'Batal',
+                                                                reverseButtons: true
+                                                                }).then((result) => {
+                                                                    if (result.isConfirmed) {
+                                                                        $wire.removeItem('tindakans', {{ $idx }})
+                                                                    }
+                                                                })
+                                                            " class="flex h-9 w-9 items-center justify-center rounded-xl bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition-all shadow-sm" title="Hapus">
+                                                            <i class="ri-delete-bin-line text-lg"></i>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            @empty
+                                                <div wire:key="empty-tindakan-{{ $selectedPendaftaran->id ?? 'none' }}" class="flex flex-col items-center justify-center py-16 px-4 bg-gray-50/50 rounded-3xl border-2 border-dashed border-gray-200">
+                                                    <div class="w-16 h-16 bg-white rounded-2xl shadow-sm flex items-center justify-center mb-4">
+                                                        <i class="ri-hand-heart-line text-3xl text-gray-300"></i>
+                                                    </div>
+                                                    <h3 class="text-sm font-bold text-gray-500 mb-1">Belum Ada Tindakan</h3>
+                                                    <p class="text-xs text-gray-400 text-center max-w-[200px]">Silakan masukkan nama tindakan pada kolom pencarian di atas lalu tekan Enter atau klik tombol Tambah.</p>
+                                                </div>
+                                            @endforelse
                                         </div>
                                     </div>
 
                                     <!-- TAB: Peresepan Obat -->
-                                    <div x-show="medicalTab === 'resep'" x-cloak>
-                                        <div class="p-4 border-b border-[#eff2f7]">
-                                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                                                <h6 class="text-sm font-black text-[#405189] uppercase tracking-widest mb-0 flex items-center gap-2">
-                                                    <i class="ri-capsule-line text-emerald-500"></i> Peresepan Obat
-                                                </h6>
+                                    <div x-show="medicalTab === 'resep'" x-cloak class="p-4" x-transition>
+                                        <div class="mb-5">
+                                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                                <div class="flex items-center gap-3">
+                                                    <div class="p-2 bg-emerald-50 rounded-lg">
+                                                        <i class="ri-capsule-line text-emerald-500 text-xl"></i>
+                                                    </div>
+                                                    <div>
+                                                        <h6 class="text-base font-bold text-[#405189] mb-0">Peresepan Obat</h6>
+                                                        <p class="text-[11px] text-gray-500 mb-0">Input daftar resep obat untuk pasien</p>
+                                                    </div>
+                                                </div>
                                                 <div class="flex flex-wrap items-center gap-3">
                                                     <div class="relative flex-grow sm:flex-none">
-                                                        <input type="text" id="searchResep" wire:model.defer="tempObat" class="h-10 w-full sm:w-52 rounded-lg border border-[#e9ecef] pl-10 pr-4 text-sm outline-none focus:border-[#405189] focus:bg-white transition-all placeholder:text-[#adb5bd]" placeholder="Cari nama obat...">
-                                                        <i class="ri-search-line absolute left-3.5 top-1/2 -translate-y-1/2 text-[#878a99] text-base"></i>
+                                                        <input type="text" x-model="searchObat" class="h-10 w-full sm:w-64 rounded-xl border border-gray-200 pl-10 pr-4 text-sm outline-none focus:border-[#405189] focus:ring-4 focus:ring-[#405189]/5 transition-all placeholder:text-gray-400 bg-gray-50/50" placeholder="Cari resep obat...">
+                                                        <i class="ri-search-line absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-base"></i>
                                                     </div>
-                                                    <button wire:click="addResep" class="btn btn-primary h-10 px-5 shadow-sm flex items-center justify-center gap-2 transition-all hover:translate-y-[-2px] hover:shadow-lg active:scale-95 w-full sm:w-auto">
+                                                    <button wire:click="addResep" class="btn btn-primary text-white h-10 px-5 rounded-xl shadow-md flex items-center justify-center gap-2 transition-all hover:translate-y-[-2px] hover:shadow-lg active:scale-95 w-full sm:w-auto border-0">
                                                         <i class="ri-add-line text-lg"></i>
                                                         <span class="font-semibold text-xs uppercase tracking-wider">Tambah</span>
                                                     </button>
                                                 </div>
                                             </div>
                                         </div>
-                                        <div class="table-responsive">
-                                            <table id="resepTable" class="table align-middle table-nowrap w-full">
-                                                <thead class="table-light text-muted">
-                                                    <tr>
-                                                        <th class="!text-center" style="width:50px">#</th>
-                                                        <th>Nama Obat</th>
-                                                        <th class="!text-center" style="width:60px">Qty</th>
-                                                        <th>Aturan Pakai</th>
-                                                        <th class="!text-center" style="width:60px">Aksi</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    @forelse($reseps as $idx => $rsp)
-                                                        <tr>
-                                                            <td class="text-center"><span class="text-[#878a99] font-semibold">{{ $idx + 1 }}</span></td>
-                                                            <td><span class="font-semibold text-[#495057]">{{ $rsp['nama'] }}</span></td>
-                                                            <td class="text-center"><span class="badge bg-success-subtle text-success">{{ $rsp['qty'] }}</span></td>
-                                                            <td><span class="text-[#878a99] font-medium">{{ $rsp['signa'] }}</span></td>
-                                                            <td class="text-center">
-                                                                <button wire:click="removeItem('reseps', {{ $idx }})" class="flex h-7 w-7 items-center justify-center rounded bg-[#f06548]/10 text-[#f06548] hover:bg-[#f06548] hover:text-white transition-all" title="Hapus"><i class="ri-delete-bin-line"></i></button>
-                                                            </td>
-                                                        </tr>
-                                                    @empty
-                                                        <tr>
-                                                            <td colspan="5" class="text-center py-8">
-                                                                <div class="opacity-40">
-                                                                    <i class="ri-capsule-line text-3xl block mb-2"></i>
-                                                                    <p class="text-xs font-bold mb-0">Belum ada resep obat</p>
-                                                                </div>
-                                                            </td>
-                                                        </tr>
-                                                    @endforelse
-                                                </tbody>
-                                            </table>
+
+                                        <div class="space-y-3 min-h-[200px]" wire:loading.class="opacity-50">
+                                            @forelse($reseps as $idx => $rsp)
+                                                <div wire:key="resep-card-{{ $rsp['id'] ?? $idx }}"
+                                                     x-show="searchObat === '' || '{{ strtolower($rsp['nama'] ?? '') }}'.includes(searchObat.toLowerCase())" 
+                                                     class="group relative flex items-center gap-4 p-4 rounded-2xl bg-white border border-gray-100 shadow-sm hover:shadow-md hover:border-[#405189]/20 hover:bg-[#405189]/[0.02] transition-all duration-300">
+                                                    
+                                                    <div class="flex-none w-10 h-10 flex items-center justify-center rounded-xl bg-gray-50 text-gray-400 font-bold text-xs group-hover:bg-[#405189] group-hover:text-white transition-all">
+                                                        {{ $idx + 1 }}
+                                                    </div>
+
+                                                    <div class="flex-grow">
+                                                        <div class="flex items-center gap-3 mb-1">
+                                                            <span class="text-sm font-bold text-[#2d3748] tracking-tight group-hover:text-[#405189] transition-colors">{{ $rsp['nama'] }}</span>
+                                                            <span class="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-600 text-[10px] font-black border border-emerald-100 italic">{{ $rsp['qty'] }} Unit</span>
+                                                        </div>
+                                                        <div class="flex items-center gap-2">
+                                                            <i class="ri-information-line text-gray-400 text-xs"></i>
+                                                            <span class="text-[11px] font-medium text-gray-500 uppercase tracking-wider">{{ $rsp['signa'] }}</span>
+                                                        </div>
+                                                    </div>
+
+                                                    <div class="flex-none flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all transform translate-x-2 group-hover:translate-x-0">
+                                                        <button @click="
+                                                            Swal.fire({
+                                                                title: 'Konfirmasi Hapus',
+                                                                text: 'Apakah Anda yakin ingin menghapus resep ini?',
+                                                                icon: 'warning',
+                                                                showCancelButton: true,
+                                                                confirmButtonColor: '#f06548',
+                                                                cancelButtonColor: '#6c757d',
+                                                                confirmButtonText: 'Ya, Hapus!',
+                                                                cancelButtonText: 'Batal',
+                                                                reverseButtons: true
+                                                                }).then((result) => {
+                                                                    if (result.isConfirmed) {
+                                                                        $wire.removeItem('reseps', {{ $idx }})
+                                                                    }
+                                                                })
+                                                            " class="flex h-9 w-9 items-center justify-center rounded-xl bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition-all shadow-sm" title="Hapus">
+                                                            <i class="ri-delete-bin-line text-lg"></i>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            @empty
+                                                <div wire:key="empty-resep-{{ $selectedPendaftaran->id ?? 'none' }}" class="flex flex-col items-center justify-center py-16 px-4 bg-gray-50/50 rounded-3xl border-2 border-dashed border-gray-200">
+                                                    <div class="w-16 h-16 bg-white rounded-2xl shadow-sm flex items-center justify-center mb-4">
+                                                        <i class="ri-capsule-line text-3xl text-gray-300"></i>
+                                                    </div>
+                                                    <h3 class="text-sm font-bold text-gray-500 mb-1">Belum Ada Resep</h3>
+                                                    <p class="text-xs text-gray-400 text-center max-w-[200px]">Silakan masukkan data resep obat pada isian di atas.</p>
+                                                </div>
+                                            @endforelse
                                         </div>
                                     </div>
 
                                     <!-- TAB: BMHP -->
-                                    <div x-show="medicalTab === 'bmhp'" x-cloak>
-                                        <div class="p-4 border-b border-[#eff2f7]">
-                                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                                                <h6 class="text-sm font-black text-[#405189] uppercase tracking-widest mb-0 flex items-center gap-2">
-                                                    <i class="ri-flask-line text-purple-500"></i> Bahan Medis (BMHP)
-                                                </h6>
+                                    <div x-show="medicalTab === 'bmhp'" x-cloak class="p-4" x-transition>
+                                        <div class="mb-5">
+                                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                                <div class="flex items-center gap-3">
+                                                    <div class="p-2 bg-purple-50 rounded-lg">
+                                                        <i class="ri-flask-line text-purple-500 text-xl"></i>
+                                                    </div>
+                                                    <div>
+                                                        <h6 class="text-base font-bold text-[#405189] mb-0">Bahan Medis (BMHP)</h6>
+                                                        <p class="text-[11px] text-gray-500 mb-0">Daftar penggunaan BMHP / Alkes</p>
+                                                    </div>
+                                                </div>
                                                 <div class="flex flex-wrap items-center gap-3">
                                                     <div class="relative flex-grow sm:flex-none">
-                                                        <input type="text" id="searchBmhp" wire:model.defer="tempBmhp" wire:keydown.enter="addBmhp" class="h-10 w-full sm:w-64 rounded-lg border border-[#e9ecef] pl-10 pr-4 text-sm outline-none focus:border-[#405189] focus:bg-white transition-all placeholder:text-[#adb5bd]" placeholder="Cari BMHP / alkes...">
-                                                        <i class="ri-search-line absolute left-3.5 top-1/2 -translate-y-1/2 text-[#878a99] text-base"></i>
+                                                        <input type="text" x-model="searchBmhp" class="h-10 w-full sm:w-64 rounded-xl border border-gray-200 pl-10 pr-4 text-sm outline-none focus:border-[#405189] focus:ring-4 focus:ring-[#405189]/5 transition-all placeholder:text-gray-400 bg-gray-50/50" placeholder="Cari BMHP / alkes...">
+                                                        <i class="ri-search-line absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-base"></i>
                                                     </div>
-                                                    <button wire:click="addBmhp" class="btn btn-primary h-10 px-5 shadow-sm flex items-center justify-center gap-2 transition-all hover:translate-y-[-2px] hover:shadow-lg active:scale-95 w-full sm:w-auto">
+                                                    <button wire:click="addBmhp" class="btn btn-primary text-white h-10 px-5 rounded-xl shadow-md flex items-center justify-center gap-2 transition-all hover:translate-y-[-2px] hover:shadow-lg active:scale-95 w-full sm:w-auto border-0">
                                                         <i class="ri-add-line text-lg"></i>
                                                         <span class="font-semibold text-xs uppercase tracking-wider">Tambah</span>
                                                     </button>
                                                 </div>
                                             </div>
                                         </div>
-                                        <div class="table-responsive">
-                                            <table id="bmhpTable" class="table align-middle table-nowrap w-full">
-                                                <thead class="table-light text-muted">
-                                                    <tr>
-                                                        <th class="!text-center" style="width:50px">#</th>
-                                                        <th>Bahan Medis (BMHP)</th>
-                                                        <th class="!text-center" style="width:60px">Aksi</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    @forelse($bmhps as $idx => $bm)
-                                                        <tr>
-                                                            <td class="text-center"><span class="text-[#878a99] font-semibold">{{ $idx + 1 }}</span></td>
-                                                            <td><span class="font-semibold text-[#495057]">{{ $bm['nama'] }}</span></td>
-                                                            <td class="text-center">
-                                                                <button wire:click="removeItem('bmhps', {{ $idx }})" class="flex h-7 w-7 items-center justify-center rounded bg-[#f06548]/10 text-[#f06548] hover:bg-[#f06548] hover:text-white transition-all" title="Hapus"><i class="ri-delete-bin-line"></i></button>
-                                                            </td>
-                                                        </tr>
-                                                    @empty
-                                                        <tr>
-                                                            <td colspan="3" class="text-center py-8">
-                                                                <div class="opacity-40">
-                                                                    <i class="ri-flask-line text-3xl block mb-2"></i>
-                                                                    <p class="text-xs font-bold mb-0">Belum ada BMHP terpilih</p>
-                                                                </div>
-                                                            </td>
-                                                        </tr>
-                                                    @endforelse
-                                                </tbody>
-                                            </table>
+
+                                        <div class="space-y-3 min-h-[200px]" wire:loading.class="opacity-50">
+                                            @forelse($bmhps as $idx => $bm)
+                                                <div wire:key="bmhp-card-{{ $bm['id'] ?? $idx }}"
+                                                     x-show="searchBmhp === '' || '{{ strtolower($bm['nama'] ?? '') }}'.includes(searchBmhp.toLowerCase())" 
+                                                     class="group relative flex items-center gap-4 p-4 rounded-2xl bg-white border border-gray-100 shadow-sm hover:shadow-md hover:border-[#405189]/20 hover:bg-[#405189]/[0.02] transition-all duration-300">
+                                                    
+                                                    <div class="flex-none w-10 h-10 flex items-center justify-center rounded-xl bg-gray-50 text-gray-400 font-bold text-xs group-hover:bg-[#405189] group-hover:text-white transition-all">
+                                                        {{ $idx + 1 }}
+                                                    </div>
+
+                                                    <div class="flex-grow text-sm font-bold text-[#2d3748] tracking-tight group-hover:text-[#405189] transition-colors">
+                                                        {{ $bm['nama'] }}
+                                                    </div>
+
+                                                    <div class="flex-none flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all transform translate-x-2 group-hover:translate-x-0">
+                                                        <button @click="
+                                                            Swal.fire({
+                                                                title: 'Konfirmasi Hapus',
+                                                                text: 'Apakah Anda yakin ingin menghapus BMHP ini?',
+                                                                icon: 'warning',
+                                                                showCancelButton: true,
+                                                                confirmButtonColor: '#f06548',
+                                                                cancelButtonColor: '#6c757d',
+                                                                confirmButtonText: 'Ya, Hapus!',
+                                                                cancelButtonText: 'Batal',
+                                                                reverseButtons: true
+                                                                }).then((result) => {
+                                                                    if (result.isConfirmed) {
+                                                                        $wire.removeItem('bmhps', {{ $idx }})
+                                                                    }
+                                                                })
+                                                            " class="flex h-9 w-9 items-center justify-center rounded-xl bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition-all shadow-sm" title="Hapus">
+                                                            <i class="ri-delete-bin-line text-lg"></i>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            @empty
+                                                <div wire:key="empty-bmhp-{{ $selectedPendaftaran->id ?? 'none' }}" class="flex flex-col items-center justify-center py-16 px-4 bg-gray-50/50 rounded-3xl border-2 border-dashed border-gray-200">
+                                                    <div class="w-16 h-16 bg-white rounded-2xl shadow-sm flex items-center justify-center mb-4">
+                                                        <i class="ri-flask-line text-3xl text-gray-300"></i>
+                                                    </div>
+                                                    <h3 class="text-sm font-bold text-gray-500 mb-1">Belum Ada BMHP</h3>
+                                                    <p class="text-xs text-gray-400 text-center max-w-[200px]">Silakan masukkan data BMHP pada isian di atas.</p>
+                                                </div>
+                                            @endforelse
                                         </div>
                                     </div>
                                 </div>
@@ -689,10 +917,109 @@ class TransaksiPage extends Component
                 </div>
             </div>
             
+            <!-- Integration Modal: Tambah Diagnosis -->
+            <div x-show="$wire.showDiagnosisModal" 
+                 class="fixed inset-0 z-[1050] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+                 x-transition.opacity
+                 style="display: none;">
+                <div x-show="$wire.showDiagnosisModal"
+                     @click.away="$wire.set('showDiagnosisModal', false)"
+                     x-transition.scale.95
+                     class="w-full max-w-2xl bg-white rounded-3xl shadow-2xl overflow-visible">
+                    
+                    <!-- Modal Header -->
+                    <div class="px-6 py-4 rounded-t-3xl flex items-center justify-between border-b border-gray-100 bg-[#f3f6f9]/50">
+                        <h5 class="text-lg font-bold text-[#495057] flex items-center gap-2">
+                            <i class="ri-microscope-line text-orange-500"></i> Tambah Diagnosis Pasien
+                        </h5>
+                        <button @click="$wire.set('showDiagnosisModal', false)" class="text-gray-400 hover:text-gray-600">
+                            <i class="ri-close-line text-2xl"></i>
+                        </button>
+                    </div>
+
+                    <!-- Modal Body -->
+                    <div class="px-8 py-6 max-h-[75vh] overflow-visible">
+                        <div class="grid grid-cols-1 gap-6">
+                            
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-500 mb-1">Diagnosis / ICD-10 <span class="text-red-500">*</span></label>
+                                <x-custom-dropdown 
+                                    model="kode_diagnosa" 
+                                    :options="$diagnosisListOptions"
+                                    placeholder="Pilih Diagnosis (ICD-10)"
+                                    searchable="true"
+                                />
+                                @error('kode_diagnosa') <span class="text-[11px] text-red-500 mt-1 italic">{{ $message }}</span> @enderror
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs font-semibold text-gray-500 mb-1">Jenis ICD <span class="text-red-500">*</span></label>
+                                    <x-custom-dropdown 
+                                        model="jenis_icd" 
+                                        :options="[
+                                            ['value' => 'Utama', 'label' => 'Utama / Primary', 'icon' => 'ri-star-fill text-yellow-500'],
+                                            ['value' => 'Sekunder', 'label' => 'Sekunder / Secondary', 'icon' => 'ri-star-line text-gray-400']
+                                        ]"
+                                        placeholder="Pilih Jenis"
+                                    />
+                                    @error('jenis_icd') <span class="text-[11px] text-red-500 mt-1 italic">{{ $message }}</span> @enderror
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-gray-500 mb-1">Kasus <span class="text-red-500">*</span></label>
+                                    <x-custom-dropdown 
+                                        model="kasus_icd" 
+                                        :options="[
+                                            ['value' => 'Baru', 'label' => 'Kasus Baru', 'icon' => 'ri-file-add-line text-blue-500'],
+                                            ['value' => 'Lama', 'label' => 'Kasus Lama', 'icon' => 'ri-history-line text-purple-500']
+                                        ]"
+                                        placeholder="Kasus Baru/Lama"
+                                    />
+                                    @error('kasus_icd') <span class="text-[11px] text-red-500 mt-1 italic">{{ $message }}</span> @enderror
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Modal Footer -->
+                    <div class="px-8 py-5 rounded-b-3xl bg-gray-50/80 flex justify-end gap-3 border-t border-gray-100">
+                        <button type="button" @click="$wire.set('showDiagnosisModal', false)" class="btn bg-orange-500 text-white px-6 h-10 flex items-center gap-2 transition-all hover:bg-orange-600">
+                            <i class="ri-arrow-go-back-line"></i>
+                            Batal
+                        </button>
+                        <button type="button" wire:click="saveDiagnosis" wire:loading.attr="disabled" class="btn bg-[#0d6efd] text-white px-8 h-10 shadow-md flex items-center justify-center gap-2 transition-all hover:bg-[#0b5ed7] hover:translate-y-[-2px] disabled:opacity-70 disabled:cursor-not-allowed">
+                            <svg wire:loading wire:target="saveDiagnosis" class="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <i wire:loading.remove wire:target="saveDiagnosis" class="ri-save-line"></i>
+                            <span wire:loading.remove wire:target="saveDiagnosis">Simpan Diagnosis</span>
+                            <span wire:loading wire:target="saveDiagnosis">Memproses...</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
             <style>
                 .scrollbar-hide::-webkit-scrollbar { display: none; }
                 .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
                 [x-cloak] { display: none !important; }
+
+                /* Premium Card Table Overrides */
+                .line-clamp-1 {
+                    display: -webkit-box;
+                    -webkit-line-clamp: 1;
+                    -webkit-box-orient: vertical;
+                    overflow: hidden;
+                }
+                .premium-shadow {
+                    box-shadow: 0 4px 20px -5px rgba(0,0,0,0.05), 0 2px 10px -5px rgba(0,0,0,0.02);
+                }
+                .glass-card {
+                    background: rgba(255, 255, 255, 0.85);
+                    backdrop-filter: blur(8px);
+                    -webkit-backdrop-filter: blur(8px);
+                }
             </style>
         </div>
         HTML;
