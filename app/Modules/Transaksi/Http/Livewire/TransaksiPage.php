@@ -18,6 +18,8 @@ class TransaksiPage extends Component
     public $selectedPendaftaran;
     public $poliList = [];
     public $pasienList = [];
+    public $poliListOptions = [];
+    public $kesadaranList = [];
 
     // SOAP / Anamnesis State
     public $subyektif = '';
@@ -56,6 +58,30 @@ class TransaksiPage extends Component
     public $kasus_icd = 'Baru';
     public $diagnosisListOptions = [];
 
+    // Tindakan Modal State
+    public $showTindakanModal = false;
+    public $kode_tindakan = '';
+    public $biaya_tindakan = 0;
+    public $jasmed_tindakan = 0;
+    public $bhp_tindakan = 0;
+    public $satuan_tindakan = '';
+    public $tindakanListOptions = [];
+
+    // Resep (Obat) Modal State
+    public $showResepModal = false;
+    public $kode_obat = '';
+    public $jumlah_obat = 1;
+    public $dosis_obat = '';
+    public $aturan_obat = '3x1';
+    public $obatListOptions = [];
+
+    // BMHP Modal State
+    public $showBmhpModal = false;
+    public $kode_bmhp = '';
+    public $jumlah_bmhp = 1;
+    public $satuan_bmhp = '';
+    public $bmhpListOptions = [];
+
     public function mount()
     {
         $this->selectedDate = now()->format('Y-m-d');
@@ -67,7 +93,7 @@ class TransaksiPage extends Component
         $this->selectedPendaftaran = TrxPendaftaran::with(['pasien', 'poli', 'dokter', 'asuransi'])->find($id);
         
         // Load Pemeriksaan (SOAP) from DB
-        $pemeriksaan = DB::table('trx_pemeriksaan')->where('nomor_kunjungan', $this->selectedPendaftaran->nomor_kunjungan)->first();
+        $pemeriksaan = DB::table('trx_pemeriksaan')->where('nomor_kunjungan', $this->selectedPendaftaran?->nomor_kunjungan)->first();
         if ($pemeriksaan) {
             $this->subyektif = $pemeriksaan->subjective ?? '';
             $this->obyektif = $pemeriksaan->objective ?? '';
@@ -81,21 +107,21 @@ class TransaksiPage extends Component
         }
         
         // Vitals / Pemeriksaan Awal (From Pendaftaran)
-        $this->kesadaran = $this->selectedPendaftaran->kesadaran ?? '';
-        $this->tekanan_darah = $this->selectedPendaftaran->tekanan_darah ?? '';
-        $this->nadi = $this->selectedPendaftaran->nadi ?? '';
-        $this->suhu = $this->selectedPendaftaran->suhu ?? '';
-        $this->berat_badan = $this->selectedPendaftaran->berat_badan ?? '';
-        $this->tinggi_badan = $this->selectedPendaftaran->tinggi_badan ?? '';
-        $this->riwayat_penyakit = $this->selectedPendaftaran->riwayat_penyakit ?? '';
-        $this->alergi = $this->selectedPendaftaran->alergi ?? '';
-        $this->keterangan_lain = $this->selectedPendaftaran->keterangan_lain ?? '';
+        $this->kesadaran = $this->selectedPendaftaran?->kesadaran ?? '';
+        $this->tekanan_darah = $this->selectedPendaftaran?->tekanan_darah ?? '';
+        $this->nadi = $this->selectedPendaftaran?->nadi ?? '';
+        $this->suhu = $this->selectedPendaftaran?->suhu ?? '';
+        $this->berat_badan = $this->selectedPendaftaran?->berat_badan ?? '';
+        $this->tinggi_badan = $this->selectedPendaftaran?->tinggi_badan ?? '';
+        $this->riwayat_penyakit = $this->selectedPendaftaran?->riwayat_penyakit ?? '';
+        $this->alergi = $this->selectedPendaftaran?->alergi ?? '';
+        $this->keterangan_lain = $this->selectedPendaftaran?->keterangan_lain ?? '';
         
         // Load existing data if any
         $this->loadDiagnoses();
-        $this->tindakans = [];
-        $this->reseps = [];
-        $this->bmhps = [];
+        $this->loadTindakans();
+        $this->loadReseps();
+        $this->loadBmhps();
         
         $this->dispatch('patient-selected');
     }
@@ -113,6 +139,51 @@ class TransaksiPage extends Component
             ->get();
             
         $this->diagnoses = json_decode(json_encode($diags), true);
+    }
+
+    public function loadTindakans()
+    {
+        if (!$this->selectedPendaftaran?->nomor_kunjungan) return;
+        
+        $tdks = DB::table('trx_tindakan')
+            ->join('mst_tindakan', 'trx_tindakan.kode_tindakan', '=', 'mst_tindakan.kode_tindakan')
+            ->where('trx_tindakan.nomor_kunjungan', $this->selectedPendaftaran->nomor_kunjungan)
+            ->whereNull('trx_tindakan.deleted_at')
+            ->select('trx_tindakan.id', 'mst_tindakan.nama_tindakan as nama', 'trx_tindakan.kode_tindakan as kode', 'trx_tindakan.biaya', 'trx_tindakan.satuan')
+            ->orderBy('trx_tindakan.created_at', 'asc')
+            ->get();
+            
+        $this->tindakans = json_decode(json_encode($tdks), true);
+    }
+
+    public function loadReseps()
+    {
+        if (!$this->selectedPendaftaran?->nomor_kunjungan) return;
+        
+        $rsps = DB::table('trx_obat')
+            ->join('mst_obat', 'trx_obat.kode_obat', '=', 'mst_obat.kode_obat')
+            ->where('trx_obat.nomor_kunjungan', $this->selectedPendaftaran->nomor_kunjungan)
+            ->whereNull('trx_obat.deleted_at')
+            ->select('trx_obat.id', 'mst_obat.nama_obat as nama', 'trx_obat.kode_obat as kode', 'trx_obat.dosis as qty', 'trx_obat.aturan as signa')
+            ->orderBy('trx_obat.created_at', 'asc')
+            ->get();
+            
+        $this->reseps = json_decode(json_encode($rsps), true);
+    }
+
+    public function loadBmhps()
+    {
+        if (!$this->selectedPendaftaran?->nomor_kunjungan) return;
+        
+        $bmhps = DB::table('trx_bmhp')
+            ->join('mst_bmhp', 'trx_bmhp.kode_bmhp', '=', 'mst_bmhp.kode_bmhp')
+            ->where('trx_bmhp.nomor_kunjungan', $this->selectedPendaftaran->nomor_kunjungan)
+            ->whereNull('trx_bmhp.deleted_at')
+            ->select('trx_bmhp.id', 'mst_bmhp.nama_bmhp as nama', 'trx_bmhp.kode_bmhp as kode', 'trx_bmhp.jumlah', 'trx_bmhp.satuan')
+            ->orderBy('trx_bmhp.created_at', 'asc')
+            ->get();
+            
+        $this->bmhps = json_decode(json_encode($bmhps), true);
     }
 
     public function savePemeriksaan()
@@ -179,57 +250,174 @@ class TransaksiPage extends Component
         $this->dispatch('alert', ['type' => 'success', 'message' => 'Diagnosis berhasil ditambahkan.']);
     }
 
-    public function addDiagnosis()
+    public function saveTindakan()
     {
-        // Deprecated, use saveDiagnosis via modal instead
-        if ($this->tempDiagnosis) {
-            $this->diagnoses[] = ['id' => count($this->diagnoses) + 1, 'nama' => $this->tempDiagnosis, 'kode' => 'ICD-' . rand(100, 999)];
-            $this->tempDiagnosis = '';
+        $this->validate([
+            'kode_tindakan' => 'required',
+            'biaya_tindakan' => 'required|numeric',
+        ]);
+
+        if (!$this->selectedPendaftaran) return;
+
+        DB::table('trx_tindakan')->insert([
+            'nomor_kunjungan' => $this->selectedPendaftaran->nomor_kunjungan,
+            'kode_tindakan' => $this->kode_tindakan,
+            'kode_asuransi' => $this->selectedPendaftaran->asuransi_id ?? 'UMUM',
+            'biaya' => $this->biaya_tindakan,
+            'jasa_medis' => $this->jasmed_tindakan,
+            'bhp' => $this->bhp_tindakan,
+            'satuan' => $this->satuan_tindakan,
+            'created_by' => auth()->user()->name ?? 'System',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->showTindakanModal = false;
+        $this->kode_tindakan = '';
+        $this->biaya_tindakan = 0;
+        
+        $this->loadTindakans();
+        $this->dispatch('alert', ['type' => 'success', 'message' => 'Tindakan berhasil ditambahkan.']);
+    }
+
+    public function saveResep()
+    {
+        $this->validate([
+            'kode_obat' => 'required',
+            'jumlah_obat' => 'required|numeric|min:1',
+        ]);
+
+        if (!$this->selectedPendaftaran) return;
+
+        DB::table('trx_obat')->insert([
+            'nomor_kunjungan' => $this->selectedPendaftaran->nomor_kunjungan,
+            'kode_obat' => $this->kode_obat,
+            'dosis' => $this->jumlah_obat,
+            'aturan' => $this->aturan_obat,
+            'tanggal_obat' => now()->format('Y-m-d'),
+            'created_by' => auth()->user()->name ?? 'System',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->showResepModal = false;
+        $this->kode_obat = '';
+        $this->jumlah_obat = 1;
+        
+        $this->loadReseps();
+        $this->dispatch('alert', ['type' => 'success', 'message' => 'Resep berhasil ditambahkan.']);
+    }
+
+    public function saveBmhp()
+    {
+        $this->validate([
+            'kode_bmhp' => 'required',
+            'jumlah_bmhp' => 'required|numeric|min:1',
+        ]);
+
+        if (!$this->selectedPendaftaran) return;
+
+        DB::table('trx_bmhp')->insert([
+            'nomor_kunjungan' => $this->selectedPendaftaran->nomor_kunjungan,
+            'kode_bmhp' => $this->kode_bmhp,
+            'jumlah' => $this->jumlah_bmhp,
+            'satuan' => $this->satuan_bmhp,
+            'created_by' => auth()->user()->name ?? 'System',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->showBmhpModal = false;
+        $this->kode_bmhp = '';
+        $this->jumlah_bmhp = 1;
+        
+        $this->loadBmhps();
+        $this->dispatch('alert', ['type' => 'success', 'message' => 'BMHP berhasil ditambahkan.']);
+    }
+
+    public function updatedKodeTindakan($value)
+    {
+        if ($value && $this->selectedPendaftaran) {
+            $tarif = DB::table('mst_tarif')
+                ->where('kode_tindakan', $value)
+                ->where('kode_asuransi', $this->selectedPendaftaran->asuransi_id ?? 'UMUM')
+                ->first();
+            
+            if ($tarif) {
+                $this->biaya_tindakan = $tarif->tarif;
+                $this->jasmed_tindakan = $tarif->jasmed;
+                $this->bhp_tindakan = $tarif->bhp;
+                $this->satuan_tindakan = $tarif->satuan;
+            } else {
+                $mst = DB::table('mst_tindakan')->where('kode_tindakan', $value)->first();
+                $this->biaya_tindakan = $mst?->harga_default ?? 0;
+                $this->jasmed_tindakan = 0;
+                $this->bhp_tindakan = 0;
+                $this->satuan_tindakan = $mst?->satuan ?? '';
+            }
+        }
+    }
+
+    public function updatedKodeObat($value)
+    {
+        if ($value) {
+            // Optional: load medicine unit or stock
+        }
+    }
+
+    public function updatedKodeBmhp($value)
+    {
+        if ($value) {
+            $bmhp = DB::table('mst_bmhp')->where('kode_bmhp', $value)->first();
+            $this->satuan_bmhp = $bmhp?->satuan ?? '';
         }
     }
 
     public function addTindakan()
     {
-        if ($this->tempTindakan) {
-            $this->tindakans[] = ['id' => count($this->tindakans) + 1, 'nama' => $this->tempTindakan, 'biaya' => rand(50000, 200000)];
-            $this->tempTindakan = '';
-        }
+        $this->showTindakanModal = true;
     }
 
     public function addResep()
     {
-        if ($this->tempObat) {
-            $this->reseps[] = ['id' => count($this->reseps) + 1, 'nama' => $this->tempObat, 'qty' => $this->tempQty, 'signa' => '3x1'];
-            $this->tempObat = '';
-            $this->tempQty = 1;
-        }
+        $this->showResepModal = true;
     }
 
     public function addBmhp()
     {
-        if ($this->tempBmhp) {
-            $this->bmhps[] = ['id' => count($this->bmhps) + 1, 'nama' => $this->tempBmhp, 'qty' => 1];
-            $this->tempBmhp = '';
-        }
+        $this->showBmhpModal = true;
     }
 
     public function removeItem($list, $index)
     {
-        if ($list === 'diagnoses' && isset($this->diagnoses[$index]['id'])) {
-            DB::table('trx_diagnosis')->where('id', $this->diagnoses[$index]['id'])->update(['deleted_at' => now()]);
-            $this->loadDiagnoses();
-            $this->dispatch('refresh-table');
-            return;
-        }
+        if (!isset($this->{$list}[$index]['id'])) return;
+        $id = $this->{$list}[$index]['id'];
 
-        unset($this->{$list}[$index]);
-        $this->{$list} = array_values($this->{$list});
+        $tableMap = [
+            'diagnoses' => 'trx_diagnosis',
+            'tindakans' => 'trx_tindakan',
+            'reseps' => 'trx_obat',
+            'bmhps' => 'trx_bmhp',
+        ];
+
+        if (isset($tableMap[$list])) {
+            DB::table($tableMap[$list])->where('id', $id)->update(['deleted_at' => now()]);
+            
+            // Reload the specific list
+            $method = 'load' . ucfirst($list);
+            if (method_exists($this, $method)) {
+                $this->$method();
+            }
+            
+            $this->dispatch('refresh-table');
+            $this->dispatch('alert', ['type' => 'success', 'message' => 'Data berhasil dihapus.']);
+        }
     }
 
     public function render()
     {
         // Filter Poli based on User Mapping
-        $this->poliList = auth()->user()->polis()->where('mst_poli.status', 'Aktif')->get();
+        $this->poliList = auth()->user()->polis()->where('status', 'Aktif')->get();
         
         // If user is Super Admin or has no mapping, show all active polis (optional logic, but usually Admin sees all)
         if (auth()->user()->role === 'Super Admin' || $this->poliList->isEmpty()) {
@@ -247,9 +435,31 @@ class TransaksiPage extends Component
         ];
 
         if (empty($this->diagnosisListOptions)) {
-            $this->diagnosisListOptions = MstDiagnosis::select('kode_diagnosa', 'nama_diagnosa')
+            $this->diagnosisListOptions = DB::table('mst_diagnosis')
+                ->select('kode_diagnosa as value', 'nama_diagnosa as label')
                 ->get()
-                ->map(fn($d) => ['value' => $d->kode_diagnosa, 'label' => $d->kode_diagnosa . ' - ' . $d->nama_diagnosa, 'icon' => 'ri-microscope-line text-warning'])
+                ->map(fn($d) => ['value' => $d->value, 'label' => $d->value . ' - ' . $d->label, 'icon' => 'ri-microscope-line text-warning'])
+                ->toArray();
+                
+            $this->tindakanListOptions = DB::table('mst_tindakan')
+                ->where('status', 'Aktif')
+                ->select('kode_tindakan as value', 'nama_tindakan as label')
+                ->get()
+                ->map(fn($t) => ['value' => $t->value, 'label' => $t->value . ' - ' . $t->label, 'icon' => 'ri-hand-heart-line text-primary'])
+                ->toArray();
+                
+            $this->obatListOptions = DB::table('mst_obat')
+                ->where('status', 'Aktif')
+                ->select('kode_obat as value', 'nama_obat as label')
+                ->get()
+                ->map(fn($o) => ['value' => $o->value, 'label' => $o->value . ' - ' . $o->label, 'icon' => 'ri-capsule-line text-emerald-500'])
+                ->toArray();
+                
+            $this->bmhpListOptions = DB::table('mst_bmhp')
+                ->where('status', 'Aktif')
+                ->select('kode_bmhp as value', 'nama_bmhp as label')
+                ->get()
+                ->map(fn($b) => ['value' => $b->value, 'label' => $b->value . ' - ' . $b->label, 'icon' => 'ri-flask-line text-purple-500'])
                 ->toArray();
         }
 
@@ -788,11 +998,11 @@ class TransaksiPage extends Component
                                                     <div class="flex-grow">
                                                         <div class="flex items-center gap-3 mb-1">
                                                             <span class="text-sm font-bold text-[#2d3748] tracking-tight group-hover:text-[#405189] transition-colors">{{ $rsp['nama'] }}</span>
-                                                            <span class="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-600 text-[10px] font-black border border-emerald-100 italic">{{ $rsp['qty'] }} Unit</span>
+                                                            <span class="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-600 text-[10px] font-black border border-emerald-100 italic"> Dosis : {{ $rsp['qty'] }}</span>
                                                         </div>
                                                         <div class="flex items-center gap-2">
                                                             <i class="ri-information-line text-gray-400 text-xs"></i>
-                                                            <span class="text-[11px] font-medium text-gray-500 uppercase tracking-wider">{{ $rsp['signa'] }}</span>
+                                                            <span class="text-[11px] font-medium text-gray-500 uppercase tracking-wider">Aturan pakai : {{ $rsp['signa'] }}</span>
                                                         </div>
                                                     </div>
 
@@ -994,7 +1204,213 @@ class TransaksiPage extends Component
                             </svg>
                             <i wire:loading.remove wire:target="saveDiagnosis" class="ri-save-line"></i>
                             <span wire:loading.remove wire:target="saveDiagnosis">Simpan Diagnosis</span>
-                            <span wire:loading wire:target="saveDiagnosis">Memproses...</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal: Tambah Tindakan -->
+            <div x-show="$wire.showTindakanModal" 
+                 class="fixed inset-0 z-[1050] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+                 x-transition.opacity
+                 style="display: none;">
+                <div x-show="$wire.showTindakanModal"
+                     @click.away="$wire.set('showTindakanModal', false)"
+                     x-transition.scale.95
+                     class="w-full max-w-2xl bg-white rounded-3xl shadow-2xl overflow-visible">
+                    
+                    <div class="px-6 py-4 rounded-t-3xl flex items-center justify-between border-b border-gray-100 bg-[#f3f6f9]/50">
+                        <h5 class="text-lg font-bold text-[#495057] flex items-center gap-2">
+                            <i class="ri-hand-heart-line text-primary"></i> Tambah Tindakan Medis
+                        </h5>
+                        <button @click="$wire.set('showTindakanModal', false)" class="text-gray-400 hover:text-gray-600">
+                            <i class="ri-close-line text-2xl"></i>
+                        </button>
+                    </div>
+
+                    <div class="px-8 py-6 max-h-[75vh] overflow-visible">
+                        <div class="grid grid-cols-1 gap-6">
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-500 mb-1">Pilih Tindakan <span class="text-red-500">*</span></label>
+                                <x-custom-dropdown 
+                                    model="kode_tindakan" 
+                                    :options="$tindakanListOptions"
+                                    placeholder="Cari tindakan..."
+                                    searchable="true"
+                                />
+                                @error('kode_tindakan') <span class="text-[11px] text-red-500 mt-1 italic">{{ $message }}</span> @enderror
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs font-semibold text-gray-500 mb-1">Tarif / Biaya <span class="text-red-500">*</span></label>
+                                    <div class="relative">
+                                        <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-xs">Rp</span>
+                                        <input type="number" wire:model="biaya_tindakan" class="h-11 w-full rounded-xl border border-gray-200 pl-10 pr-4 text-sm font-bold text-[#405189] outline-none focus:border-[#405189] focus:ring-4 focus:ring-[#405189]/5 transition-all bg-gray-50/50">
+                                    </div>
+                                    @error('biaya_tindakan') <span class="text-[11px] text-red-500 mt-1 italic">{{ $message }}</span> @enderror
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-gray-500 mb-1">Jasa Medis</label>
+                                    <div class="relative">
+                                        <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-xs">Rp</span>
+                                        <input type="number" wire:model="jasmed_tindakan" class="h-11 w-full rounded-xl border border-gray-200 pl-10 pr-4 text-sm font-bold text-emerald-600 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/5 transition-all bg-gray-50/50">
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-gray-500 mb-1">BHP (Barang Habis Pakai)</label>
+                                    <div class="relative">
+                                        <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-xs">Rp</span>
+                                        <input type="number" wire:model="bhp_tindakan" class="h-11 w-full rounded-xl border border-gray-200 pl-10 pr-4 text-sm font-bold text-orange-600 outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-500/5 transition-all bg-gray-50/50">
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-gray-500 mb-1">Satuan</label>
+                                    <input type="text" wire:model="satuan_tindakan" class="h-11 w-full rounded-xl border border-gray-200 px-4 text-sm outline-none focus:border-[#405189] focus:ring-4 focus:ring-[#405189]/5 transition-all bg-gray-50/50 text-gray-600" placeholder="Sesi / Tindakan">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="px-8 py-5 rounded-b-3xl bg-gray-50/80 flex justify-end gap-3 border-t border-gray-100">
+                        <button type="button" @click="$wire.set('showTindakanModal', false)" class="btn bg-orange-500 text-white px-6 h-10 flex items-center gap-2 transition-all hover:bg-orange-600">
+                            <i class="ri-arrow-go-back-line"></i> Batal
+                        </button>
+                        <button type="button" wire:click="saveTindakan" wire:loading.attr="disabled" class="btn bg-[#0d6efd] text-white px-8 h-10 shadow-md flex items-center justify-center gap-2 transition-all hover:bg-[#0b5ed7] hover:translate-y-[-2px] disabled:opacity-70 disabled:cursor-not-allowed">
+                            <svg wire:loading wire:target="saveTindakan" class="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <i wire:loading.remove wire:target="saveTindakan" class="ri-save-line"></i>
+                            <span wire:loading.remove wire:target="saveTindakan">Simpan Tindakan</span>
+                            <span wire:loading wire:target="saveTindakan">Memproses...</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal: Tambah Resep/Obat -->
+            <div x-show="$wire.showResepModal" 
+                 class="fixed inset-0 z-[1050] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+                 x-transition.opacity
+                 style="display: none;">
+                <div x-show="$wire.showResepModal"
+                     @click.away="$wire.set('showResepModal', false)"
+                     x-transition.scale.95
+                     class="w-full max-w-2xl bg-white rounded-3xl shadow-2xl overflow-visible">
+                    
+                    <div class="px-6 py-4 rounded-t-3xl flex items-center justify-between border-b border-gray-100 bg-[#f3f6f9]/50">
+                        <h5 class="text-lg font-bold text-[#495057] flex items-center gap-2">
+                            <i class="ri-capsule-line text-emerald-500"></i> Tambah Resep Obat
+                        </h5>
+                        <button @click="$wire.set('showResepModal', false)" class="text-gray-400 hover:text-gray-600">
+                            <i class="ri-close-line text-2xl"></i>
+                        </button>
+                    </div>
+
+                    <div class="px-8 py-6 max-h-[75vh] overflow-visible">
+                        <div class="grid grid-cols-1 gap-6">
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-500 mb-1">Pilih Obat <span class="text-red-500">*</span></label>
+                                <x-custom-dropdown 
+                                    model="kode_obat" 
+                                    :options="$obatListOptions"
+                                    placeholder="Cari nama obat..."
+                                    searchable="true"
+                                />
+                                @error('kode_obat') <span class="text-[11px] text-red-500 mt-1 italic">{{ $message }}</span> @enderror
+                            </div>
+
+                            <div class="grid grid-cols-3 gap-4">
+                                <div>
+                                    <label class="block text-xs font-semibold text-gray-500 mb-1">Jumlah (Qty) <span class="text-red-500">*</span></label>
+                                    <input type="number" wire:model="jumlah_obat" class="h-11 w-full rounded-xl border border-gray-200 px-4 text-sm font-bold outline-none focus:border-[#405189] focus:ring-4 focus:ring-[#405189]/5 transition-all bg-gray-50/50">
+                                    @error('jumlah_obat') <span class="text-[11px] text-red-500 mt-1 italic">{{ $message }}</span> @enderror
+                                </div>
+                                <div class="col-span-2">
+                                    <label class="block text-xs font-semibold text-gray-500 mb-1">Aturan Pakai (Signa) <span class="text-red-500">*</span></label>
+                                    <input type="text" wire:model="aturan_obat" class="h-11 w-full rounded-xl border border-gray-200 px-4 text-sm font-bold text-emerald-600 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/5 transition-all bg-gray-50/50" placeholder="Contoh: 3 x 1 Sesudah Makan">
+                                    @error('aturan_obat') <span class="text-[11px] text-red-500 mt-1 italic">{{ $message }}</span> @enderror
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="px-8 py-5 rounded-b-3xl bg-gray-50/80 flex justify-end gap-3 border-t border-gray-100">
+                        <button type="button" @click="$wire.set('showResepModal', false)" class="btn bg-orange-500 text-white px-6 h-10 flex items-center gap-2 transition-all hover:bg-orange-600">
+                            <i class="ri-arrow-go-back-line"></i> Batal
+                        </button>
+                        <button type="button" wire:click="saveResep" wire:loading.attr="disabled" class="btn bg-[#0d6efd] text-white px-8 h-10 shadow-md flex items-center justify-center gap-2 transition-all hover:bg-[#0b5ed7] hover:translate-y-[-2px] disabled:opacity-70 disabled:cursor-not-allowed">
+                            <svg wire:loading wire:target="saveResep" class="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <i wire:loading.remove wire:target="saveResep" class="ri-save-line"></i>
+                            <span wire:loading.remove wire:target="saveResep">Simpan Resep</span>
+                            <span wire:loading wire:target="saveResep">Memproses...</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal: Tambah BMHP -->
+            <div x-show="$wire.showBmhpModal" 
+                 class="fixed inset-0 z-[1050] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+                 x-transition.opacity
+                 style="display: none;">
+                <div x-show="$wire.showBmhpModal"
+                     @click.away="$wire.set('showBmhpModal', false)"
+                     x-transition.scale.95
+                     class="w-full max-w-2xl bg-white rounded-3xl shadow-2xl overflow-visible">
+                    
+                    <div class="px-6 py-4 rounded-t-3xl flex items-center justify-between border-b border-gray-100 bg-[#f3f6f9]/50">
+                        <h5 class="text-lg font-bold text-[#495057] flex items-center gap-2">
+                            <i class="ri-flask-line text-purple-500"></i> Tambah BMHP / Alkes
+                        </h5>
+                        <button @click="$wire.set('showBmhpModal', false)" class="text-gray-400 hover:text-gray-600">
+                            <i class="ri-close-line text-2xl"></i>
+                        </button>
+                    </div>
+
+                    <div class="px-8 py-6 max-h-[75vh] overflow-visible">
+                        <div class="grid grid-cols-1 gap-6">
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-500 mb-1">Pilih BMHP <span class="text-red-500">*</span></label>
+                                <x-custom-dropdown 
+                                    model="kode_bmhp" 
+                                    :options="$bmhpListOptions"
+                                    placeholder="Cari BMHP..."
+                                    searchable="true"
+                                />
+                                @error('kode_bmhp') <span class="text-[11px] text-red-500 mt-1 italic">{{ $message }}</span> @enderror
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs font-semibold text-gray-500 mb-1">Jumlah <span class="text-red-500">*</span></label>
+                                    <input type="number" wire:model="jumlah_bmhp" class="h-11 w-full rounded-xl border border-gray-200 px-4 text-sm font-bold outline-none focus:border-[#405189] focus:ring-4 focus:ring-[#405189]/5 transition-all bg-gray-50/50">
+                                    @error('jumlah_bmhp') <span class="text-[11px] text-red-500 mt-1 italic">{{ $message }}</span> @enderror
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-gray-500 mb-1">Satuan</label>
+                                    <input type="text" wire:model="satuan_bmhp" class="h-11 w-full rounded-xl border border-gray-200 px-4 text-sm outline-none focus:border-[#405189] focus:ring-4 focus:ring-[#405189]/5 transition-all bg-gray-50/50 text-gray-600" readonly>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="px-8 py-5 rounded-b-3xl bg-gray-50/80 flex justify-end gap-3 border-t border-gray-100">
+                        <button type="button" @click="$wire.set('showBmhpModal', false)" class="btn bg-orange-500 text-white px-6 h-10 flex items-center gap-2 transition-all hover:bg-orange-600">
+                            <i class="ri-arrow-go-back-line"></i> Batal
+                        </button>
+                        <button type="button" wire:click="saveBmhp" wire:loading.attr="disabled" class="btn bg-[#0d6efd] text-white px-8 h-10 shadow-md flex items-center justify-center gap-2 transition-all hover:bg-[#0b5ed7] hover:translate-y-[-2px] disabled:opacity-70 disabled:cursor-not-allowed">
+                            <svg wire:loading wire:target="saveBmhp" class="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <i wire:loading.remove wire:target="saveBmhp" class="ri-save-line"></i>
+                            <span wire:loading.remove wire:target="saveBmhp">Simpan BMHP</span>
+                            <span wire:loading wire:target="saveBmhp">Memproses...</span>
                         </button>
                     </div>
                 </div>
