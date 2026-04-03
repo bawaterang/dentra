@@ -198,7 +198,7 @@ class TransaksiPage extends Component
                 'objective' => $this->obyektif,
                 'assessment' => $this->assessment,
                 'planning' => $this->planning,
-                'created_by' => auth()->user()->name ?? 'System',
+                'created_by' => auth()->user()->username ?? 'System',
                 'updated_at' => now(),
             ]
         );
@@ -235,7 +235,7 @@ class TransaksiPage extends Component
             'kode_diagnosa' => $this->kode_diagnosa,
             'jenis_icd' => $this->jenis_icd,
             'kasus_icd' => $this->kasus_icd,
-            'created_by' => auth()->user()->name ?? 'System',
+            'created_by' => auth()->user()->username ?? 'System',
             'created_at' => now(),
             'updated_at' => now(),
         ]);
@@ -267,7 +267,7 @@ class TransaksiPage extends Component
             'jasa_medis' => $this->jasmed_tindakan,
             'bhp' => $this->bhp_tindakan,
             'satuan' => $this->satuan_tindakan,
-            'created_by' => auth()->user()->name ?? 'System',
+            'created_by' => auth()->user()->username ?? 'System',
             'created_at' => now(),
             'updated_at' => now(),
         ]);
@@ -307,7 +307,7 @@ class TransaksiPage extends Component
             'dosis' => $this->jumlah_obat,
             'aturan' => $this->aturan_obat,
             'tanggal_obat' => now()->format('Y-m-d'),
-            'created_by' => auth()->user()->name ?? 'System',
+            'created_by' => auth()->user()->username ?? 'System',
             'created_at' => now(),
             'updated_at' => now(),
         ]);
@@ -334,7 +334,7 @@ class TransaksiPage extends Component
             'kode_bmhp' => $this->kode_bmhp,
             'jumlah' => $this->jumlah_bmhp,
             'satuan' => $this->satuan_bmhp,
-            'created_by' => auth()->user()->name ?? 'System',
+            'created_by' => auth()->user()->username ?? 'System',
             'created_at' => now(),
             'updated_at' => now(),
         ]);
@@ -349,7 +349,15 @@ class TransaksiPage extends Component
 
     public function updatedKodeTindakan($value)
     {
-        if ($value && $this->selectedPendaftaran) {
+        if (!$value) {
+            $this->biaya_tindakan = 0;
+            $this->jasmed_tindakan = 0;
+            $this->bhp_tindakan = 0;
+            $this->satuan_tindakan = '';
+            return;
+        }
+
+        if ($this->selectedPendaftaran) {
             $asuransi_kode = $this->selectedPendaftaran->asuransi->kode_asuransi ?? 'UMUM';
             $tarif = DB::table('mst_tarif')
                 ->where('kode_tindakan', $value)
@@ -360,7 +368,7 @@ class TransaksiPage extends Component
                 $this->biaya_tindakan = $tarif->tarif;
                 $this->jasmed_tindakan = $tarif->jasmed;
                 $this->bhp_tindakan = $tarif->bhp;
-                $this->satuan_tindakan = $tarif->satuan;
+                $this->satuan_tindakan = $tarif->satuan_jasmed; // Updated from 'satuan'
             } else {
                 $mst = DB::table('mst_tindakan')->where('kode_tindakan', $value)->first();
                 $this->biaya_tindakan = $mst?->harga_default ?? 0;
@@ -380,10 +388,13 @@ class TransaksiPage extends Component
 
     public function updatedKodeBmhp($value)
     {
-        if ($value) {
-            $bmhp = DB::table('mst_bmhp')->where('kode_bmhp', $value)->first();
-            $this->satuan_bmhp = $bmhp?->satuan ?? '';
+        if (!$value) {
+            $this->satuan_bmhp = '';
+            return;
         }
+
+        $bmhp = DB::table('mst_bmhp')->where('kode_bmhp', $value)->first();
+        $this->satuan_bmhp = $bmhp?->satuan ?? '';
     }
 
     public function addTindakan()
@@ -1326,7 +1337,7 @@ class TransaksiPage extends Component
                                     </div>
                                     @error('biaya_tindakan') <span class="text-[11px] text-red-500 mt-1 italic">{{ $message }}</span> @enderror
                                 </div>
-                                <div>
+                                <div style="display: none;">
                                     <label class="block text-xs font-semibold text-gray-500 mb-1">Jasa Medis (Jasmed)</label>
                                     <div class="relative">
                                         <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-xs">Rp</span>
@@ -1340,7 +1351,7 @@ class TransaksiPage extends Component
                                         <input type="number" wire:model="bhp_tindakan" class="h-11 w-full rounded-xl border border-gray-200 pl-10 pr-4 text-sm font-bold text-orange-600 outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-500/5 transition-all bg-gray-50/50" readonly>
                                     </div>
                                 </div>
-                                <div>
+                                <div style="display: none;">
                                     <label class="block text-xs font-semibold text-gray-500 mb-1">Satuan Jasmed</label>
                                     <input type="text" wire:model="satuan_tindakan" class="h-11 w-full rounded-xl border border-gray-200 px-4 text-sm outline-none focus:border-[#405189] focus:ring-4 focus:ring-[#405189]/5 transition-all bg-gray-50/50 text-gray-600 font-medium" placeholder="Sesi / Tindakan" readonly>
                                 </div>
