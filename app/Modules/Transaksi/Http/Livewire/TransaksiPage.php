@@ -440,16 +440,19 @@ class TransaksiPage extends Component
 
     public function render()
     {
-        // Filter Poli based on User Mapping
-        $this->poliList = auth()->user()->polis()->where('status', 'Aktif')->get();
-        
-        // If user is Super Admin or has no mapping, show all active polis (optional logic, but usually Admin sees all)
-        if (auth()->user()->role === 'Super Admin' || $this->poliList->isEmpty()) {
+        // Filter Poli based on User Mapping (trx_user_poli -> mst_poli)
+        // Only Administrator (role_id=1 in trx_role_user) sees all polis
+        $isAdmin = auth()->user()->roles()->wherePivot('role_id', 1)->exists();
+        if ($isAdmin) {
             $this->poliList = MstPoli::where('status', 'Aktif')->get();
+        } else {
+            $this->poliList = auth()->user()->polis()->wherePivot('status', 'Aktif')->get();
         }
 
         $this->poliListOptions = $this->poliList->map(fn($p) => ['value' => $p->id, 'label' => $p->nama_poli, 'icon' => 'ri-hospital-line text-blue-500'])->toArray();
-        array_unshift($this->poliListOptions, ['value' => 'all', 'label' => 'Semua Poli', 'icon' => 'ri-group-line text-gray-500']);
+        if ($this->poliList->count() > 0) {
+            array_unshift($this->poliListOptions, ['value' => 'all', 'label' => 'Semua Poli', 'icon' => 'ri-group-line text-gray-500']);
+        }
         
         $this->kesadaranList = [
             ['value' => 'Compos Mentis', 'label' => 'Compos Mentis', 'icon' => 'ri-checkbox-circle-line text-green-500'],
@@ -838,6 +841,8 @@ class TransaksiPage extends Component
                                                 </div>
                                             </div>
                                         </div>
+                                        
+                                        <div class="border-b border-dashed border-gray-200 mb-5"></div>
 
                                         <!-- Premium Card Table Replacement -->
                                         <div class="space-y-3 min-h-[200px]" wire:loading.class="opacity-50">
@@ -845,15 +850,15 @@ class TransaksiPage extends Component
                                                 <div wire:key="diag-card-{{ $diag['id'] ?? $idx }}"
                                                      data-search="{{ strtolower($diag['nama']) }} {{ strtolower($diag['kode']) }}"
                                                      x-show="searchDiag === '' || $el.dataset.search.includes(searchDiag.toLowerCase())" 
-                                                     class="group relative flex items-center gap-4 p-4 rounded-2xl bg-white border border-gray-100 shadow-sm hover:shadow-md hover:border-[#405189]/20 hover:bg-[#405189]/[0.02] transition-all duration-300">
+                                                     class="group relative flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-2xl bg-white border border-gray-100 shadow-sm hover:shadow-md hover:border-[#405189]/20 hover:bg-[#405189]/[0.02] transition-all duration-300">
                                                     
                                                     <!-- Index / Number -->
-                                                    <div class="flex-none w-10 h-10 flex items-center justify-center rounded-xl bg-gray-50 text-gray-400 font-bold text-xs group-hover:bg-[#405189] group-hover:text-white transition-all">
+                                                    <div class="flex-none w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center rounded-xl bg-gray-50 text-gray-400 font-bold text-[10px] sm:text-xs group-hover:bg-[#405189] group-hover:text-white transition-all">
                                                         {{ $idx + 1 }}
                                                     </div>
 
                                                     <!-- Diagnosis Data -->
-                                                    <div class="flex-grow">
+                                                    <div class="flex-grow min-w-0">
                                                         <div class="flex flex-wrap items-center gap-2 mb-1">
                                                             <span class="text-sm font-bold text-[#2d3748] tracking-tight group-hover:text-[#405189] transition-colors line-clamp-1">{{ $diag['nama'] }}</span>
                                                             <span class="inline-flex items-center px-1.5 py-0.5 rounded-md bg-orange-100 text-orange-700 text-[10px] font-bold tracking-wider uppercase">{{ $diag['kode'] }}</span>
@@ -872,7 +877,7 @@ class TransaksiPage extends Component
                                                     </div>
 
                                                     <!-- Actions -->
-                                                    <div class="flex-none flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all transform translate-x-2 group-hover:translate-x-0">
+                                                    <div class="flex-none flex items-center gap-2 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-all transform sm:translate-x-2 group-hover:translate-x-0">
                                                         <button @click="
                                                             Swal.fire({
                                                                 title: 'Konfirmasi Hapus',
@@ -889,8 +894,8 @@ class TransaksiPage extends Component
                                                                         $wire.removeItem('diagnoses', {{ $idx }})
                                                                     }
                                                                 })
-                                                            " class="flex h-9 w-9 items-center justify-center rounded-xl bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition-all shadow-sm" title="Hapus">
-                                                            <i class="ri-delete-bin-line text-lg"></i>
+                                                            " class="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition-all shadow-sm" title="Hapus">
+                                                            <i class="ri-delete-bin-line text-base sm:text-lg"></i>
                                                         </button>
                                                     </div>
                                                 </div>
@@ -942,20 +947,22 @@ class TransaksiPage extends Component
                                                 </div>
                                             </div>
                                         </div>
+                                        
+                                        <div class="border-b border-dashed border-gray-200 mb-5"></div>
 
                                         <div class="space-y-3 min-h-[200px]" wire:loading.class="opacity-50">
                                             @forelse($tindakans as $idx => $tdk)
                                                 <div wire:key="tindakan-card-{{ $tdk['id'] ?? $idx }}"
                                                      data-search="{{ strtolower($tdk['nama'] ?? '') }}"
                                                      x-show="searchTind === '' || $el.dataset.search.includes(searchTind.toLowerCase())" 
-                                                     class="group relative flex items-center gap-4 p-4 rounded-2xl bg-white border border-gray-100 shadow-sm hover:shadow-md hover:border-[#405189]/20 hover:bg-[#405189]/[0.02] transition-all duration-300">
+                                                     class="group relative flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-2xl bg-white border border-gray-100 shadow-sm hover:shadow-md hover:border-[#405189]/20 hover:bg-[#405189]/[0.02] transition-all duration-300">
                                                     
-                                                    <div class="flex-none w-10 h-10 flex items-center justify-center rounded-xl bg-gray-50 text-gray-400 font-bold text-xs group-hover:bg-[#405189] group-hover:text-white transition-all">
+                                                    <div class="flex-none w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center rounded-xl bg-gray-50 text-gray-400 font-bold text-[10px] sm:text-xs group-hover:bg-[#405189] group-hover:text-white transition-all">
                                                         {{ $idx + 1 }}
                                                     </div>
 
-                                                    <div class="flex-grow">
-                                                        <span class="text-sm font-bold text-[#2d3748] tracking-tight group-hover:text-[#405189] transition-colors block mb-1">{{ $tdk['nama'] }}</span>
+                                                    <div class="flex-grow min-w-0">
+                                                        <span class="text-xs sm:text-sm font-bold text-[#2d3748] tracking-tight group-hover:text-[#405189] transition-colors block mb-1 truncate">{{ $tdk['nama'] }}</span>
                                                         <div class="flex flex-wrap items-center gap-3">
                                                             <div class="flex items-center gap-2">
                                                                 <span class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Biaya:</span>
@@ -969,7 +976,7 @@ class TransaksiPage extends Component
                                                         </div>
                                                     </div>
 
-                                                    <div class="flex-none flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all transform translate-x-2 group-hover:translate-x-0">
+                                                    <div class="flex-none flex items-center gap-2 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-all transform sm:translate-x-2 group-hover:translate-x-0">
                                                         <button @click="
                                                             Swal.fire({
                                                                 title: 'Konfirmasi Hapus',
@@ -986,8 +993,8 @@ class TransaksiPage extends Component
                                                                         $wire.removeItem('tindakans', {{ $idx }})
                                                                     }
                                                                 })
-                                                            " class="flex h-9 w-9 items-center justify-center rounded-xl bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition-all shadow-sm" title="Hapus">
-                                                            <i class="ri-delete-bin-line text-lg"></i>
+                                                            " class="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition-all shadow-sm" title="Hapus">
+                                                            <i class="ri-delete-bin-line text-base sm:text-lg"></i>
                                                         </button>
                                                     </div>
                                                 </div>
@@ -1039,21 +1046,23 @@ class TransaksiPage extends Component
                                                 </div>
                                             </div>
                                         </div>
+                                        
+                                        <div class="border-b border-dashed border-gray-200 mb-5"></div>
 
                                         <div class="space-y-3 min-h-[200px]" wire:loading.class="opacity-50">
                                             @forelse($reseps as $idx => $rsp)
                                                 <div wire:key="resep-card-{{ $rsp['id'] ?? $idx }}"
                                                      data-search="{{ strtolower($rsp['nama'] ?? '') }}"
                                                      x-show="searchObat === '' || $el.dataset.search.includes(searchObat.toLowerCase())" 
-                                                     class="group relative flex items-center gap-4 p-4 rounded-2xl bg-white border border-gray-100 shadow-sm hover:shadow-md hover:border-[#405189]/20 hover:bg-[#405189]/[0.02] transition-all duration-300">
+                                                     class="group relative flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-2xl bg-white border border-gray-100 shadow-sm hover:shadow-md hover:border-[#405189]/20 hover:bg-[#405189]/[0.02] transition-all duration-300">
                                                     
-                                                    <div class="flex-none w-10 h-10 flex items-center justify-center rounded-xl bg-gray-50 text-gray-400 font-bold text-xs group-hover:bg-[#405189] group-hover:text-white transition-all">
+                                                    <div class="flex-none w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center rounded-xl bg-gray-50 text-gray-400 font-bold text-[10px] sm:text-xs group-hover:bg-[#405189] group-hover:text-white transition-all">
                                                         {{ $idx + 1 }}
                                                     </div>
 
-                                                    <div class="flex-grow">
+                                                    <div class="flex-grow min-w-0">
                                                         <div class="flex items-center gap-3 mb-1">
-                                                            <span class="text-sm font-bold text-[#2d3748] tracking-tight group-hover:text-[#405189] transition-colors">{{ $rsp['nama'] }}</span>
+                                                            <span class="text-xs sm:text-sm font-bold text-[#2d3748] tracking-tight group-hover:text-[#405189] transition-colors truncate">{{ $rsp['nama'] }}</span>
                                                             <span class="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-600 text-[10px] font-black border border-emerald-100 italic"> Dosis : {{ $rsp['qty'] }}</span>
                                                         </div>
                                                         <div class="flex items-center gap-2">
@@ -1062,7 +1071,7 @@ class TransaksiPage extends Component
                                                         </div>
                                                     </div>
 
-                                                    <div class="flex-none flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all transform translate-x-2 group-hover:translate-x-0">
+                                                    <div class="flex-none flex items-center gap-2 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-all transform sm:translate-x-2 group-hover:translate-x-0">
                                                         <button @click="
                                                             Swal.fire({
                                                                 title: 'Konfirmasi Hapus',
@@ -1079,8 +1088,8 @@ class TransaksiPage extends Component
                                                                         $wire.removeItem('reseps', {{ $idx }})
                                                                     }
                                                                 })
-                                                            " class="flex h-9 w-9 items-center justify-center rounded-xl bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition-all shadow-sm" title="Hapus">
-                                                            <i class="ri-delete-bin-line text-lg"></i>
+                                                            " class="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition-all shadow-sm" title="Hapus">
+                                                            <i class="ri-delete-bin-line text-base sm:text-lg"></i>
                                                         </button>
                                                     </div>
                                                 </div>
@@ -1132,20 +1141,22 @@ class TransaksiPage extends Component
                                                 </div>
                                             </div>
                                         </div>
+                                        
+                                        <div class="border-b border-dashed border-gray-200 mb-5"></div>
 
                                         <div class="space-y-3 min-h-[200px]" wire:loading.class="opacity-50">
                                             @forelse($bmhps as $idx => $bm)
                                                 <div wire:key="bmhp-card-{{ $bm['id'] ?? $idx }}"
                                                      data-search="{{ strtolower($bm['nama'] ?? '') }}"
                                                      x-show="searchBmhp === '' || $el.dataset.search.includes(searchBmhp.toLowerCase())" 
-                                                     class="group relative flex items-center gap-4 p-4 rounded-2xl bg-white border border-gray-100 shadow-sm hover:shadow-md hover:border-[#405189]/20 hover:bg-[#405189]/[0.02] transition-all duration-300">
+                                                     class="group relative flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-2xl bg-white border border-gray-100 shadow-sm hover:shadow-md hover:border-[#405189]/20 hover:bg-[#405189]/[0.02] transition-all duration-300">
                                                     
-                                                    <div class="flex-none w-10 h-10 flex items-center justify-center rounded-xl bg-gray-50 text-gray-400 font-bold text-xs group-hover:bg-[#405189] group-hover:text-white transition-all">
+                                                    <div class="flex-none w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center rounded-xl bg-gray-50 text-gray-400 font-bold text-[10px] sm:text-xs group-hover:bg-[#405189] group-hover:text-white transition-all">
                                                         {{ $idx + 1 }}
                                                     </div>
 
-                                                    <div class="flex-grow">
-                                                        <div class="text-sm font-bold text-[#2d3748] tracking-tight group-hover:text-[#405189] transition-colors mb-0.5">
+                                                    <div class="flex-grow min-w-0">
+                                                        <div class="text-xs sm:text-sm font-bold text-[#2d3748] tracking-tight group-hover:text-[#405189] transition-colors mb-0.5 truncate">
                                                             {{ $bm['nama'] }}
                                                         </div>
                                                         <div class="flex items-center gap-2">
@@ -1154,7 +1165,7 @@ class TransaksiPage extends Component
                                                         </div>
                                                     </div>
 
-                                                    <div class="flex-none flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all transform translate-x-2 group-hover:translate-x-0">
+                                                    <div class="flex-none flex items-center gap-2 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-all transform sm:translate-x-2 group-hover:translate-x-0">
                                                         <button @click="
                                                             Swal.fire({
                                                                 title: 'Konfirmasi Hapus',
@@ -1171,8 +1182,8 @@ class TransaksiPage extends Component
                                                                         $wire.removeItem('bmhps', {{ $idx }})
                                                                     }
                                                                 })
-                                                            " class="flex h-9 w-9 items-center justify-center rounded-xl bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition-all shadow-sm" title="Hapus">
-                                                            <i class="ri-delete-bin-line text-lg"></i>
+                                                            " class="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition-all shadow-sm" title="Hapus">
+                                                            <i class="ri-delete-bin-line text-base sm:text-lg"></i>
                                                         </button>
                                                     </div>
                                                 </div>
