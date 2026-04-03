@@ -82,6 +82,10 @@ class TransaksiPage extends Component
     public $satuan_bmhp = '';
     public $bmhpListOptions = [];
 
+    // Odontogram State
+    public $kategoriGigiOptions = [];
+    public $odontogramState = [];
+
     public function mount()
     {
         $this->selectedDate = now()->format('Y-m-d');
@@ -487,6 +491,12 @@ class TransaksiPage extends Component
                 ->select('kode_bmhp as value', 'nama_bmhp as label')
                 ->get()
                 ->map(fn($b) => ['value' => $b->value, 'label' => $b->value . ' - ' . $b->label, 'icon' => 'ri-flask-line text-purple-500'])
+                ->toArray();
+                
+            $this->kategoriGigiOptions = DB::table('mst_kategori_gigi')
+                ->where('status', 'Aktif')
+                ->select('id', 'kode_kategori', 'nama_kategori', 'warna')
+                ->get()
                 ->toArray();
         }
 
@@ -1212,6 +1222,215 @@ class TransaksiPage extends Component
                                 </div>
                             </div>
                         </div>
+
+                        <!-- Odontogram Card -->
+                        <div class="card shadow-sm border-t-4 border-indigo-500 relative z-10 mt-4">
+                            <div class="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+                                <h6 class="text-sm font-black text-indigo-600 uppercase tracking-widest mb-0 flex items-center gap-2">
+                                    <i class="ri-tooth-line text-lg"></i> Odontogram Gigi
+                                </h6>
+                                <div class="text-xs font-bold text-gray-400 flex items-center gap-1.5"><i class="ri-mouse-line"></i> Klik / Klik kanan pada gigi</div>
+                            </div>
+                            
+                            <div class="p-6 bg-white overflow-x-auto scrollbar-hide" x-data="odontogramStore()">
+                                <div class="min-w-[750px] flex flex-col gap-8 select-none pb-12 px-10">
+                                    
+                                    <!-- Adult Top Row -->
+                                    <div class="flex justify-center gap-8">
+                                        <!-- 18-11 -->
+                                        <div class="flex gap-2 lg:gap-2.5">
+                                           <template x-for="tooth in [18,17,16,15,14,13,12,11]" :key="tooth">
+                                                <div class="flex flex-col items-center gap-1.5 hover:scale-110 transition-transform">
+                                                    <span class="text-[11px] font-black text-gray-400" x-text="tooth"></span>
+                                                    <div class="w-10 h-10 lg:w-11 lg:h-11 drop-shadow-sm">
+                                                        <svg viewBox="0 0 40 40" class="w-full h-full overflow-visible">
+                                                            <path @click="openMenu($event, tooth, 'T')" @contextmenu.prevent="openMenu($event, tooth, 'T')" :fill="state[tooth + '-T']?.color || 'white'" d="M0,0 L40,0 L30,10 L10,10 Z" stroke="#cbd5e1" stroke-width="1.2" class="cursor-pointer transition-all hover:brightness-90"></path>
+                                                            <path @click="openMenu($event, tooth, 'R')" @contextmenu.prevent="openMenu($event, tooth, 'R')" :fill="state[tooth + '-R']?.color || 'white'" d="M40,0 L40,40 L30,30 L30,10 Z" stroke="#cbd5e1" stroke-width="1.2" class="cursor-pointer transition-all hover:brightness-90"></path>
+                                                            <path @click="openMenu($event, tooth, 'B')" @contextmenu.prevent="openMenu($event, tooth, 'B')" :fill="state[tooth + '-B']?.color || 'white'" d="M40,40 L0,40 L10,30 L30,30 Z" stroke="#cbd5e1" stroke-width="1.2" class="cursor-pointer transition-all hover:brightness-90"></path>
+                                                            <path @click="openMenu($event, tooth, 'L')" @contextmenu.prevent="openMenu($event, tooth, 'L')" :fill="state[tooth + '-L']?.color || 'white'" d="M0,0 L10,10 L10,30 L0,40 Z" stroke="#cbd5e1" stroke-width="1.2" class="cursor-pointer transition-all hover:brightness-90"></path>
+                                                            <path @click="openMenu($event, tooth, 'C')" @contextmenu.prevent="openMenu($event, tooth, 'C')" :fill="state[tooth + '-C']?.color || 'white'" d="M10,10 L30,10 L30,30 L10,30 Z" stroke="#cbd5e1" stroke-width="1.2" class="cursor-pointer transition-all hover:brightness-90"></path>
+                                                        </svg>
+                                                    </div>
+                                                </div>
+                                           </template>
+                                        </div>
+                                        <!-- 21-28 -->
+                                        <div class="flex gap-2 lg:gap-2.5">
+                                           <template x-for="tooth in [21,22,23,24,25,26,27,28]" :key="tooth">
+                                                <div class="flex flex-col items-center gap-1.5 hover:scale-110 transition-transform">
+                                                    <span class="text-[11px] font-black text-gray-400" x-text="tooth"></span>
+                                                    <div class="w-10 h-10 lg:w-11 lg:h-11 drop-shadow-sm">
+                                                        <svg viewBox="0 0 40 40" class="w-full h-full overflow-visible">
+                                                            <path @click="openMenu($event, tooth, 'T')" @contextmenu.prevent="openMenu($event, tooth, 'T')" :fill="state[tooth + '-T']?.color || 'white'" d="M0,0 L40,0 L30,10 L10,10 Z" stroke="#cbd5e1" stroke-width="1.2" class="cursor-pointer transition-all hover:brightness-90"></path>
+                                                            <path @click="openMenu($event, tooth, 'R')" @contextmenu.prevent="openMenu($event, tooth, 'R')" :fill="state[tooth + '-R']?.color || 'white'" d="M40,0 L40,40 L30,30 L30,10 Z" stroke="#cbd5e1" stroke-width="1.2" class="cursor-pointer transition-all hover:brightness-90"></path>
+                                                            <path @click="openMenu($event, tooth, 'B')" @contextmenu.prevent="openMenu($event, tooth, 'B')" :fill="state[tooth + '-B']?.color || 'white'" d="M40,40 L0,40 L10,30 L30,30 Z" stroke="#cbd5e1" stroke-width="1.2" class="cursor-pointer transition-all hover:brightness-90"></path>
+                                                            <path @click="openMenu($event, tooth, 'L')" @contextmenu.prevent="openMenu($event, tooth, 'L')" :fill="state[tooth + '-L']?.color || 'white'" d="M0,0 L10,10 L10,30 L0,40 Z" stroke="#cbd5e1" stroke-width="1.2" class="cursor-pointer transition-all hover:brightness-90"></path>
+                                                            <path @click="openMenu($event, tooth, 'C')" @contextmenu.prevent="openMenu($event, tooth, 'C')" :fill="state[tooth + '-C']?.color || 'white'" d="M10,10 L30,10 L30,30 L10,30 Z" stroke="#cbd5e1" stroke-width="1.2" class="cursor-pointer transition-all hover:brightness-90"></path>
+                                                        </svg>
+                                                    </div>
+                                                </div>
+                                           </template>
+                                        </div>
+                                    </div>
+
+                                    <!-- Child Top Row -->
+                                    <div class="flex justify-center gap-6 px-4 lg:px-16 mx-auto">
+                                        <!-- 55-51 -->
+                                        <div class="flex gap-2 lg:gap-2.5">
+                                           <template x-for="tooth in [55,54,53,52,51]" :key="tooth">
+                                                <div class="flex flex-col items-center gap-1 hover:scale-110 transition-transform">
+                                                    <span class="text-[9px] font-black text-gray-300" x-text="tooth"></span>
+                                                    <div class="w-8 h-8 lg:w-9 lg:h-9 opacity-80">
+                                                        <svg viewBox="0 0 40 40" class="w-full h-full overflow-visible">
+                                                            <path @click="openMenu($event, tooth, 'T')" @contextmenu.prevent="openMenu($event, tooth, 'T')" :fill="state[tooth + '-T']?.color || 'white'" d="M0,0 L40,0 L30,10 L10,10 Z" stroke="#cbd5e1" stroke-width="1.2" class="cursor-pointer transition-all hover:brightness-90"></path>
+                                                            <path @click="openMenu($event, tooth, 'R')" @contextmenu.prevent="openMenu($event, tooth, 'R')" :fill="state[tooth + '-R']?.color || 'white'" d="M40,0 L40,40 L30,30 L30,10 Z" stroke="#cbd5e1" stroke-width="1.2" class="cursor-pointer transition-all hover:brightness-90"></path>
+                                                            <path @click="openMenu($event, tooth, 'B')" @contextmenu.prevent="openMenu($event, tooth, 'B')" :fill="state[tooth + '-B']?.color || 'white'" d="M40,40 L0,40 L10,30 L30,30 Z" stroke="#cbd5e1" stroke-width="1.2" class="cursor-pointer transition-all hover:brightness-90"></path>
+                                                            <path @click="openMenu($event, tooth, 'L')" @contextmenu.prevent="openMenu($event, tooth, 'L')" :fill="state[tooth + '-L']?.color || 'white'" d="M0,0 L10,10 L10,30 L0,40 Z" stroke="#cbd5e1" stroke-width="1.2" class="cursor-pointer transition-all hover:brightness-90"></path>
+                                                            <path @click="openMenu($event, tooth, 'C')" @contextmenu.prevent="openMenu($event, tooth, 'C')" :fill="state[tooth + '-C']?.color || 'white'" d="M10,10 L30,10 L30,30 L10,30 Z" stroke="#cbd5e1" stroke-width="1.2" class="cursor-pointer transition-all hover:brightness-90"></path>
+                                                        </svg>
+                                                    </div>
+                                                </div>
+                                           </template>
+                                        </div>
+                                        <!-- 61-65 -->
+                                        <div class="flex gap-2 lg:gap-2.5">
+                                           <template x-for="tooth in [61,62,63,64,65]" :key="tooth">
+                                                <div class="flex flex-col items-center gap-1 hover:scale-110 transition-transform">
+                                                    <span class="text-[9px] font-black text-gray-300" x-text="tooth"></span>
+                                                    <div class="w-8 h-8 lg:w-9 lg:h-9 opacity-80">
+                                                        <svg viewBox="0 0 40 40" class="w-full h-full overflow-visible">
+                                                            <path @click="openMenu($event, tooth, 'T')" @contextmenu.prevent="openMenu($event, tooth, 'T')" :fill="state[tooth + '-T']?.color || 'white'" d="M0,0 L40,0 L30,10 L10,10 Z" stroke="#cbd5e1" stroke-width="1.2" class="cursor-pointer transition-all hover:brightness-90"></path>
+                                                            <path @click="openMenu($event, tooth, 'R')" @contextmenu.prevent="openMenu($event, tooth, 'R')" :fill="state[tooth + '-R']?.color || 'white'" d="M40,0 L40,40 L30,30 L30,10 Z" stroke="#cbd5e1" stroke-width="1.2" class="cursor-pointer transition-all hover:brightness-90"></path>
+                                                            <path @click="openMenu($event, tooth, 'B')" @contextmenu.prevent="openMenu($event, tooth, 'B')" :fill="state[tooth + '-B']?.color || 'white'" d="M40,40 L0,40 L10,30 L30,30 Z" stroke="#cbd5e1" stroke-width="1.2" class="cursor-pointer transition-all hover:brightness-90"></path>
+                                                            <path @click="openMenu($event, tooth, 'L')" @contextmenu.prevent="openMenu($event, tooth, 'L')" :fill="state[tooth + '-L']?.color || 'white'" d="M0,0 L10,10 L10,30 L0,40 Z" stroke="#cbd5e1" stroke-width="1.2" class="cursor-pointer transition-all hover:brightness-90"></path>
+                                                            <path @click="openMenu($event, tooth, 'C')" @contextmenu.prevent="openMenu($event, tooth, 'C')" :fill="state[tooth + '-C']?.color || 'white'" d="M10,10 L30,10 L30,30 L10,30 Z" stroke="#cbd5e1" stroke-width="1.2" class="cursor-pointer transition-all hover:brightness-90"></path>
+                                                        </svg>
+                                                    </div>
+                                                </div>
+                                           </template>
+                                        </div>
+                                    </div>
+
+                                     <!-- Child Bot Row -->
+                                    <div class="flex justify-center gap-6 px-4 lg:px-16 mx-auto mt-2">
+                                        <!-- 85-81 -->
+                                        <div class="flex gap-2 lg:gap-2.5">
+                                           <template x-for="tooth in [85,84,83,82,81]" :key="tooth">
+                                                <div class="flex flex-col items-center gap-1 hover:scale-110 transition-transform flex-col-reverse">
+                                                    <span class="text-[9px] font-black text-gray-300" x-text="tooth"></span>
+                                                    <div class="w-8 h-8 lg:w-9 lg:h-9 opacity-80">
+                                                        <svg viewBox="0 0 40 40" class="w-full h-full overflow-visible">
+                                                            <path @click="openMenu($event, tooth, 'T')" @contextmenu.prevent="openMenu($event, tooth, 'T')" :fill="state[tooth + '-T']?.color || 'white'" d="M0,0 L40,0 L30,10 L10,10 Z" stroke="#cbd5e1" stroke-width="1.2" class="cursor-pointer transition-all hover:brightness-90"></path>
+                                                            <path @click="openMenu($event, tooth, 'R')" @contextmenu.prevent="openMenu($event, tooth, 'R')" :fill="state[tooth + '-R']?.color || 'white'" d="M40,0 L40,40 L30,30 L30,10 Z" stroke="#cbd5e1" stroke-width="1.2" class="cursor-pointer transition-all hover:brightness-90"></path>
+                                                            <path @click="openMenu($event, tooth, 'B')" @contextmenu.prevent="openMenu($event, tooth, 'B')" :fill="state[tooth + '-B']?.color || 'white'" d="M40,40 L0,40 L10,30 L30,30 Z" stroke="#cbd5e1" stroke-width="1.2" class="cursor-pointer transition-all hover:brightness-90"></path>
+                                                            <path @click="openMenu($event, tooth, 'L')" @contextmenu.prevent="openMenu($event, tooth, 'L')" :fill="state[tooth + '-L']?.color || 'white'" d="M0,0 L10,10 L10,30 L0,40 Z" stroke="#cbd5e1" stroke-width="1.2" class="cursor-pointer transition-all hover:brightness-90"></path>
+                                                            <path @click="openMenu($event, tooth, 'C')" @contextmenu.prevent="openMenu($event, tooth, 'C')" :fill="state[tooth + '-C']?.color || 'white'" d="M10,10 L30,10 L30,30 L10,30 Z" stroke="#cbd5e1" stroke-width="1.2" class="cursor-pointer transition-all hover:brightness-90"></path>
+                                                        </svg>
+                                                    </div>
+                                                </div>
+                                           </template>
+                                        </div>
+                                        <!-- 71-75 -->
+                                        <div class="flex gap-2 lg:gap-2.5">
+                                           <template x-for="tooth in [71,72,73,74,75]" :key="tooth">
+                                                <div class="flex flex-col items-center gap-1 hover:scale-110 transition-transform flex-col-reverse">
+                                                    <span class="text-[9px] font-black text-gray-300" x-text="tooth"></span>
+                                                    <div class="w-8 h-8 lg:w-9 lg:h-9 opacity-80">
+                                                        <svg viewBox="0 0 40 40" class="w-full h-full overflow-visible">
+                                                            <path @click="openMenu($event, tooth, 'T')" @contextmenu.prevent="openMenu($event, tooth, 'T')" :fill="state[tooth + '-T']?.color || 'white'" d="M0,0 L40,0 L30,10 L10,10 Z" stroke="#cbd5e1" stroke-width="1.2" class="cursor-pointer transition-all hover:brightness-90"></path>
+                                                            <path @click="openMenu($event, tooth, 'R')" @contextmenu.prevent="openMenu($event, tooth, 'R')" :fill="state[tooth + '-R']?.color || 'white'" d="M40,0 L40,40 L30,30 L30,10 Z" stroke="#cbd5e1" stroke-width="1.2" class="cursor-pointer transition-all hover:brightness-90"></path>
+                                                            <path @click="openMenu($event, tooth, 'B')" @contextmenu.prevent="openMenu($event, tooth, 'B')" :fill="state[tooth + '-B']?.color || 'white'" d="M40,40 L0,40 L10,30 L30,30 Z" stroke="#cbd5e1" stroke-width="1.2" class="cursor-pointer transition-all hover:brightness-90"></path>
+                                                            <path @click="openMenu($event, tooth, 'L')" @contextmenu.prevent="openMenu($event, tooth, 'L')" :fill="state[tooth + '-L']?.color || 'white'" d="M0,0 L10,10 L10,30 L0,40 Z" stroke="#cbd5e1" stroke-width="1.2" class="cursor-pointer transition-all hover:brightness-90"></path>
+                                                            <path @click="openMenu($event, tooth, 'C')" @contextmenu.prevent="openMenu($event, tooth, 'C')" :fill="state[tooth + '-C']?.color || 'white'" d="M10,10 L30,10 L30,30 L10,30 Z" stroke="#cbd5e1" stroke-width="1.2" class="cursor-pointer transition-all hover:brightness-90"></path>
+                                                        </svg>
+                                                    </div>
+                                                </div>
+                                           </template>
+                                        </div>
+                                    </div>
+
+                                    <!-- Adult Bot Row -->
+                                    <div class="flex justify-center gap-8 mt-2">
+                                        <!-- 48-41 -->
+                                        <div class="flex gap-2 lg:gap-2.5">
+                                           <template x-for="tooth in [48,47,46,45,44,43,42,41]" :key="tooth">
+                                                <div class="flex flex-col items-center gap-1.5 hover:scale-110 transition-transform flex-col-reverse">
+                                                    <span class="text-[11px] font-black text-gray-400" x-text="tooth"></span>
+                                                    <div class="w-10 h-10 lg:w-11 lg:h-11 drop-shadow-sm">
+                                                        <svg viewBox="0 0 40 40" class="w-full h-full overflow-visible">
+                                                            <path @click="openMenu($event, tooth, 'T')" @contextmenu.prevent="openMenu($event, tooth, 'T')" :fill="state[tooth + '-T']?.color || 'white'" d="M0,0 L40,0 L30,10 L10,10 Z" stroke="#cbd5e1" stroke-width="1.2" class="cursor-pointer transition-all hover:brightness-90"></path>
+                                                            <path @click="openMenu($event, tooth, 'R')" @contextmenu.prevent="openMenu($event, tooth, 'R')" :fill="state[tooth + '-R']?.color || 'white'" d="M40,0 L40,40 L30,30 L30,10 Z" stroke="#cbd5e1" stroke-width="1.2" class="cursor-pointer transition-all hover:brightness-90"></path>
+                                                            <path @click="openMenu($event, tooth, 'B')" @contextmenu.prevent="openMenu($event, tooth, 'B')" :fill="state[tooth + '-B']?.color || 'white'" d="M40,40 L0,40 L10,30 L30,30 Z" stroke="#cbd5e1" stroke-width="1.2" class="cursor-pointer transition-all hover:brightness-90"></path>
+                                                            <path @click="openMenu($event, tooth, 'L')" @contextmenu.prevent="openMenu($event, tooth, 'L')" :fill="state[tooth + '-L']?.color || 'white'" d="M0,0 L10,10 L10,30 L0,40 Z" stroke="#cbd5e1" stroke-width="1.2" class="cursor-pointer transition-all hover:brightness-90"></path>
+                                                            <path @click="openMenu($event, tooth, 'C')" @contextmenu.prevent="openMenu($event, tooth, 'C')" :fill="state[tooth + '-C']?.color || 'white'" d="M10,10 L30,10 L30,30 L10,30 Z" stroke="#cbd5e1" stroke-width="1.2" class="cursor-pointer transition-all hover:brightness-90"></path>
+                                                        </svg>
+                                                    </div>
+                                                </div>
+                                           </template>
+                                        </div>
+                                        <!-- 31-38 -->
+                                        <div class="flex gap-2 lg:gap-2.5">
+                                           <template x-for="tooth in [31,32,33,34,35,36,37,38]" :key="tooth">
+                                                <div class="flex flex-col items-center gap-1.5 hover:scale-110 transition-transform flex-col-reverse">
+                                                    <span class="text-[11px] font-black text-gray-400" x-text="tooth"></span>
+                                                    <div class="w-10 h-10 lg:w-11 lg:h-11 drop-shadow-sm">
+                                                        <svg viewBox="0 0 40 40" class="w-full h-full overflow-visible">
+                                                            <path @click="openMenu($event, tooth, 'T')" @contextmenu.prevent="openMenu($event, tooth, 'T')" :fill="state[tooth + '-T']?.color || 'white'" d="M0,0 L40,0 L30,10 L10,10 Z" stroke="#cbd5e1" stroke-width="1.2" class="cursor-pointer transition-all hover:brightness-90"></path>
+                                                            <path @click="openMenu($event, tooth, 'R')" @contextmenu.prevent="openMenu($event, tooth, 'R')" :fill="state[tooth + '-R']?.color || 'white'" d="M40,0 L40,40 L30,30 L30,10 Z" stroke="#cbd5e1" stroke-width="1.2" class="cursor-pointer transition-all hover:brightness-90"></path>
+                                                            <path @click="openMenu($event, tooth, 'B')" @contextmenu.prevent="openMenu($event, tooth, 'B')" :fill="state[tooth + '-B']?.color || 'white'" d="M40,40 L0,40 L10,30 L30,30 Z" stroke="#cbd5e1" stroke-width="1.2" class="cursor-pointer transition-all hover:brightness-90"></path>
+                                                            <path @click="openMenu($event, tooth, 'L')" @contextmenu.prevent="openMenu($event, tooth, 'L')" :fill="state[tooth + '-L']?.color || 'white'" d="M0,0 L10,10 L10,30 L0,40 Z" stroke="#cbd5e1" stroke-width="1.2" class="cursor-pointer transition-all hover:brightness-90"></path>
+                                                            <path @click="openMenu($event, tooth, 'C')" @contextmenu.prevent="openMenu($event, tooth, 'C')" :fill="state[tooth + '-C']?.color || 'white'" d="M10,10 L30,10 L30,30 L10,30 Z" stroke="#cbd5e1" stroke-width="1.2" class="cursor-pointer transition-all hover:brightness-90"></path>
+                                                        </svg>
+                                                    </div>
+                                                </div>
+                                           </template>
+                                        </div>
+                                    </div>
+
+                                </div>
+
+                                <!-- Custom Context Menu for Odontogram -->
+                                <div x-show="showMenu" @click.away="showMenu = false" x-transition.opacity
+                                     class="fixed z-[9999] bg-white/95 backdrop-blur-md rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.3)] border border-gray-100 min-w-[240px] overflow-hidden flex flex-col"
+                                     :style="{ top: menuY + 'px', left: menuX + 'px' }" style="display: none;" x-cloak>
+                                     
+                                     <div class="px-4 py-3 bg-gradient-to-r from-indigo-50 to-white border-b border-gray-100 flex items-center justify-between">
+                                        <div>
+                                           <h6 class="text-xs font-black text-indigo-700 mb-0 flex items-center gap-1.5">
+                                              <i class="ri-tooth-fill text-lg"></i> Gigi <span x-text="selectedTooth" class="text-black bg-white px-2 py-0.5 rounded shadow-sm border border-indigo-100"></span>
+                                           </h6>
+                                           <p class="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-0 mt-1 flex items-center gap-1">
+                                              <i class="ri-focus-3-line"></i> <span x-text="partLabelMap[selectedPart]" class="text-gray-600"></span>
+                                           </p>
+                                        </div>
+                                     </div>
+                                     
+                                     <div class="p-2 max-h-[320px] overflow-y-auto space-y-1">
+                                         <button @click.prevent="applyCategory(null, 'white')" class="w-full text-left px-3 py-2 rounded-xl text-sm text-gray-700 hover:bg-red-50 hover:text-red-600 transition-colors flex items-center gap-3 group">
+                                             <div class="w-5 h-5 rounded border-2 border-dashed border-gray-300 group-hover:border-red-300 flex items-center justify-center bg-white shadow-sm">
+                                                 <i class="ri-close-line text-xs text-gray-400 group-hover:text-red-500"></i>
+                                             </div>
+                                             <span class="font-bold text-xs uppercase tracking-wider">Reset Normal</span>
+                                         </button>
+                                         
+                                         <div class="h-px w-full bg-gray-100 my-2"></div>
+                                         
+                                         @foreach($kategoriGigiOptions as $kat)
+                                             <button @click.prevent="applyCategory('{{ $kat->kode_kategori }}', '{{ $kat->warna ?? '#333' }}')" 
+                                                     class="w-full text-left px-3 py-2 rounded-xl text-sm hover:bg-gray-50/80 transition-colors flex items-center gap-3 group border border-transparent hover:border-gray-200">
+                                                 <div class="w-5 h-5 rounded-md shadow-sm flex-none border border-black/10 transition-transform group-hover:scale-110 flex items-center justify-center relative overflow-hidden" style="background-color: {{ $kat->warna ?? '#ccc' }}">
+                                                     <div class="absolute inset-0 bg-white opacity-0 group-hover:opacity-20 transition-opacity"></div>
+                                                 </div>
+                                                 <div class="flex-grow min-w-0 flex flex-col justify-center">
+                                                     <span class="block font-bold text-xs text-gray-700 truncate group-hover:text-indigo-600 transition-colors leading-tight">{{ $kat->nama_kategori }}</span>
+                                                     <span class="block text-[9px] font-black uppercase tracking-widest text-gray-400 mt-0.5">{{ $kat->kode_kategori }}</span>
+                                                 </div>
+                                             </button>
+                                         @endforeach
+                                     </div>
+                                </div>
+                            </div>
+
                     @else
                         <!-- Selection Call to Action -->
                         <div class="card h-full flex flex-col items-center justify-center p-12 text-center opacity-40 min-h-[600px] border-2 border-dashed border-gray-200 rounded-[2rem] bg-gray-50/30">
@@ -1538,6 +1757,66 @@ class TransaksiPage extends Component
                 }
             </style>
         </div>
+        <script>
+            document.addEventListener('alpine:init', () => {
+                Alpine.data('odontogramStore', () => ({
+                    showMenu: false,
+                    menuX: 0,
+                    menuY: 0,
+                    selectedTooth: null,
+                    selectedPart: null,
+                    partLabelMap: {
+                        'T': 'Top / Buccal / Labial',
+                        'B': 'Bottom / Lingual / Palatal',
+                        'L': 'Left / Mesial / Distal',
+                        'R': 'Right / Distal / Mesial',
+                        'C': 'Center / Occlusal / Incisal'
+                    },
+                    state: {}, 
+
+                    init() {
+                        let lwState = @this.get('odontogramState');
+                        if(lwState && Object.keys(lwState).length > 0) {
+                            this.state = lwState;
+                        }
+                        this.$watch('state', value => {
+                            @this.set('odontogramState', value, true);
+                        });
+                    },
+
+                    openMenu(e, tooth, part) {
+                        this.selectedTooth = tooth;
+                        this.selectedPart = part;
+                        this.showMenu = true;
+                        
+                        this.$nextTick(() => {
+                            let w = window.innerWidth;
+                            let h = window.innerHeight;
+                            let x = e.clientX;
+                            let y = e.clientY;
+                            
+                            if (x + 240 > w) x = w - 250;
+                            if (y + 320 > h) y = h - 330;
+                            
+                            this.menuX = x;
+                            this.menuY = y;
+                        });
+                    },
+
+                    applyCategory(kode, warna) {
+                        let key = this.selectedTooth + '-' + this.selectedPart;
+                        if (!kode) {
+                            delete this.state[key];
+                        } else {
+                            this.state[key] = { kode: kode, color: warna };
+                        }
+                        
+                        this.state = {...this.state};
+                        this.showMenu = false;
+                    }
+                }));
+            });
+        </script>
         HTML;
     }
 }
