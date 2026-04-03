@@ -549,7 +549,7 @@ class TransaksiPage extends Component
                                 <div class="h-10 w-10 flex items-center justify-center bg-[#405189]/10 text-[#405189] rounded-xl shadow-sm">
                                     <i class="ri-filter-3-line text-lg"></i>
                                 </div>
-                                <h5 class="text-sm font-black text-gray-800 uppercase tracking-widest mb-0">Filter Data</h5>
+                                <h5 class="text-sm font-black uppercase tracking-widest mb-0">Filter Data</h5>
                             </div>
                             <div class="space-y-4">
                                 <div>

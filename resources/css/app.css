@@ -40,3 +40,199 @@
     border-bottom: 1px solid var(--vz-border-color) !important;
     color: var(--vz-body-color) !important;
 }
+
+/* ═══════════════════════════════════════════════════════════════ */
+/* Dark Mode: x-custom-dropdown component                        */
+/* ═══════════════════════════════════════════════════════════════ */
+.dark .custom-dropdown-container button[type="button"]:first-child {
+    background-color: #1a1d21 !important;
+    border-color: #2d3748 !important;
+    color: #cbd5e1 !important;
+}
+.dark .custom-dropdown-container button[type="button"]:first-child[class*="bg-white"] {
+    background-color: #1e2533 !important;
+    border-color: #405189 !important;
+    color: #93c5fd !important;
+}
+.dark .custom-dropdown-container > div[x-show] {
+    background-color: #1a1d21 !important;
+    border-color: #2d3748 !important;
+}
+.dark .custom-dropdown-container div[x-show] .border-b {
+    border-color: #2d3748 !important;
+    background-color: #1e2127 !important;
+}
+.dark .custom-dropdown-container div[x-show] input[type="text"] {
+    background-color: #212529 !important;
+    border-color: #2d3748 !important;
+    color: #e2e8f0 !important;
+}
+.dark .custom-dropdown-container div[x-show] input[type="text"]::placeholder {
+    color: #6b7280 !important;
+}
+.dark .custom-dropdown-container div[x-show] button.w-full {
+    color: #cbd5e1 !important;
+}
+.dark .custom-dropdown-container div[x-show] button.w-full:hover {
+    background-color: #2d3748 !important;
+}
+.dark .custom-dropdown-container div[x-show] button.w-full[class*="bg-indigo"] {
+    background-color: #1e2533 !important;
+    color: #93c5fd !important;
+}
+.dark .custom-dropdown-container div[x-show] button.w-full div[class*="bg-gray-50"] {
+    background-color: #2d3748 !important;
+}
+.dark .custom-dropdown-container div[x-show] button.w-full:last-child {
+    border-color: #2d3748 !important;
+    color: #9ca3af !important;
+}
+.dark .custom-dropdown-container div[x-show] button.w-full:last-child:hover {
+    background-color: rgba(239, 68, 68, 0.1) !important;
+    color: #f87171 !important;
+}
+.dark .custom-dropdown-container div[x-show] div[class*="text-gray-400"][class*="italic"] {
+    color: #6b7280 !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════ */
+/* Dark Mode: Patient list sidebar                                */
+/* ═══════════════════════════════════════════════════════════════ */
+.dark .card {
+    background-color: #1a1d21 !important;
+    border-color: #2d3748 !important;
+}
+.dark .card .border-b {
+    border-color: #2d3748 !important;
+}
+.dark .card .bg-gray-50\/50,
+.dark .card .bg-gray-50 {
+    background-color: #1e2127 !important;
+}
+.dark .card .bg-white {
+    background-color: #1a1d21 !important;
+}
+.dark .card input.form-control {
+    background-color: #212529 !important;
+    border-color: #2d3748 !important;
+    color: #e2e8f0 !important;
+}
+.dark .card input.form-control::placeholder {
+    color: #6b7280 !important;
+}
+.dark .card input[type="date"] {
+    background-color: #212529 !important;
+    border-color: #2d3748 !important;
+    color: #e2e8f0 !important;
+    color-scheme: dark;
+}
+
+/* Patient list item buttons (non-selected) */
+.dark .card button.bg-white {
+    background-color: #212529 !important;
+    border-color: #2d3748 !important;
+}
+.dark .card button.bg-white:hover {
+    background-color: #2d3748 !important;
+    border-color: #405189 !important;
+}
+.dark .card button.bg-white h6 {
+    color: #e2e8f0 !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════ */
+/* Dark Mode: Premium Card-Row UI                                 */
+/* ═══════════════════════════════════════════════════════════════ */
+.dark .group.relative.flex.items-center {
+    background-color: #212529 !important;
+    border-color: #2d3748 !important;
+}
+.dark .group.relative.flex.items-center:hover {
+    background-color: rgba(64, 81, 137, 0.1) !important;
+    border-color: #405189 !important;
+}
+.dark .group.relative.flex.items-center .text-\[\#2d3748\] {
+    color: #e2e8f0 !important;
+}
+.dark .group.relative.flex.items-center .text-gray-400 {
+    color: #6b7280 !important;
+}
+.dark .group.relative.flex.items-center .bg-gray-50 {
+    background-color: #2d3748 !important;
+    color: #9ca3af !important;
+}
+
+/* Dark Mode: Tab section headers */
+.dark .bg-orange-50, .dark .bg-blue-50, .dark .bg-emerald-50, .dark .bg-purple-50 {
+    background-color: rgba(64, 81, 137, 0.15) !important;
+}
+
+/* Dark Mode: Search inputs in tabs */
+.dark input[type="text"].bg-gray-50\/50 {
+    background-color: #212529 !important;
+    border-color: #2d3748 !important;
+    color: #e2e8f0 !important;
+}
+.dark input[type="text"].bg-gray-50\/50::placeholder {
+    color: #6b7280 !important;
+}
+
+/* Dark Mode: Empty state placeholders */
+.dark .border-dashed {
+    border-color: #2d3748 !important;
+    background-color: #1a1d21 !important;
+}
+.dark .border-dashed .bg-white {
+    background-color: #212529 !important;
+}
+
+/* Dark Mode: Patient bio card */
+.dark .card.rounded-3xl {
+    background-color: #1a1d21 !important;
+}
+.dark .from-white {
+    --tw-gradient-from: #1a1d21 !important;
+}
+.dark .to-gray-50\/50 {
+    --tw-gradient-to: #1e2127 !important;
+}
+.dark .divide-gray-100 > :not(:first-child) {
+    border-color: #2d3748 !important;
+}
+
+/* Dark Mode: Tab navigation */
+.dark .card-body .border-gray-100 {
+    border-color: #2d3748 !important;
+}
+.dark .card-body .bg-\[\#f3f6f9\]\/50 {
+    background-color: #1e2127 !important;
+}
+
+/* Dark Mode: Modals */
+.dark .bg-white.rounded-3xl {
+    background-color: #1a1d21 !important;
+}
+.dark .bg-\[\#f3f6f9\]\/50 {
+    background-color: #1e2127 !important;
+}
+.dark .bg-gray-50\/80 {
+    background-color: #1e2127 !important;
+}
+.dark .rounded-3xl input.form-control,
+.dark .rounded-3xl input[type="number"],
+.dark .rounded-3xl input[type="text"],
+.dark .rounded-3xl select,
+.dark .rounded-3xl textarea {
+    background-color: #212529 !important;
+    border-color: #2d3748 !important;
+    color: #e2e8f0 !important;
+}
+.dark .rounded-3xl label {
+    color: #9ca3af !important;
+}
+.dark .text-\[\#495057\] {
+    color: #e2e8f0 !important;
+}
+.dark .text-\[\#405189\] {
+    color: #93c5fd !important;
+}
