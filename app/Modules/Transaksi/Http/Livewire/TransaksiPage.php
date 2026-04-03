@@ -832,7 +832,8 @@ class TransaksiPage extends Component
                                         <div class="space-y-3 min-h-[200px]" wire:loading.class="opacity-50">
                                             @forelse($diagnoses as $idx => $diag)
                                                 <div wire:key="diag-card-{{ $diag['id'] ?? $idx }}"
-                                                     x-show="searchDiag === '' || '{{ strtolower($diag['nama']) }} {{ strtolower($diag['kode']) }}'.includes(searchDiag.toLowerCase())" 
+                                                     data-search="{{ strtolower($diag['nama']) }} {{ strtolower($diag['kode']) }}"
+                                                     x-show="searchDiag === '' || $el.dataset.search.includes(searchDiag.toLowerCase())" 
                                                      class="group relative flex items-center gap-4 p-4 rounded-2xl bg-white border border-gray-100 shadow-sm hover:shadow-md hover:border-[#405189]/20 hover:bg-[#405189]/[0.02] transition-all duration-300">
                                                     
                                                     <!-- Index / Number -->
@@ -893,7 +894,7 @@ class TransaksiPage extends Component
                                             @endforelse
 
                                             <!-- Empty Search Results: Diagnosis -->
-                                            <div x-show="searchDiag !== '' && $el.parentElement.querySelectorAll('.group:not([style*=\'display: none\'])').length === 0" 
+                                            <div x-show="searchDiag !== '' && !Array.from($el.parentElement.querySelectorAll('.group')).some(c => c.dataset.search.includes(searchDiag.toLowerCase()))" 
                                                  class="flex flex-col items-center justify-center py-16 px-4 bg-gray-50/50 rounded-3xl border-2 border-dashed border-gray-200"
                                                  x-cloak>
                                                 <div class="w-16 h-16 bg-white rounded-2xl shadow-sm flex items-center justify-center mb-4">
@@ -934,7 +935,8 @@ class TransaksiPage extends Component
                                         <div class="space-y-3 min-h-[200px]" wire:loading.class="opacity-50">
                                             @forelse($tindakans as $idx => $tdk)
                                                 <div wire:key="tindakan-card-{{ $tdk['id'] ?? $idx }}"
-                                                     x-show="searchTind === '' || '{{ strtolower($tdk['nama'] ?? '') }}'.includes(searchTind.toLowerCase())" 
+                                                     data-search="{{ strtolower($tdk['nama'] ?? '') }}"
+                                                     x-show="searchTind === '' || $el.dataset.search.includes(searchTind.toLowerCase())" 
                                                      class="group relative flex items-center gap-4 p-4 rounded-2xl bg-white border border-gray-100 shadow-sm hover:shadow-md hover:border-[#405189]/20 hover:bg-[#405189]/[0.02] transition-all duration-300">
                                                     
                                                     <div class="flex-none w-10 h-10 flex items-center justify-center rounded-xl bg-gray-50 text-gray-400 font-bold text-xs group-hover:bg-[#405189] group-hover:text-white transition-all">
@@ -989,7 +991,7 @@ class TransaksiPage extends Component
                                             @endforelse
 
                                             <!-- Empty Search Results: Tindakan -->
-                                            <div x-show="searchTind !== '' && $el.parentElement.querySelectorAll('.group:not([style*=\'display: none\'])').length === 0" 
+                                            <div x-show="searchTind !== '' && !Array.from($el.parentElement.querySelectorAll('.group')).some(c => c.dataset.search.includes(searchTind.toLowerCase()))" 
                                                  class="flex flex-col items-center justify-center py-16 px-4 bg-gray-50/50 rounded-3xl border-2 border-dashed border-gray-200"
                                                  x-cloak>
                                                 <div class="w-16 h-16 bg-white rounded-2xl shadow-sm flex items-center justify-center mb-4">
@@ -1030,7 +1032,8 @@ class TransaksiPage extends Component
                                         <div class="space-y-3 min-h-[200px]" wire:loading.class="opacity-50">
                                             @forelse($reseps as $idx => $rsp)
                                                 <div wire:key="resep-card-{{ $rsp['id'] ?? $idx }}"
-                                                     x-show="searchObat === '' || '{{ strtolower($rsp['nama'] ?? '') }}'.includes(searchObat.toLowerCase())" 
+                                                     data-search="{{ strtolower($rsp['nama'] ?? '') }}"
+                                                     x-show="searchObat === '' || $el.dataset.search.includes(searchObat.toLowerCase())" 
                                                      class="group relative flex items-center gap-4 p-4 rounded-2xl bg-white border border-gray-100 shadow-sm hover:shadow-md hover:border-[#405189]/20 hover:bg-[#405189]/[0.02] transition-all duration-300">
                                                     
                                                     <div class="flex-none w-10 h-10 flex items-center justify-center rounded-xl bg-gray-50 text-gray-400 font-bold text-xs group-hover:bg-[#405189] group-hover:text-white transition-all">
@@ -1081,7 +1084,7 @@ class TransaksiPage extends Component
                                             @endforelse
 
                                             <!-- Empty Search Results: Resep -->
-                                            <div x-show="searchObat !== '' && $el.parentElement.querySelectorAll('.group:not([style*=\'display: none\'])').length === 0" 
+                                            <div x-show="searchObat !== '' && !Array.from($el.parentElement.querySelectorAll('.group')).some(c => c.dataset.search.includes(searchObat.toLowerCase()))" 
                                                  class="flex flex-col items-center justify-center py-16 px-4 bg-gray-50/50 rounded-3xl border-2 border-dashed border-gray-200"
                                                  x-cloak>
                                                 <div class="w-16 h-16 bg-white rounded-2xl shadow-sm flex items-center justify-center mb-4">
@@ -1122,7 +1125,8 @@ class TransaksiPage extends Component
                                         <div class="space-y-3 min-h-[200px]" wire:loading.class="opacity-50">
                                             @forelse($bmhps as $idx => $bm)
                                                 <div wire:key="bmhp-card-{{ $bm['id'] ?? $idx }}"
-                                                     x-show="searchBmhp === '' || '{{ strtolower($bm['nama'] ?? '') }}'.includes(searchBmhp.toLowerCase())" 
+                                                     data-search="{{ strtolower($bm['nama'] ?? '') }}"
+                                                     x-show="searchBmhp === '' || $el.dataset.search.includes(searchBmhp.toLowerCase())" 
                                                      class="group relative flex items-center gap-4 p-4 rounded-2xl bg-white border border-gray-100 shadow-sm hover:shadow-md hover:border-[#405189]/20 hover:bg-[#405189]/[0.02] transition-all duration-300">
                                                     
                                                     <div class="flex-none w-10 h-10 flex items-center justify-center rounded-xl bg-gray-50 text-gray-400 font-bold text-xs group-hover:bg-[#405189] group-hover:text-white transition-all">
@@ -1172,7 +1176,7 @@ class TransaksiPage extends Component
                                             @endforelse
 
                                             <!-- Empty Search Results: BMHP -->
-                                            <div x-show="searchBmhp !== '' && $el.parentElement.querySelectorAll('.group:not([style*=\'display: none\'])').length === 0" 
+                                            <div x-show="searchBmhp !== '' && !Array.from($el.parentElement.querySelectorAll('.group')).some(c => c.dataset.search.includes(searchBmhp.toLowerCase()))" 
                                                  class="flex flex-col items-center justify-center py-16 px-4 bg-gray-50/50 rounded-3xl border-2 border-dashed border-gray-200"
                                                  x-cloak>
                                                 <div class="w-16 h-16 bg-white rounded-2xl shadow-sm flex items-center justify-center mb-4">
