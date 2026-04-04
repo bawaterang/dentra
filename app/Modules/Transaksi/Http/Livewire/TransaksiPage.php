@@ -1395,8 +1395,9 @@ class TransaksiPage extends Component
                         </div>
 
                         <!-- Odontogram Card -->
-                        <div class="card shadow-sm border-t-4 border-indigo-500 relative z-10 mt-4" style="border-color: #0a31b3ff; overflow-x: auto; overflow-y: visible;">
-                            <div class="p-4 border-b border-gray-100 flex flex-wrap gap-2 justify-between items-center bg-gray-50/50" style="background: linear-gradient(to right, #f0f4fdff, #ffffff); min-width: 820px;">
+                        <div class="card shadow-sm border-t-4 border-indigo-500 relative z-10 mt-4" style="border-color: #0a31b3ff;">
+                            <div class="rounded-t-xl" style="overflow-x: auto; overflow-y: visible;">
+                                <div class="p-4 border-b border-gray-100 flex flex-wrap gap-2 justify-between items-center bg-gray-50/50" style="background: linear-gradient(to right, #f0f4fdff, #ffffff); min-width: 820px;">
                                 <h6 class="text-sm font-black text-[#405189] uppercase tracking-widest mb-0">
                                     <i class="ri-mastodon-line mr-1"></i> Odontogram Gigi
                                 </h6>
@@ -1603,23 +1604,25 @@ class TransaksiPage extends Component
                                      </div>
                                 </div>
                             </div>
+                            </div> <!-- End Odontogram scroll wrapper -->
 
-                                <!-- Save Odontogram Button -->
-                                <div class="flex justify-end pt-4 mt-4 border-t border-gray-100 px-4 sm:px-5 lg:px-6 pb-4 mb-4">
-                                    <button type="button" wire:click="saveOdontogram" wire:loading.attr="disabled" class="btn bg-[#0d6efd] text-white px-8 h-10 shadow-md flex items-center justify-center gap-2 transition-all hover:bg-[#0b5ed7] hover:translate-y-[-2px] disabled:opacity-70 disabled:cursor-not-allowed">
-                                        <svg wire:loading wire:target="saveOdontogram" class="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                        </svg>
-                                        <i wire:loading.remove wire:target="saveOdontogram" class="ri-save-line"></i>
-                                        <span wire:loading.remove wire:target="saveOdontogram">Simpan Odontogram</span>
-                                        <span wire:loading wire:target="saveOdontogram">Memproses...</span>
-                                    </button>
-                                </div>
+                            <!-- Save Odontogram Button -->
+                            <div class="flex justify-end pt-4 mt-4 border-t border-gray-100 px-4 sm:px-5 lg:px-6 pb-4 mb-4">
+                                <button type="button" wire:click="saveOdontogram" wire:loading.attr="disabled" class="btn bg-[#0d6efd] text-white px-8 h-10 shadow-md flex items-center justify-center gap-2 transition-all hover:bg-[#0b5ed7] hover:translate-y-[-2px] disabled:opacity-70 disabled:cursor-not-allowed">
+                                    <svg wire:loading wire:target="saveOdontogram" class="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    <i wire:loading.remove wire:target="saveOdontogram" class="ri-save-line"></i>
+                                    <span wire:loading.remove wire:target="saveOdontogram">Simpan Odontogram</span>
+                                    <span wire:loading wire:target="saveOdontogram">Memproses...</span>
+                                </button>
+                            </div>
                         </div>
                         <!-- OHIS Card -->
-                        <div class="card shadow-sm border-t-4 relative z-10 mt-4" style="border-color: #0ab39c; overflow-x: auto; overflow-y: visible;">
-                            <div class="p-4 border-b border-gray-100 flex flex-wrap gap-2 justify-between items-center" style="background: linear-gradient(to right, #f0fdf9, #ffffff); min-width: 600px;">
+                        <div class="card shadow-sm border-t-4 relative z-10 mt-4" style="border-color: #0ab39c;">
+                            <div class="rounded-t-xl" style="overflow-x: auto; overflow-y: visible;">
+                                <div class="p-4 border-b border-gray-100 flex flex-wrap gap-2 justify-between items-center" style="background: linear-gradient(to right, #f0fdf9, #ffffff); min-width: 600px;">
                                 <h6 class="text-sm font-black uppercase tracking-widest mb-0 flex items-center gap-2" style="color: #0ab39c;">
                                     <i class="ri-stethoscope-line text-lg"></i> OHI-S (Oral Hygiene Index)
                                 </h6>
@@ -1765,19 +1768,21 @@ class TransaksiPage extends Component
                                         </div>
                                     </div>
                                 </div>
+                            </div> <!-- End OHIS scroll wrapper -->
 
-                                <!-- Save Button -->
-                                <div class="flex justify-end pt-4 mt-4 border-t border-gray-100 px-4 sm:px-5 lg:px-6 pb-4 mb-4">
-                                    <button type="button" wire:click="saveOhis" wire:loading.attr="disabled" class="btn bg-[#0d6efd] text-white px-8 h-10 shadow-md flex items-center justify-center gap-2 transition-all hover:bg-[#0b5ed7] hover:translate-y-[-2px] disabled:opacity-70 disabled:cursor-not-allowed">
-                                        <svg wire:loading wire:target="saveOhis" class="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                        </svg>
-                                        <i wire:loading.remove wire:target="saveOhis" class="ri-save-line"></i>
-                                        <span wire:loading.remove wire:target="saveOhis">Simpan OHIS</span>
-                                        <span wire:loading wire:target="saveOhis">Memproses...</span>
-                                    </button>
-                                </div>
+                                
+                            </div>
+                            <!-- Save Button -->
+                            <div class="flex justify-end pt-4 mt-4 border-t border-gray-100 px-4 sm:px-5 lg:px-6 pb-4 mb-4">
+                                <button type="button" wire:click="saveOhis" wire:loading.attr="disabled" class="btn bg-[#0d6efd] text-white px-8 h-10 shadow-md flex items-center justify-center gap-2 transition-all hover:bg-[#0b5ed7] hover:translate-y-[-2px] disabled:opacity-70 disabled:cursor-not-allowed">
+                                    <svg wire:loading wire:target="saveOhis" class="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    <i wire:loading.remove wire:target="saveOhis" class="ri-save-line"></i>
+                                    <span wire:loading.remove wire:target="saveOhis">Simpan OHIS</span>
+                                    <span wire:loading wire:target="saveOhis">Memproses...</span>
+                                </button>
                             </div>
                         </div>
 
