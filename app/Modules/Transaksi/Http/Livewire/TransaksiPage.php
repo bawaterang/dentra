@@ -141,6 +141,7 @@ class TransaksiPage extends Component
         $this->loadReseps();
         $this->loadBmhps();
         $this->loadOdontogram();
+        $this->loadOhis();
         
         $this->dispatch('patient-selected');
     }
@@ -229,21 +230,43 @@ class TransaksiPage extends Component
     {
         if (!$this->selectedPendaftaran) return;
 
+        // Calculate totals
+        $diValues = array_filter([$this->ohis_di_16, $this->ohis_di_11, $this->ohis_di_26, $this->ohis_di_36, $this->ohis_di_31, $this->ohis_di_46], fn($v) => $v !== '' && $v !== null);
+        $ciValues = array_filter([$this->ohis_ci_16, $this->ohis_ci_11, $this->ohis_ci_26, $this->ohis_ci_36, $this->ohis_ci_31, $this->ohis_ci_46], fn($v) => $v !== '' && $v !== null);
+        
+        $diTotal = count($diValues) > 0 ? round(array_sum($diValues) / count($diValues), 2) : null;
+        $ciTotal = count($ciValues) > 0 ? round(array_sum($ciValues) / count($ciValues), 2) : null;
+        $ohisTotal = ($diTotal !== null || $ciTotal !== null) ? round(($diTotal ?? 0) + ($ciTotal ?? 0), 2) : null;
+        
+        $kategori = null;
+        if ($ohisTotal !== null) {
+            if ($ohisTotal <= 1.2) $kategori = 'Baik';
+            elseif ($ohisTotal <= 3.0) $kategori = 'Sedang';
+            else $kategori = 'Buruk';
+        }
+
         DB::table('trx_ohis')->updateOrInsert(
-            ['nomor_kunjungan' => $this->selectedPendaftaran->nomor_kunjungan],
             [
-                'di_16' => $this->ohis_di_16,
-                'di_11' => $this->ohis_di_11,
-                'di_26' => $this->ohis_di_26,
-                'di_36' => $this->ohis_di_36,
-                'di_31' => $this->ohis_di_31,
-                'di_46' => $this->ohis_di_46,
-                'ci_16' => $this->ohis_ci_16,
-                'ci_11' => $this->ohis_ci_11,
-                'ci_26' => $this->ohis_ci_26,
-                'ci_36' => $this->ohis_ci_36,
-                'ci_31' => $this->ohis_ci_31,
-                'ci_46' => $this->ohis_ci_46,
+                'nomor_kunjungan' => $this->selectedPendaftaran->nomor_kunjungan,
+                'pasien_id' => $this->selectedPendaftaran->pasien_id,
+            ],
+            [
+                'di_16' => $this->ohis_di_16 !== '' ? $this->ohis_di_16 : null,
+                'di_11' => $this->ohis_di_11 !== '' ? $this->ohis_di_11 : null,
+                'di_26' => $this->ohis_di_26 !== '' ? $this->ohis_di_26 : null,
+                'di_36' => $this->ohis_di_36 !== '' ? $this->ohis_di_36 : null,
+                'di_31' => $this->ohis_di_31 !== '' ? $this->ohis_di_31 : null,
+                'di_46' => $this->ohis_di_46 !== '' ? $this->ohis_di_46 : null,
+                'ci_16' => $this->ohis_ci_16 !== '' ? $this->ohis_ci_16 : null,
+                'ci_11' => $this->ohis_ci_11 !== '' ? $this->ohis_ci_11 : null,
+                'ci_26' => $this->ohis_ci_26 !== '' ? $this->ohis_ci_26 : null,
+                'ci_36' => $this->ohis_ci_36 !== '' ? $this->ohis_ci_36 : null,
+                'ci_31' => $this->ohis_ci_31 !== '' ? $this->ohis_ci_31 : null,
+                'ci_46' => $this->ohis_ci_46 !== '' ? $this->ohis_ci_46 : null,
+                'di_total' => $diTotal,
+                'ci_total' => $ciTotal,
+                'ohis_total' => $ohisTotal,
+                'kategori' => $kategori,
                 'created_by' => auth()->user()->username ?? 'System',
                 'updated_at' => now(),
             ]
@@ -251,6 +274,38 @@ class TransaksiPage extends Component
 
         $this->dispatch('alert', ['type' => 'success', 'message' => 'Data OHIS berhasil disimpan.']);
     }
+
+    public function loadOhis()
+    {
+        // Reset all
+        $this->ohis_di_16 = ''; $this->ohis_di_11 = ''; $this->ohis_di_26 = '';
+        $this->ohis_di_36 = ''; $this->ohis_di_31 = ''; $this->ohis_di_46 = '';
+        $this->ohis_ci_16 = ''; $this->ohis_ci_11 = ''; $this->ohis_ci_26 = '';
+        $this->ohis_ci_36 = ''; $this->ohis_ci_31 = ''; $this->ohis_ci_46 = '';
+
+        if (!$this->selectedPendaftaran) return;
+
+        $ohis = DB::table('trx_ohis')
+            ->where('nomor_kunjungan', $this->selectedPendaftaran->nomor_kunjungan)
+            ->whereNull('deleted_at')
+            ->first();
+
+        if ($ohis) {
+            $this->ohis_di_16 = $ohis->di_16 ?? '';
+            $this->ohis_di_11 = $ohis->di_11 ?? '';
+            $this->ohis_di_26 = $ohis->di_26 ?? '';
+            $this->ohis_di_36 = $ohis->di_36 ?? '';
+            $this->ohis_di_31 = $ohis->di_31 ?? '';
+            $this->ohis_di_46 = $ohis->di_46 ?? '';
+            $this->ohis_ci_16 = $ohis->ci_16 ?? '';
+            $this->ohis_ci_11 = $ohis->ci_11 ?? '';
+            $this->ohis_ci_26 = $ohis->ci_26 ?? '';
+            $this->ohis_ci_36 = $ohis->ci_36 ?? '';
+            $this->ohis_ci_31 = $ohis->ci_31 ?? '';
+            $this->ohis_ci_46 = $ohis->ci_46 ?? '';
+        }
+    }
+
 
     public function saveOdontogram()
     {
