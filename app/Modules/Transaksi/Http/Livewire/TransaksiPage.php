@@ -86,6 +86,20 @@ class TransaksiPage extends Component
     public $kategoriGigiOptions = [];
     public $odontogramState = [];
 
+    // OHIS State (6 teeth: 16,11,26,36,31,46)
+    public $ohis_di_16 = '';
+    public $ohis_di_11 = '';
+    public $ohis_di_26 = '';
+    public $ohis_di_36 = '';
+    public $ohis_di_31 = '';
+    public $ohis_di_46 = '';
+    public $ohis_ci_16 = '';
+    public $ohis_ci_11 = '';
+    public $ohis_ci_26 = '';
+    public $ohis_ci_36 = '';
+    public $ohis_ci_31 = '';
+    public $ohis_ci_46 = '';
+
     public function mount()
     {
         $this->selectedDate = now()->format('Y-m-d');
@@ -208,6 +222,33 @@ class TransaksiPage extends Component
         );
 
         $this->dispatch('alert', ['type' => 'success', 'message' => 'Clinical Notes berhasil disimpan.']);
+    }
+
+    public function saveOhis()
+    {
+        if (!$this->selectedPendaftaran) return;
+
+        DB::table('trx_ohis')->updateOrInsert(
+            ['nomor_kunjungan' => $this->selectedPendaftaran->nomor_kunjungan],
+            [
+                'di_16' => $this->ohis_di_16,
+                'di_11' => $this->ohis_di_11,
+                'di_26' => $this->ohis_di_26,
+                'di_36' => $this->ohis_di_36,
+                'di_31' => $this->ohis_di_31,
+                'di_46' => $this->ohis_di_46,
+                'ci_16' => $this->ohis_ci_16,
+                'ci_11' => $this->ohis_ci_11,
+                'ci_26' => $this->ohis_ci_26,
+                'ci_36' => $this->ohis_ci_36,
+                'ci_31' => $this->ohis_ci_31,
+                'ci_46' => $this->ohis_ci_46,
+                'created_by' => auth()->user()->username ?? 'System',
+                'updated_at' => now(),
+            ]
+        );
+
+        $this->dispatch('alert', ['type' => 'success', 'message' => 'Data OHIS berhasil disimpan.']);
     }
 
     public function saveDiagnosis()
@@ -784,7 +825,7 @@ class TransaksiPage extends Component
                                                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                                 </svg>
                                                 <i wire:loading.remove wire:target="savePemeriksaan" class="ri-save-line"></i>
-                                                <span wire:loading.remove wire:target="savePemeriksaan">Simpan Data</span>
+                                                <span wire:loading.remove wire:target="savePemeriksaan">Simpan Pemeriksaan</span>
                                                 <span wire:loading wire:target="savePemeriksaan">Memproses...</span>
                                             </button>
                                         </div>
@@ -1224,8 +1265,8 @@ class TransaksiPage extends Component
                         </div>
 
                         <!-- Odontogram Card -->
-                        <div class="card shadow-sm border-t-4 border-indigo-500 relative z-10 mt-4" style="overflow-x: auto; overflow-y: visible;">
-                            <div class="p-4 border-b border-gray-100 flex flex-wrap gap-2 justify-between items-center bg-gray-50/50" style="min-width: 820px;">
+                        <div class="card shadow-sm border-t-4 border-indigo-500 relative z-10 mt-4" style="border-color: #0a31b3ff; overflow-x: auto; overflow-y: visible;">
+                            <div class="p-4 border-b border-gray-100 flex flex-wrap gap-2 justify-between items-center bg-gray-50/50" style="background: linear-gradient(to right, #f0f4fdff, #ffffff); min-width: 820px;">
                                 <h6 class="text-sm font-black text-[#405189] uppercase tracking-widest mb-0">
                                     <i class="ri-mastodon-line mr-1"></i> Odontogram Gigi
                                 </h6>
@@ -1432,6 +1473,171 @@ class TransaksiPage extends Component
                                      </div>
                                 </div>
                             </div>
+                            
+                        </div>
+                        <!-- OHIS Card -->
+                        <div class="card shadow-sm border-t-4 relative z-10 mt-4" style="border-color: #0ab39c; overflow-x: auto; overflow-y: visible;">
+                            <div class="p-4 border-b border-gray-100 flex flex-wrap gap-2 justify-between items-center" style="background: linear-gradient(to right, #f0fdf9, #ffffff); min-width: 600px;">
+                                <h6 class="text-sm font-black uppercase tracking-widest mb-0 flex items-center gap-2" style="color: #0ab39c;">
+                                    <i class="ri-stethoscope-line text-lg"></i> OHI-S (Oral Hygiene Index)
+                                </h6>
+                                <div class="text-xs font-bold text-gray-400 flex items-center gap-1.5"><i class="ri-information-line"></i> Skor 0-3 per gigi</div>
+                            </div>
+                            
+                            <div class="p-4 sm:p-5 lg:p-6 bg-white" x-data="{
+                                diScores: {
+                                    16: $wire.entangle('ohis_di_16'),
+                                    11: $wire.entangle('ohis_di_11'),
+                                    26: $wire.entangle('ohis_di_26'),
+                                    36: $wire.entangle('ohis_di_36'),
+                                    31: $wire.entangle('ohis_di_31'),
+                                    46: $wire.entangle('ohis_di_46'),
+                                },
+                                ciScores: {
+                                    16: $wire.entangle('ohis_ci_16'),
+                                    11: $wire.entangle('ohis_ci_11'),
+                                    26: $wire.entangle('ohis_ci_26'),
+                                    36: $wire.entangle('ohis_ci_36'),
+                                    31: $wire.entangle('ohis_ci_31'),
+                                    46: $wire.entangle('ohis_ci_46'),
+                                },
+                                teeth: [16, 11, 26, 36, 31, 46],
+                                toothLabels: { 16: 'Buccal', 11: 'Labial', 26: 'Buccal', 36: 'Lingual', 31: 'Labial', 46: 'Lingual' },
+                                get diTotal() {
+                                    let vals = this.teeth.map(t => parseFloat(this.diScores[t]) || 0);
+                                    let valid = vals.filter((v, i) => this.diScores[this.teeth[i]] !== '' && this.diScores[this.teeth[i]] !== null);
+                                    return valid.length > 0 ? (valid.reduce((a,b)=>a+b, 0) / valid.length).toFixed(2) : '-';
+                                },
+                                get ciTotal() {
+                                    let vals = this.teeth.map(t => parseFloat(this.ciScores[t]) || 0);
+                                    let valid = vals.filter((v, i) => this.ciScores[this.teeth[i]] !== '' && this.ciScores[this.teeth[i]] !== null);
+                                    return valid.length > 0 ? (valid.reduce((a,b)=>a+b, 0) / valid.length).toFixed(2) : '-';
+                                },
+                                get ohisTotal() {
+                                    if (this.diTotal === '-' && this.ciTotal === '-') return '-';
+                                    let di = this.diTotal === '-' ? 0 : parseFloat(this.diTotal);
+                                    let ci = this.ciTotal === '-' ? 0 : parseFloat(this.ciTotal);
+                                    return (di + ci).toFixed(2);
+                                },
+                                get ohisCategory() {
+                                    if (this.ohisTotal === '-') return { text: 'Belum diisi', color: '#878a99', bg: '#f3f6f9' };
+                                    let v = parseFloat(this.ohisTotal);
+                                    if (v <= 1.2) return { text: 'Baik', color: '#0ab39c', bg: '#d1fae5' };
+                                    if (v <= 3.0) return { text: 'Sedang', color: '#f7b84b', bg: '#fef3c7' };
+                                    return { text: 'Buruk', color: '#f06548', bg: '#fee2e2' };
+                                }
+                            }">
+                                <div style="min-width: 520px;">
+                                    <!-- Compact Horizontal Table Layout -->
+                                    <div class="overflow-x-auto mb-5">
+                                        <table class="w-full border-collapse" style="table-layout: fixed;">
+                                            <!-- Tooth Number Header -->
+                                            <thead>
+                                                <tr>
+                                                    <th class="text-left py-2 px-2" style="width: 100px;"></th>
+                                                    <template x-for="tooth in teeth" :key="'th-'+tooth">
+                                                        <th class="text-center py-2 px-1">
+                                                            <span class="text-xs font-black text-gray-700 block" x-text="tooth"></span>
+                                                            <span class="text-[9px] font-semibold text-gray-400 block" x-text="toothLabels[tooth]"></span>
+                                                        </th>
+                                                    </template>
+                                                    <th class="text-center py-2 px-2" style="width: 70px;">
+                                                        <span class="text-[10px] font-black text-gray-500 uppercase tracking-wider">Rata²</span>
+                                                    </th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <!-- DI Row -->
+                                                <tr style="border-top: 1px solid #f1f5f9;">
+                                                    <td class="py-3 px-2">
+                                                        <div class="flex items-center gap-2">
+                                                            <div class="w-7 h-7 rounded-lg flex items-center justify-center text-white text-[10px] font-black flex-none" style="background: #405189;">DI</div>
+                                                            <div class="min-w-0">
+                                                                <span class="text-xs font-bold text-gray-700 block leading-tight">Debris</span>
+                                                                <span class="text-[9px] text-gray-400 font-semibold leading-tight">Index</span>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <template x-for="tooth in teeth" :key="'di-sel-'+tooth">
+                                                        <td class="py-3 px-1">
+                                                            <select x-model="diScores[tooth]" 
+                                                                    class="w-full text-center text-sm font-bold border border-gray-200 rounded-xl py-2 px-1 bg-gray-50/50 focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none transition-all hover:border-gray-300 appearance-none cursor-pointer"
+                                                                    style="text-align-last: center;">
+                                                                <option value="">-</option>
+                                                                <option value="0">0</option>
+                                                                <option value="1">1</option>
+                                                                <option value="2">2</option>
+                                                                <option value="3">3</option>
+                                                            </select>
+                                                        </td>
+                                                    </template>
+                                                    <td class="py-3 px-2 text-center">
+                                                        <div class="rounded-lg py-1.5 px-2 font-black text-sm" style="background: #f0f4ff; color: #405189;" x-text="diTotal"></div>
+                                                    </td>
+                                                </tr>
+                                                <!-- CI Row -->
+                                                <tr style="border-top: 1px solid #f1f5f9;">
+                                                    <td class="py-3 px-2">
+                                                        <div class="flex items-center gap-2">
+                                                            <div class="w-7 h-7 rounded-lg flex items-center justify-center text-white text-[10px] font-black flex-none" style="background: #0ab39c;">CI</div>
+                                                            <div class="min-w-0">
+                                                                <span class="text-xs font-bold text-gray-700 block leading-tight">Calculus</span>
+                                                                <span class="text-[9px] text-gray-400 font-semibold leading-tight">Index</span>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <template x-for="tooth in teeth" :key="'ci-sel-'+tooth">
+                                                        <td class="py-3 px-1">
+                                                            <select x-model="ciScores[tooth]" 
+                                                                    class="w-full text-center text-sm font-bold border border-gray-200 rounded-xl py-2 px-1 bg-gray-50/50 focus:ring-2 focus:ring-teal-400 focus:border-teal-400 outline-none transition-all hover:border-gray-300 appearance-none cursor-pointer"
+                                                                    style="text-align-last: center;">
+                                                                <option value="">-</option>
+                                                                <option value="0">0</option>
+                                                                <option value="1">1</option>
+                                                                <option value="2">2</option>
+                                                                <option value="3">3</option>
+                                                            </select>
+                                                        </td>
+                                                    </template>
+                                                    <td class="py-3 px-2 text-center">
+                                                        <div class="rounded-lg py-1.5 px-2 font-black text-sm" style="background: #e6f9f5; color: #0ab39c;" x-text="ciTotal"></div>
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+
+                                    <!-- Result Summary (Compact) -->
+                                    <div class="border-t-2 border-dashed border-gray-100 pt-4">
+                                        <div class="flex flex-wrap gap-3 items-stretch">
+                                            <!-- OHI-S Total -->
+                                            <div class="flex-1 min-w-[120px] rounded-xl p-3 text-center border-2" style="background: #fffbeb; border-color: #fde68a;">
+                                                <p class="text-[10px] font-black uppercase tracking-widest mb-1" style="color: #92400e;">OHI-S Total</p>
+                                                <p class="text-2xl font-black mb-0" style="color: #92400e;" x-text="ohisTotal"></p>
+                                            </div>
+                                            <!-- Category -->
+                                            <div class="flex-1 min-w-[120px] rounded-xl p-3 text-center flex flex-col items-center justify-center" :style="{ background: ohisCategory.bg }">
+                                                <p class="text-[10px] font-black uppercase tracking-widest mb-1" :style="{ color: ohisCategory.color }">Kategori</p>
+                                                <p class="text-xl font-black mb-0" :style="{ color: ohisCategory.color }" x-text="ohisCategory.text"></p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Save Button -->
+                                <div class="flex justify-end pt-5 mt-5 border-t border-gray-100">
+                                    <button type="button" wire:click="saveOhis" wire:loading.attr="disabled" class="btn bg-[#0d6efd] text-white px-8 h-10 shadow-md flex items-center justify-center gap-2 transition-all hover:bg-[#0b5ed7] hover:translate-y-[-2px] disabled:opacity-70 disabled:cursor-not-allowed">
+                                        <svg wire:loading wire:target="saveOhis" class="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                        <i wire:loading.remove wire:target="saveOhis" class="ri-save-line"></i>
+                                        <span wire:loading.remove wire:target="saveOhis">Simpan OHIS</span>
+                                        <span wire:loading wire:target="saveOhis">Memproses...</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
 
                     @else
                         <!-- Selection Call to Action -->
