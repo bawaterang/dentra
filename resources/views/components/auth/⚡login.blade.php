@@ -30,7 +30,61 @@ new class extends Component
 };
 ?>
 
-<div class="min-h-screen flex bg-white font-sans antialiased text-gray-900">
+<style>
+    .global-loader {
+        position: fixed;
+        inset: 0;
+        z-index: 99999;
+        background: rgba(255, 255, 255, 0.7);
+        backdrop-filter: blur(4px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .loader-content {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+    }
+    .tooth-spinner {
+        width: 48px;
+        height: 48px;
+        color: #6691e7;
+        animation: pulseTooth 1s ease-in-out infinite;
+    }
+    @keyframes pulseTooth {
+        0% { transform: scale(0.9); opacity: 0.7; }
+        50% { transform: scale(1.15); opacity: 1; }
+        100% { transform: scale(0.9); opacity: 0.7; }
+    }
+    .loader-text {
+        font-size: 14px;
+        font-weight: 600;
+        color: #6691e7;
+        letter-spacing: 1px;
+        animation: pulseText 1s ease-in-out infinite;
+    }
+    @keyframes pulseText {
+        0% { opacity: 0.5; }
+        50% { opacity: 1; }
+        100% { opacity: 0.5; }
+    }
+</style>
+
+<div class="min-h-screen flex bg-white font-sans antialiased text-gray-900 relative">
+    <!-- Global Loader Overlay (Existing App Loader Styles) -->
+    <div wire:loading.flex wire:target="login" class="global-loader" style="display:none;">
+        <div class="loader-content">
+            <svg class="tooth-spinner" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M2.26 10c.85-6.79 5-8 9.74-8s8.89 1.21 9.74 8c.55 4.39-1.32 8.52-4.14 11.2a2 2 0 0 1-2.82-.12l-2-2.13a1 1 0 0 0-1.46 0l-2 2.13a2 2 0 0 1-2.82.12C3.58 18.52 1.71 14.39 2.26 10Z" />
+                <path d="M12 11v11" />
+            </svg>
+            <div class="loader-text text-center tracking-[4px] uppercase mr-[-4px]">Memuat...</div>
+        </div>
+    </div>
+
     <!-- Left Side - Dental Info & Background -->
     <div class="hidden lg:flex lg:w-1/2 relative bg-indigo-900 overflow-hidden">
         <img class="absolute inset-0 h-full w-full object-cover opacity-40 mix-blend-overlay"
@@ -193,10 +247,14 @@ new class extends Component
                         </label>
                     </div>
 
-                    <div>
-                        <button type="submit"
-                            class="w-full flex justify-center py-3 px-4 border border-transparent rounded-xl shadow-md text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all transform active:scale-[0.98]">
-                            Sign In
+                        <button type="submit" 
+                            wire:loading.attr="disabled"
+                            class="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-xl shadow-md text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all transform active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed gap-2">
+                            <span wire:loading.remove wire:target="login">Sign In</span>
+                            <span wire:loading wire:target="login" class="flex items-center gap-2">
+                                <i class="ri-loader-4-line animate-spin text-lg"></i>
+                                Memproses...
+                            </span>
                         </button>
                     </div>
                 </form>
