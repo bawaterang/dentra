@@ -85,6 +85,7 @@ class AntrianPage extends Component
         $this->pasienResults = [];
         $this->isSyncForEdit = false;
         $this->showSyncModal = true;
+        $this->dispatch('refresh-table');
     }
 
     public function updatedSearchPasien($value)
