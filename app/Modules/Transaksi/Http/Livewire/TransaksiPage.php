@@ -140,6 +140,7 @@ class TransaksiPage extends Component
         $this->loadTindakans();
         $this->loadReseps();
         $this->loadBmhps();
+        $this->loadOdontogram();
         
         $this->dispatch('patient-selected');
     }
@@ -249,6 +250,80 @@ class TransaksiPage extends Component
         );
 
         $this->dispatch('alert', ['type' => 'success', 'message' => 'Data OHIS berhasil disimpan.']);
+    }
+
+    public function saveOdontogram()
+    {
+        if (!$this->selectedPendaftaran) return;
+
+        $nomorKunjungan = $this->selectedPendaftaran->nomor_kunjungan;
+        $createdBy = auth()->user()->username ?? 'System';
+
+        // Delete existing records for this visit+patient
+        DB::table('trx_odontogram')
+            ->where('nomor_kunjungan', $nomorKunjungan)
+            ->where('pasien_id', $this->selectedPendaftaran->pasien_id)
+            ->delete();
+
+        // Insert all tooth-surface entries from state
+        $records = [];
+        foreach ($this->odontogramState as $key => $data) {
+            // Key format: "18-T" => ["color" => "#xxx", "kode" => "xxx"]
+            $parts = explode('-', $key);
+            if (count($parts) !== 2) continue;
+            
+            $nomorGigi = $parts[0];
+            $bagian = $parts[1];
+            $color = is_array($data) ? ($data['color'] ?? null) : null;
+            $kode = is_array($data) ? ($data['kode'] ?? null) : null;
+
+            // Only save entries that have a color assigned (not white/empty)
+            if ($color && $color !== 'white') {
+                $records[] = [
+                    'nomor_kunjungan' => $nomorKunjungan,
+                    'pasien_id' => $this->selectedPendaftaran->pasien_id,
+                    'nomor_gigi' => $nomorGigi,
+                    'bagian' => $bagian,
+                    'kode_kategori' => $kode,
+                    'warna' => $color,
+                    'created_by' => $createdBy,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
+            }
+        }
+
+        if (count($records) > 0) {
+            DB::table('trx_odontogram')->insert($records);
+        }
+
+        $this->dispatch('alert', ['type' => 'success', 'message' => 'Data Odontogram berhasil disimpan.']);
+    }
+
+    public function loadOdontogram()
+    {
+        $this->odontogramState = [];
+        if (!$this->selectedPendaftaran) return;
+
+        $rows = DB::table('trx_odontogram')
+            ->where('pasien_id', $this->selectedPendaftaran->pasien_id)
+            ->whereNull('deleted_at')
+            ->orderBy('updated_at', 'desc')
+            ->get();
+
+        // Group by tooth-surface, taking the latest entry
+        $state = [];
+        foreach ($rows as $row) {
+            $key = $row->nomor_gigi . '-' . $row->bagian;
+            if (!isset($state[$key])) {
+                $state[$key] = [
+                    'color' => $row->warna,
+                    'kode' => $row->kode_kategori,
+                ];
+            }
+        }
+
+        $this->odontogramState = $state;
     }
 
     public function saveDiagnosis()
@@ -1473,7 +1548,19 @@ class TransaksiPage extends Component
                                      </div>
                                 </div>
                             </div>
-                            
+
+                                <!-- Save Odontogram Button -->
+                                <div class="flex justify-end pt-4 mt-4 border-t border-gray-100 px-4 sm:px-5 lg:px-6 pb-4 mb-4">
+                                    <button type="button" wire:click="saveOdontogram" wire:loading.attr="disabled" class="btn bg-[#0d6efd] text-white px-8 h-10 shadow-md flex items-center justify-center gap-2 transition-all hover:bg-[#0b5ed7] hover:translate-y-[-2px] disabled:opacity-70 disabled:cursor-not-allowed">
+                                        <svg wire:loading wire:target="saveOdontogram" class="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                        <i wire:loading.remove wire:target="saveOdontogram" class="ri-save-line"></i>
+                                        <span wire:loading.remove wire:target="saveOdontogram">Simpan Odontogram</span>
+                                        <span wire:loading wire:target="saveOdontogram">Memproses...</span>
+                                    </button>
+                                </div>
                         </div>
                         <!-- OHIS Card -->
                         <div class="card shadow-sm border-t-4 relative z-10 mt-4" style="border-color: #0ab39c; overflow-x: auto; overflow-y: visible;">
@@ -1625,7 +1712,7 @@ class TransaksiPage extends Component
                                 </div>
 
                                 <!-- Save Button -->
-                                <div class="flex justify-end pt-5 mt-5 border-t border-gray-100">
+                                <div class="flex justify-end pt-4 mt-4 border-t border-gray-100 px-4 sm:px-5 lg:px-6 pb-4 mb-4">
                                     <button type="button" wire:click="saveOhis" wire:loading.attr="disabled" class="btn bg-[#0d6efd] text-white px-8 h-10 shadow-md flex items-center justify-center gap-2 transition-all hover:bg-[#0b5ed7] hover:translate-y-[-2px] disabled:opacity-70 disabled:cursor-not-allowed">
                                         <svg wire:loading wire:target="saveOhis" class="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
                                             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
