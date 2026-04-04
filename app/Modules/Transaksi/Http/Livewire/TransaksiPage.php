@@ -1224,16 +1224,18 @@ class TransaksiPage extends Component
                         </div>
 
                         <!-- Odontogram Card -->
-                        <div class="card shadow-sm border-t-4 border-indigo-500 relative z-10 mt-4">
-                            <div class="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-                                <h6 class="text-sm font-black text-indigo-600 uppercase tracking-widest mb-0 flex items-center gap-2">
-                                    <i class="ri-tooth-line text-lg"></i> Odontogram Gigi
+                        <div class="card shadow-sm border-t-4 border-indigo-500 relative z-10 mt-4" style="overflow-x: auto; overflow-y: visible;">
+                            <div class="p-4 border-b border-gray-100 flex flex-wrap gap-2 justify-between items-center bg-gray-50/50" style="min-width: 820px;">
+                                <h6 class="text-sm font-black text-[#405189] uppercase tracking-widest mb-0">
+                                    <i class="ri-mastodon-line mr-1"></i> Odontogram Gigi
                                 </h6>
                                 <div class="text-xs font-bold text-gray-400 flex items-center gap-1.5"><i class="ri-mouse-line"></i> Klik / Klik kanan pada gigi</div>
                             </div>
+                            <!-- (commented out block already exists below) -->
                             
-                            <div class="p-6 bg-white overflow-x-auto scrollbar-hide" x-data="odontogramStore()">
-                                <div class="min-w-[750px] flex flex-col gap-8 select-none pb-12 px-10">
+                            <div class="p-2 sm:p-4 lg:p-6 bg-white" 
+                                 x-data="odontogramStore(@entangle('odontogramState'))">
+                                <div style="min-width: 800px;" class="flex flex-col gap-8 select-none pb-12 px-20">
                                     
                                     <!-- Adult Top Row -->
                                     <div class="flex justify-center gap-8">
@@ -1394,7 +1396,7 @@ class TransaksiPage extends Component
                                      class="fixed z-[9999] bg-white/95 backdrop-blur-md rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.3)] border border-gray-100 min-w-[240px] overflow-hidden flex flex-col"
                                      :style="{ top: menuY + 'px', left: menuX + 'px' }" style="display: none;" x-cloak>
                                      
-                                     <div class="px-4 py-3 bg-gradient-to-r from-indigo-50 to-white border-b border-gray-100 flex items-center justify-between">
+                                     <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between" style="background: linear-gradient(to right, #eef2ff, #ffffff);">
                                         <div>
                                            <h6 class="text-xs font-black text-indigo-700 mb-0 flex items-center gap-1.5">
                                               <i class="ri-tooth-fill text-lg"></i> Gigi <span x-text="selectedTooth" class="text-black bg-white px-2 py-0.5 rounded shadow-sm border border-indigo-100"></span>
@@ -1758,8 +1760,22 @@ class TransaksiPage extends Component
             </style>
         </div>
         <script>
-            document.addEventListener('alpine:init', () => {
-                Alpine.data('odontogramStore', () => ({
+            if (!window.odontogramStoreRegistered) {
+                document.addEventListener('alpine:init', () => {
+                    registerOdontogramStore();
+                });
+                window.odontogramStoreRegistered = true;
+            }
+
+            // Also register immediately if Alpine is already defined (for Livewire re-renders)
+            if (window.Alpine) {
+                registerOdontogramStore();
+            }
+
+            function registerOdontogramStore() {
+                if (window.odontogramStoreDefined) return;
+                
+                Alpine.data('odontogramStore', (entangledState) => ({
                     showMenu: false,
                     menuX: 0,
                     menuY: 0,
@@ -1772,16 +1788,10 @@ class TransaksiPage extends Component
                         'R': 'Right / Distal / Mesial',
                         'C': 'Center / Occlusal / Incisal'
                     },
-                    state: {}, 
+                    state: entangledState, 
 
                     init() {
-                        let lwState = @this.get('odontogramState');
-                        if(lwState && Object.keys(lwState).length > 0) {
-                            this.state = lwState;
-                        }
-                        this.$watch('state', value => {
-                            @this.set('odontogramState', value, true);
-                        });
+                        // State is already bound via entangledState
                     },
 
                     openMenu(e, tooth, part) {
@@ -1815,7 +1825,8 @@ class TransaksiPage extends Component
                         this.showMenu = false;
                     }
                 }));
-            });
+                window.odontogramStoreDefined = true;
+            }
         </script>
         HTML;
     }
