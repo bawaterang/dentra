@@ -41,6 +41,7 @@ class BillingPage extends Component
             ->join('mst_pasien', 'trx_pendaftaran.pasien_id', '=', 'mst_pasien.id')
             ->leftJoin('trx_billing', 'trx_pendaftaran.nomor_kunjungan', '=', 'trx_billing.nomor_kunjungan')
             ->whereDate('trx_pendaftaran.created_at', $this->selectedDate)
+            ->whereNull('trx_pendaftaran.deleted_at')
             ->select(
                 'trx_pendaftaran.*', 
                 'mst_pasien.nama_pasien', 

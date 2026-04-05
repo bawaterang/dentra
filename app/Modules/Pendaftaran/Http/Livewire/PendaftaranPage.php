@@ -102,6 +102,21 @@ class PendaftaranPage extends Component
         $this->dispatch('refresh-table');
     }
 
+    public function deletePendaftaran($id)
+    {
+        $p = TrxPendaftaran::findOrFail($id);
+        
+        // Kembalikan status antrian jika pendaftaran dibatalkan
+        if ($p->antrian_id) {
+            \App\Models\TrxAntrian::where('id', $p->antrian_id)->update(['status' => 'menunggu']);
+        }
+        
+        $p->delete();
+        
+        $this->dispatch('refresh-table');
+        $this->dispatch('alert', ['type' => 'success', 'message' => 'Pendaftaran berhasil dibatalkan.']);
+    }
+
     public function render()
     {
         $query = TrxPendaftaran::with(['pasien', 'poli', 'dokter', 'asuransi'])
@@ -188,6 +203,23 @@ class PendaftaranPage extends Component
                                     <td class="text-center"><div class="flex justify-center gap-1">
                                         <button wire:click="editPendaftaran({{ $item->id }})" class="flex h-7 px-2 items-center justify-center rounded bg-orange-100 text-orange-600 hover:bg-orange-600 hover:text-white transition-all text-[10px] font-bold gap-1" title="Edit"><i class="ri-edit-line"></i></button>
                                         <a href="{{ route('pendaftaran.print', $item->id) }}" target="_blank" class="flex h-7 px-2 items-center justify-center rounded bg-[#405189]/10 text-[#405189] hover:bg-[#405189] hover:text-white transition-all text-[10px] font-bold gap-1" title="Cetak"><i class="ri-printer-line"></i></a>
+                                        <button @click="
+                                            Swal.fire({
+                                                title: 'Konfirmasi',
+                                                text: 'Apakah Anda yakin ingin membatalkan pendaftaran pasien ini?',
+                                                icon: 'warning',
+                                                showCancelButton: true,
+                                                confirmButtonColor: '#f06548',
+                                                cancelButtonColor: '#6c757d',
+                                                confirmButtonText: 'Ya, Batalkan!',
+                                                cancelButtonText: 'Kembali',
+                                                reverseButtons: true
+                                            }).then((result) => {
+                                                if (result.isConfirmed) {
+                                                    $wire.deletePendaftaran({{ $item->id }})
+                                                }
+                                            })
+                                        " class="flex h-7 px-2 items-center justify-center rounded bg-red-100 text-red-600 hover:bg-red-600 hover:text-white transition-all text-[10px] font-bold gap-1" title="Batal/Hapus"><i class="ri-delete-bin-line"></i></button>
                                     </div></td>
                                 </tr>
                                 @endforeach

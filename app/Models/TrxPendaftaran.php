@@ -4,10 +4,11 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class TrxPendaftaran extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     protected $table = 'trx_pendaftaran';
 
@@ -73,7 +74,8 @@ class TrxPendaftaran extends Model
     public static function generateNomorKunjungan(): string
     {
         $today = now()->format('Ymd');
-        $last = self::where('nomor_kunjungan', 'like', $today . '%')
+        $last = self::query()->withTrashed()
+            ->where('nomor_kunjungan', 'like', $today . '%')
             ->orderBy('nomor_kunjungan', 'desc')
             ->first();
 
