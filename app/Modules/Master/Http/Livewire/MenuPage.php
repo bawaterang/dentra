@@ -278,9 +278,9 @@ class MenuPage extends Component
             </div>
 
             <div x-show="showModal" class="fixed inset-0 z-[1050] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" x-transition.opacity style="display: none;">
-                <div x-show="showModal" x-transition.scale.95 class="w-full max-w-2xl bg-white rounded-xl shadow-2xl overflow-hidden">
+                <div x-show="showModal" x-transition.scale.95 class="w-full max-w-2xl bg-white rounded-xl shadow-2xl overflow-visible">
                     <div class="px-6 py-4 flex items-center justify-between border-b border-gray-100 bg-[#f3f6f9]/50"><h5 class="text-lg font-bold text-[#495057]">{{ $isEdit ? 'Ubah Data Menu' : 'Tambah Menu Baru' }}</h5><button @click="showModal = false" class="text-gray-400 hover:text-gray-600"><i class="ri-close-line text-2xl"></i></button></div>
-                    <div class="px-8 py-6 max-h-[75vh] overflow-y-auto">
+                    <div class="px-8 py-6 max-h-[75vh] overflow-visible">
                         <form wire:submit.prevent="save">
                             <div class="space-y-4">
                                 <h6 class="text-xs font-bold text-[#405189] uppercase tracking-widest border-b pb-2">Informasi Menu</h6>

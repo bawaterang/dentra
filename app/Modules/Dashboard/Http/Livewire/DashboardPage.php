@@ -265,23 +265,15 @@ class DashboardPage extends Component
         $this->chartLabels = $labels;
         $this->chartVisits = $visits;
 
-        // --- Fetch Insurance Data according to filter period ---
-        $insuranceDataQuery = DB::table('trx_pendaftaran')
+        // --- Fetch Insurance Data for TODAY only (independent of filter) ---
+        $insuranceResults = DB::table('trx_pendaftaran')
             ->join('mst_asuransi', 'trx_pendaftaran.asuransi_id', '=', 'mst_asuransi.id')
             ->select('mst_asuransi.nama_asuransi as label', DB::raw('count(*) as count'))
             ->whereNull('trx_pendaftaran.deleted_at')
-            ->groupBy('trx_pendaftaran.asuransi_id', 'mst_asuransi.nama_asuransi');
+            ->whereDate('trx_pendaftaran.created_at', Carbon::today())
+            ->groupBy('trx_pendaftaran.asuransi_id', 'mst_asuransi.nama_asuransi')
+            ->get();
 
-        if ($this->filterPeriod === 'daily') {
-            $insuranceDataQuery->whereMonth('trx_pendaftaran.created_at', $now->month)
-                               ->whereYear('trx_pendaftaran.created_at', $now->year);
-        } elseif ($this->filterPeriod === 'monthly') {
-            $insuranceDataQuery->whereYear('trx_pendaftaran.created_at', $now->year);
-        } elseif ($this->filterPeriod === 'yearly') {
-            $insuranceDataQuery->whereYear('trx_pendaftaran.created_at', '>=', $now->year - 4);
-        }
-
-        $insuranceResults = $insuranceDataQuery->get();
         $this->chartInsuranceLabels = $insuranceResults->pluck('label')->toArray();
         $this->chartInsuranceData = $insuranceResults->pluck('count')->toArray();
     }
@@ -290,7 +282,7 @@ class DashboardPage extends Component
     {
         $appointments = DB::table('trx_antrian')
             ->select(
-                'trx_antrian.created_at as antrian_time',
+                'trx_antrian.waktu_hadir as antrian_time',
                 'trx_antrian.status as status_antrian',
                 'trx_antrian.nama_pasien_input_manual',
                 'mst_pasien.nama_pasien as nama_pasien_master',
@@ -329,23 +321,23 @@ class DashboardPage extends Component
 
             if ($row->status_antrian === 'batal') {
                 $statusText = 'Dibatalkan';
-                $statusBadge = 'cancelled';
+                $statusBadge = 'bg-danger-subtle';
             } elseif (empty($row->id_pendaftaran)) {
                 $statusText = 'Antri dan Belum didaftarkan';
-                $statusBadge = 'pending';
+                $statusBadge = 'bg-primary-subtle';
             } elseif (empty($row->id_pemeriksaan)) {
                 $statusText = 'Belum diperiksa';
-                $statusBadge = 'warning';
+                $statusBadge = 'bg-warning-subtle';
             } else {
                 if (!empty($row->id_billing) && $row->status_billing === 'Lunas') {
                     $statusText = 'Sudah dilayani (Selesai)';
-                    $statusBadge = 'completed';
+                    $statusBadge = 'bg-success-subtle';
                 } elseif (!empty($row->id_billing) && floatval($row->total_bayar) > 0) {
                     $statusText = 'Selesai, belum lunas';
-                    $statusBadge = 'confirmed';
+                    $statusBadge = 'bg-danger-subtle';
                 } else {
                     $statusText = 'Sedang diperiksa';
-                    $statusBadge = 'confirmed';
+                    $statusBadge = 'bg-info-subtle';
                 }
             }
 

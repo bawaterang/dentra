@@ -137,6 +137,7 @@ class BillingPage extends Component
                     'hutang' => $this->hutang,
                     'status' => $this->status,
                     'tanggal_bayar' => now(),
+                    'created_at' => now(),
                     'created_by' => auth()->user()->username ?? 'System',
                     'updated_at' => now(),
                 ]

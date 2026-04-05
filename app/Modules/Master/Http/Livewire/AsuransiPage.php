@@ -382,7 +382,7 @@ class AsuransiPage extends Component
 
             <!-- Modal -->
             <div x-show="showModal" class="fixed inset-0 z-[1050] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" x-transition.opacity style="display: none;">
-                <div x-show="showModal" x-transition.scale.95 class="w-full max-w-3xl bg-white rounded-xl shadow-2xl overflow-hidden">
+                <div x-show="showModal" x-transition.scale.95 class="w-full max-w-3xl bg-white rounded-xl shadow-2xl overflow-visible">
                     <div class="px-6 py-4 flex items-center justify-between border-b border-gray-100 bg-[#f3f6f9]/50">
                         <h5 class="text-lg font-bold text-[#495057]">
                             {{ $isEdit ? 'Ubah Data Asuransi' : 'Tambah Asuransi Baru' }}
@@ -392,7 +392,7 @@ class AsuransiPage extends Component
                         </button>
                     </div>
 
-                    <div class="px-8 py-6 max-h-[75vh] overflow-y-auto">
+                    <div class="px-8 py-6 max-h-[75vh] overflow-visible">
                         <form wire:submit.prevent="save" id="asuransiForm">
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
                                 <div class="space-y-4">
