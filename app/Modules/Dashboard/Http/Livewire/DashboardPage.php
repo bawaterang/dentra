@@ -3,6 +3,7 @@
 namespace App\Modules\Dashboard\Http\Livewire;
 
 use Livewire\Component;
+use Livewire\WithPagination;
 use App\Models\TrxPendaftaran;
 use App\Models\TrxAntrian;
 use Illuminate\Support\Facades\DB;
@@ -11,23 +12,24 @@ use Livewire\Attributes\On;
 
 class DashboardPage extends Component
 {
+    use WithPagination;
+
     // Summary stats
     public int $totalPatientsToday  = 0;
+    public int $totalPatientsYesterday = 0;
     public int $totalVisitsMonth    = 0;
     public int $completedAppointmentsToday = 0;
     public int $pendingAppointments = 0;
 
     // Filter properties
-    public string $filterPeriod = 'monthly'; // daily, monthly, yearly
+    public $filterPeriod = 'monthly'; // daily, monthly, yearly
     public array $filterOptions = [];
-
-    // Upcoming appointments
-    public array $appointments = [];
 
     // Monthly visits chart data
     public array $chartLabels = [];
     public array $chartVisits = [];
-    public array $chartRevenue = [];
+    public array $chartInsuranceLabels = [];
+    public array $chartInsuranceData = [];
 
     // Schedule Status Chart Data
     public array $statusChartData = []; // [confirmed, pending, completed]
@@ -44,7 +46,6 @@ class DashboardPage extends Component
         ];
 
         $this->loadSummaryStats();
-        $this->loadAppointments();
         $this->loadChartData();
         $this->loadStatusChart();
         $this->loadRecentActivity();
@@ -58,6 +59,11 @@ class DashboardPage extends Component
 
         // Pasien Hari Ini
         $this->totalPatientsToday = TrxPendaftaran::whereDate('created_at', $today)
+            ->whereNull('deleted_at')
+            ->count();
+
+        // Pasien Kemarin
+        $this->totalPatientsYesterday = TrxPendaftaran::whereDate('created_at', Carbon::yesterday())
             ->whereNull('deleted_at')
             ->count();
 
@@ -77,36 +83,6 @@ class DashboardPage extends Component
             ->count();
     }
 
-    public function loadAppointments()
-    {
-        $records = TrxPendaftaran::with(['pasien', 'dokter', 'poli'])
-            ->whereDate('created_at', Carbon::today())
-            ->whereNull('deleted_at')
-            ->orderBy('created_at', 'asc')
-            ->limit(15)
-            ->get();
-
-        $this->appointments = [];
-        foreach ($records as $record) {
-            $statusMap = [
-                'terdaftar' => 'pending',
-                'menunggu_screening' => 'confirmed',
-                'pemeriksaan' => 'confirmed',
-                'selesai' => 'completed',
-                'batal' => 'cancelled'
-            ];
-            
-            $statusLabel = $statusMap[$record->status] ?? 'pending';
-            
-            $this->appointments[] = [
-                'time' => $record->created_at->format('H:i'),
-                'patient' => $record->pasien?->nama_pasien ?? '-',
-                'doctor' => $record->dokter?->nama_dokter ?? '-',
-                'type' => $record->poli?->nama_poli ?? '-',
-                'status' => $statusLabel
-            ];
-        }
-    }
 
     public function loadStatusChart()
     {
@@ -135,10 +111,16 @@ class DashboardPage extends Component
         $activities = [];
 
         // 1. Get newer Antrian
-        $antrians = TrxAntrian::with('pasien')->latest('created_at')->limit(5)->get();
+        $antrians = TrxAntrian::with('pasien')
+            ->whereNotNull('created_at')
+            ->latest('created_at')
+            ->limit(5)
+            ->get();
         foreach ($antrians as $a) {
+             $timeStr = $a->getOriginal('created_at');
+             if (empty($timeStr)) continue;
              $activities[] = [
-                 'time' => $a->created_at,
+                 'act_time' => $timeStr,
                  'initials' => strtoupper(substr($a->pasien?->nama_pasien ?? $a->nama_pasien_input_manual ?? 'P', 0, 2)),
                  'color' => '#10b981',
                  'msg' => ($a->pasien?->nama_pasien ?? $a->nama_pasien_input_manual ?? 'Pasien') . " mengambil antrian " . ($a->jenis_antrian == 'online' ? 'Online' : 'Klinik'),
@@ -146,44 +128,55 @@ class DashboardPage extends Component
         }
 
         // 2. Get newer Pendaftaran
-        $pendaftrans = TrxPendaftaran::with('pasien', 'poli')->latest('created_at')->limit(5)->get();
+        $pendaftrans = TrxPendaftaran::with('pasien', 'poli')
+            ->whereNotNull('created_at')
+            ->latest('created_at')
+            ->limit(5)
+            ->get();
         foreach ($pendaftrans as $p) {
+             $timeStr = $p->getOriginal('created_at');
+             if (empty($timeStr)) continue;
              $activities[] = [
-                 'time' => $p->created_at,
+                 'act_time' => $timeStr,
                  'initials' => strtoupper(substr($p->pasien?->nama_pasien ?? 'P', 0, 2)),
                  'color' => '#3b82f6',
                  'msg' => ($p->pasien?->nama_pasien ?? 'Pasien') . " diregistrasi di " . ($p->poli?->nama_poli ?? 'Poli'),
              ];
         }
 
-        // 3. Get newer Billing
+        // 3. Get newer Billing (use tanggal_bayar since created_at is often null)
         $billings = DB::table('trx_billing')
             ->join('mst_pasien', 'trx_billing.pasien_id', '=', 'mst_pasien.id')
             ->select('trx_billing.*', 'mst_pasien.nama_pasien')
             ->whereNull('trx_billing.deleted_at')
-            ->orderBy('trx_billing.created_at', 'desc')
+            ->whereNotNull('trx_billing.tanggal_bayar')
+            ->orderBy('trx_billing.tanggal_bayar', 'desc')
             ->limit(5)
             ->get();
             
         foreach ($billings as $b) {
+             $timeStr = $b->tanggal_bayar;
+             if (empty($timeStr)) continue;
              $verb = ($b->status === 'Lunas') ? 'menyelesaikan pembayaran' : 'memiliki tagihan aktif';
              $color = ($b->status === 'Lunas') ? '#8b5cf6' : '#f59e0b';
              $activities[] = [
-                 'time' => Carbon::parse($b->created_at),
+                 'act_time' => $timeStr,
                  'initials' => strtoupper(substr($b->nama_pasien ?? 'P', 0, 2)),
                  'color' => $color,
                  'msg' => ($b->nama_pasien) . " " . $verb,
              ];
         }
 
-        // Sort combined array
+        // Sort by raw timestamp string descending
         usort($activities, function($a, $b) {
-            return $b['time'] <=> $a['time'];
+            return strcmp($b['act_time'], $a['act_time']);
         });
 
-        // Take top 5 and format time
+        // Take top 6 and format time from the raw DB string using App timezone
         $this->activities = array_slice(array_map(function($act) {
-            $act['time_formatted'] = $act['time']->format('H:i');
+            // explicitly set timezone to Asia/Jakarta before formatting
+            $act['time_formatted'] = Carbon::parse($act['act_time'])->timezone('Asia/Jakarta')->format('H:i');
+            unset($act['act_time']);
             return $act;
         }, $activities), 0, 6);
     }
@@ -194,15 +187,19 @@ class DashboardPage extends Component
         $this->dispatch('update-chart', [
             'labels' => $this->chartLabels, 
             'visits' => $this->chartVisits, 
-            'revenue' => $this->chartRevenue
+            'insuranceLabels' => $this->chartInsuranceLabels,
+            'insuranceData' => $this->chartInsuranceData
         ]);
     }
 
     public function loadChartData()
     {
+        if (empty($this->filterPeriod)) {
+            $this->filterPeriod = 'daily';
+        }
+
         $labels = [];
         $visits = [];
-        $revenue = [];
 
         $now = Carbon::now();
 
@@ -218,24 +215,12 @@ class DashboardPage extends Component
                 ->pluck('count', 'day')
                 ->toArray();
 
-            $revenueData = DB::table('trx_billing')
-                ->whereMonth('created_at', $now->month)
-                ->whereYear('created_at', $now->year)
-                ->whereNull('deleted_at')
-                ->selectRaw('DAY(created_at) as day, SUM(total_bayar) as sum')
-                ->groupBy('day')
-                ->pluck('sum', 'day')
-                ->toArray();
-
             for ($i = 1; $i <= $daysInMonth; $i++) {
                 $v = $visitsData[$i] ?? 0;
-                $r = $revenueData[$i] ?? 0;
                 
-                // Exclude 0 revenue / 0 visits days
-                if ($v > 0 || $r > 0) {
+                if ($v > 0) {
                     $labels[] = $i . ' ' . $now->translatedFormat('M');
                     $visits[] = $v;
-                    $revenue[] = round($r / 1000000, 2); // In millions
                 }
             }
         } elseif ($this->filterPeriod === 'monthly') {
@@ -247,22 +232,12 @@ class DashboardPage extends Component
                 ->pluck('count', 'month')
                 ->toArray();
 
-            $revenueData = DB::table('trx_billing')
-                ->whereYear('created_at', $now->year)
-                ->whereNull('deleted_at')
-                ->selectRaw('MONTH(created_at) as month, SUM(total_bayar) as sum')
-                ->groupBy('month')
-                ->pluck('sum', 'month')
-                ->toArray();
-
             for ($i = 1; $i <= 12; $i++) {
                 $v = $visitsData[$i] ?? 0;
-                $r = $revenueData[$i] ?? 0;
                 
-                if ($v > 0 || $r > 0) {
+                if ($v > 0) {
                     $labels[] = Carbon::create()->month($i)->translatedFormat('M');
                     $visits[] = $v;
-                    $revenue[] = round($r / 1000000, 2);
                 }
             }
         } elseif ($this->filterPeriod === 'yearly') {
@@ -277,34 +252,116 @@ class DashboardPage extends Component
                 ->pluck('count', 'year')
                 ->toArray();
 
-            $revenueData = DB::table('trx_billing')
-                ->whereYear('created_at', '>=', $startYear)
-                ->whereNull('deleted_at')
-                ->selectRaw('YEAR(created_at) as year, SUM(total_bayar) as sum')
-                ->groupBy('year')
-                ->pluck('sum', 'year')
-                ->toArray();
-
             for ($i = $startYear; $i <= $endYear; $i++) {
                 $v = $visitsData[$i] ?? 0;
-                $r = $revenueData[$i] ?? 0;
                 
-                if ($v > 0 || $r > 0) {
+                if ($v > 0) {
                     $labels[] = (string) $i;
                     $visits[] = $v;
-                    $revenue[] = round($r / 1000000, 2);
                 }
             }
         }
 
         $this->chartLabels = $labels;
         $this->chartVisits = $visits;
-        $this->chartRevenue = $revenue;
+
+        // --- Fetch Insurance Data according to filter period ---
+        $insuranceDataQuery = DB::table('trx_pendaftaran')
+            ->join('mst_asuransi', 'trx_pendaftaran.asuransi_id', '=', 'mst_asuransi.id')
+            ->select('mst_asuransi.nama_asuransi as label', DB::raw('count(*) as count'))
+            ->whereNull('trx_pendaftaran.deleted_at')
+            ->groupBy('trx_pendaftaran.asuransi_id', 'mst_asuransi.nama_asuransi');
+
+        if ($this->filterPeriod === 'daily') {
+            $insuranceDataQuery->whereMonth('trx_pendaftaran.created_at', $now->month)
+                               ->whereYear('trx_pendaftaran.created_at', $now->year);
+        } elseif ($this->filterPeriod === 'monthly') {
+            $insuranceDataQuery->whereYear('trx_pendaftaran.created_at', $now->year);
+        } elseif ($this->filterPeriod === 'yearly') {
+            $insuranceDataQuery->whereYear('trx_pendaftaran.created_at', '>=', $now->year - 4);
+        }
+
+        $insuranceResults = $insuranceDataQuery->get();
+        $this->chartInsuranceLabels = $insuranceResults->pluck('label')->toArray();
+        $this->chartInsuranceData = $insuranceResults->pluck('count')->toArray();
     }
 
     public function render()
     {
-        return view('modules.dashboard.index')
-            ->layout('layouts.app', ['title' => 'Dashboard']);
+        $appointments = DB::table('trx_antrian')
+            ->select(
+                'trx_antrian.created_at as antrian_time',
+                'trx_antrian.status as status_antrian',
+                'trx_antrian.nama_pasien_input_manual',
+                'mst_pasien.nama_pasien as nama_pasien_master',
+                'mst_dokter.nama_dokter',
+                'mst_poli.nama_poli',
+                'trx_pendaftaran.id as id_pendaftaran',
+                'trx_pemeriksaan.id as id_pemeriksaan',
+                'trx_billing.id as id_billing',
+                'trx_billing.status as status_billing',
+                'trx_billing.total_bayar'
+            )
+            ->leftJoin('trx_pendaftaran', function($join) {
+                $join->on('trx_antrian.id', '=', 'trx_pendaftaran.antrian_id')
+                     ->whereNull('trx_pendaftaran.deleted_at');
+            })
+            ->leftJoin('trx_pemeriksaan', function($join) {
+                $join->on('trx_pendaftaran.nomor_kunjungan', '=', 'trx_pemeriksaan.nomor_kunjungan')
+                     ->whereNull('trx_pemeriksaan.deleted_at');
+            })
+            ->leftJoin('trx_billing', function($join) {
+                $join->on('trx_pendaftaran.nomor_kunjungan', '=', 'trx_billing.nomor_kunjungan')
+                     ->whereNull('trx_billing.deleted_at');
+            })
+            ->leftJoin('mst_pasien', 'trx_antrian.pasien_id', '=', 'mst_pasien.id')
+            ->leftJoin('mst_dokter', 'trx_antrian.kode_dokter', '=', 'mst_dokter.kode_dokter')
+            ->leftJoin('mst_poli', 'trx_antrian.kode_poli', '=', 'mst_poli.kode_poli')
+            ->whereDate('trx_antrian.tanggal_antrian', Carbon::today())
+            ->orderBy('trx_antrian.created_at', 'asc')
+            ->paginate(10);
+
+        $appointments->getCollection()->transform(function($row) {
+            $patientName = $row->nama_pasien_master ?? $row->nama_pasien_input_manual ?? '-';
+            
+            $statusBadge = 'pending';
+            $statusText = '';
+
+            if ($row->status_antrian === 'batal') {
+                $statusText = 'Dibatalkan';
+                $statusBadge = 'cancelled';
+            } elseif (empty($row->id_pendaftaran)) {
+                $statusText = 'Antri dan Belum didaftarkan';
+                $statusBadge = 'pending';
+            } elseif (empty($row->id_pemeriksaan)) {
+                $statusText = 'Belum diperiksa';
+                $statusBadge = 'warning';
+            } else {
+                if (!empty($row->id_billing) && $row->status_billing === 'Lunas') {
+                    $statusText = 'Sudah dilayani (Selesai)';
+                    $statusBadge = 'completed';
+                } elseif (!empty($row->id_billing) && floatval($row->total_bayar) > 0) {
+                    $statusText = 'Selesai, belum lunas';
+                    $statusBadge = 'confirmed';
+                } else {
+                    $statusText = 'Sedang diperiksa';
+                    $statusBadge = 'confirmed';
+                }
+            }
+
+            // Return associative array to mimic previous item structure for blade
+            return [
+                'time' => Carbon::parse($row->antrian_time)->format('H:i'),
+                'patient' => $patientName,
+                'doctor' => $row->nama_dokter ?? '-',
+                'type' => $row->nama_poli ?? '-',
+                'status' => $statusBadge,
+                'statusText' => $statusText
+            ];
+        });
+
+        return view('modules.dashboard.index', [
+            'appointments' => $appointments
+        ])->layout('layouts.app', ['title' => 'Dashboard']);
     }
 }

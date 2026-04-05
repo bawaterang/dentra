@@ -46,13 +46,20 @@
                 <div class="stat-label">Pasien Hari Ini</div>
                 <div class="stat-value">{{ $totalPatientsToday }}</div>
             </div>
-            <div class="stat-trend up">
+            <div class="stat-trend {{ $totalPatientsToday >= $totalPatientsYesterday ? 'up' : 'down' }}">
+                @if($totalPatientsToday >= $totalPatientsYesterday)
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                     stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                     <polyline points="18 15 12 9 6 15" />
                 </svg>
+                @else
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="6 9 12 15 18 9" />
+                </svg>
+                @endif
                 Real-time
-                <span class="label">vs kemarin</span>
+                <span class="label">Kemarin: {{ $totalPatientsYesterday }} pasien</span>
             </div>
         </div>
 
@@ -201,7 +208,6 @@
     <div class="card">
         <div class="card-header">
             <h2 class="card-title">Jadwal Hari Ini</h2>
-            <button class="btn btn-light btn-sm">Lihat Semua</button>
         </div>
         <div class="card-body p-0">
             <div class="table-responsive">
@@ -233,7 +239,7 @@
                                 <span class="text-xs text-[#878a99]">{{ $item['type'] }}</span>
                             </td>
                             <td>
-                                <span class="badge {{ $item['status'] }}">{{ ucfirst($item['status']) }}</span>
+                                <span class="badge {{ $item['status'] }}" style="text-transform: none;">{{ $item['statusText'] }}</span>
                             </td>
                         </tr>
                         @empty
@@ -245,6 +251,11 @@
                     </tbody>
                 </table>
             </div>
+            @if($appointments->hasPages())
+            <div class="px-4 py-3 border-t border-gray-100">
+                {{ $appointments->links() }}
+            </div>
+            @endif
         </div>
     </div>
 
@@ -253,15 +264,22 @@
     {{-- ══════════════════════════════════════════════════ --}}
     <div class="bottom-grid" style="margin-top:24px;">
 
-        {{-- Line Chart: Revenue Trend --}}
+        {{-- Doughnut Chart: Insurance Status --}}
         <div class="card">
             <div class="card-header">
-                <h2 class="card-title">Tren Pendapatan Diterima</h2>
+                <h2 class="card-title">Statistik Jumlah Pasien Berdasarkan Penjamin</h2>
             </div>
             <div class="card-body">
-                <div class="chart-wrap" style="height:250px;" wire:ignore>
-                    <canvas id="revenueChart"></canvas>
+                @if(empty($chartInsuranceLabels))
+                <div class="text-center py-4 text-gray-400 text-sm italic">Belum ada data asuransi pada periode ini.</div>
+                @else
+                <div class="chart-wrap" style="height:220px;" wire:ignore>
+                    <canvas id="insuranceChart"></canvas>
                 </div>
+                <div id="insuranceLegend" style="display:flex;flex-wrap:wrap;justify-content:center;gap:12px;margin-top:20px;">
+                    {{-- Legend items injected by JS --}}
+                </div>
+                @endif
             </div>
         </div>
 
@@ -306,7 +324,8 @@
 
             let labels = @json($chartLabels);
             let visits = @json($chartVisits);
-            let revenue = @json($chartRevenue);
+            let insLabels = @json($chartInsuranceLabels);
+            let insData = @json($chartInsuranceData);
 
             // -- Setup Visits Chart --
             const ctxVisits = document.getElementById('visitsChart').getContext('2d');
@@ -373,42 +392,51 @@
                 }
             });
 
-            // -- Setup Revenue Chart --
-            const ctxRev = document.getElementById('revenueChart').getContext('2d');
-            const gradRev = ctxRev.createLinearGradient(0, 0, 0, 400);
-            gradRev.addColorStop(0, 'rgba(139, 92, 246, 0.2)');
-            gradRev.addColorStop(1, 'rgba(139, 92, 246, 0)');
+            // -- Setup Insurance Chart --
+            const insCtx = document.getElementById('insuranceChart') ? document.getElementById('insuranceChart').getContext('2d') : null;
+            const insColors = ['#f59e0b', '#3b82f6', '#10b981', '#8b5cf6', '#ec4899', '#06b6d4', '#f43f5e', '#84cc16'];
+            
+            const renderInsLegend = (labels, data) => {
+                const legend = document.getElementById('insuranceLegend');
+                if(!legend) return;
+                legend.innerHTML = '';
+                labels.forEach((label, i) => {
+                    const color = insColors[i % insColors.length];
+                    const val = data[i];
+                    legend.innerHTML += `
+                        <div style="display:flex;align-items:center;gap:6px;">
+                            <span style="width:8px;height:8px;border-radius:2px;background:${color};flex-shrink:0;"></span>
+                            <span style="font-size:11px;font-weight:600;">${label} (${val})</span>
+                        </div>
+                    `;
+                });
+            };
 
-            if (window.revenueChartInst) window.revenueChartInst.destroy();
-            window.revenueChartInst = new Chart(ctxRev, {
-                type: 'line',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: 'Pendapatan (Jt)',
-                        data: revenue,
-                        borderColor: '#a855f7',
-                        backgroundColor: 'rgba(168,85,247,0.08)',
-                        borderWidth: 2.5,
-                        pointBackgroundColor: '#a855f7',
-                        pointRadius: 4,
-                        tension: 0.4,
-                        fill: true,
-                    }]
-                },
-                options: {
-                    responsive: true, maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: {
-                        x: { grid: { display: false }, ticks: { font: { size: 11 }, color: '#878a99' } },
-                        y: {
-                            grid: { color: '#f1f3f5' },
-                            ticks: { font: { size: 11 }, color: '#878a99', callback: v => `${v}Jt` },
-                            beginAtZero: true
+            if (insCtx) {
+                if (window.insuranceChartInst) window.insuranceChartInst.destroy();
+                window.insuranceChartInst = new Chart(insCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: insLabels,
+                        datasets: [{
+                            data: insData,
+                            backgroundColor: insColors,
+                            borderWidth: 4,
+                            borderColor: '#fff',
+                            hoverOffset: 10,
+                        }]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        cutout: '75%',
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: { backgroundColor: '#1e293b', padding: 12, cornerRadius: 8 }
                         }
                     }
-                }
-            });
+                });
+                renderInsLegend(insLabels, insData);
+            }
 
             // -- Listen for Livewire update events --
             if (!window.chartListenerAttached) {
@@ -422,11 +450,12 @@
                         window.visitsChartInst.update();
                     }
 
-                    // Update Revenue Chart
-                    if (window.revenueChartInst) {
-                        window.revenueChartInst.data.labels = res.labels;
-                        window.revenueChartInst.data.datasets[0].data = res.revenue;
-                        window.revenueChartInst.update();
+                    // Update Insurance Chart
+                    if (window.insuranceChartInst) {
+                        window.insuranceChartInst.data.labels = res.insuranceLabels;
+                        window.insuranceChartInst.data.datasets[0].data = res.insuranceData;
+                        window.insuranceChartInst.update();
+                        renderInsLegend(res.insuranceLabels, res.insuranceData);
                     }
                 });
                 window.chartListenerAttached = true;
