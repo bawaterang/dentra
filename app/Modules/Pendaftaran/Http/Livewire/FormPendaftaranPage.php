@@ -9,6 +9,8 @@ use App\Models\MstPasien;
 use App\Models\MstPoli;
 use App\Models\MstDokter;
 use App\Models\MstAsuransi;
+use App\Models\MstSettingAntrianHari;
+use App\Models\MstSettingAntrianLibur;
 
 class FormPendaftaranPage extends Component
 {
@@ -159,6 +161,34 @@ class FormPendaftaranPage extends Component
     public function save()
     {
         try {
+            // Holiday Validation for Today
+            $now = now();
+            $hariMap = ['Monday' => 'Senin', 'Tuesday' => 'Selasa', 'Wednesday' => 'Rabu', 'Thursday' => 'Kamis', 'Friday' => 'Jumat', 'Saturday' => 'Sabtu', 'Sunday' => 'Minggu'];
+            $hariIni = $hariMap[$now->format('l')];
+
+            // Check Specific Date Range
+            $liburKhusus = MstSettingAntrianLibur::where('tanggal_mulai', '<=', $now->format('Y-m-d'))
+                ->where('tanggal_selesai', '>=', $now->format('Y-m-d'))
+                ->first();
+            
+            if ($liburKhusus) {
+                $this->dispatch('alert', [
+                    'type' => 'warning',
+                    'message' => 'Pendaftaran gagal: Hari ini adalah Hari Libur (' . ($liburKhusus->keterangan ?? 'Nasional') . ').'
+                ]);
+                return;
+            }
+
+            // Check Weekly Holiday
+            $settingHari = MstSettingAntrianHari::where('hari', $hariIni)->first();
+            if ($settingHari && $settingHari->is_holiday) {
+                $this->dispatch('alert', [
+                    'type' => 'warning',
+                    'message' => "Pendaftaran gagal: Hari $hariIni klinik tidak beroperasi (Libur Mingguan)."
+                ]);
+                return;
+            }
+
             // Validasi
             $rules = [
                 'poli_id' => 'required|exists:mst_poli,id',

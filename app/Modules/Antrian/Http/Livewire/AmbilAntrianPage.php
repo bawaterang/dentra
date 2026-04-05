@@ -1,13 +1,16 @@
 <?php
 
 namespace App\Modules\Antrian\Http\Livewire;
-
+ 
 use Livewire\Component;
+use Carbon\Carbon;
 use App\Models\TrxAntrian;
 use App\Models\MstPasien;
 use App\Models\MstPoli;
 use App\Models\MstDokter;
 use App\Models\MstAsuransi;
+use App\Models\MstSettingAntrianHari;
+use App\Models\MstSettingAntrianLibur;
 
 class AmbilAntrianPage extends Component
 {
@@ -55,6 +58,34 @@ class AmbilAntrianPage extends Component
     {
         try {
             $this->validate($this->rules());
+
+            // Holiday Validation
+            $checkDate = Carbon::parse($this->tanggal_antrian);
+            $hariMap = ['Monday' => 'Senin', 'Tuesday' => 'Selasa', 'Wednesday' => 'Rabu', 'Thursday' => 'Kamis', 'Friday' => 'Jumat', 'Saturday' => 'Sabtu', 'Sunday' => 'Minggu'];
+            $hariNama = $hariMap[$checkDate->format('l')];
+
+            // Check Specific Date Range
+            $liburKhusus = MstSettingAntrianLibur::where('tanggal_mulai', '<=', $checkDate->format('Y-m-d'))
+                ->where('tanggal_selesai', '>=', $checkDate->format('Y-m-d'))
+                ->first();
+            
+            if ($liburKhusus) {
+                $this->dispatch('alert', [
+                    'type' => 'warning',
+                    'message' => 'Maaf, klinik sedang libur pada tanggal tersebut. Keterangan: ' . ($liburKhusus->keterangan ?? 'Libur Nasional')
+                ]);
+                return;
+            }
+
+            // Check Weekly Holiday
+            $settingHari = MstSettingAntrianHari::where('hari', $hariNama)->first();
+            if ($settingHari && $settingHari->is_holiday) {
+                $this->dispatch('alert', [
+                    'type' => 'warning',
+                    'message' => "Maaf, klinik tidak beroperasi (Libur) pada setiap hari $hariNama."
+                ]);
+                return;
+            }
 
             // Auto-sinkronisasi pasien
             $pasienId = null;

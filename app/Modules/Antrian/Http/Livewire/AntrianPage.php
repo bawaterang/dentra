@@ -247,7 +247,7 @@ class AntrianPage extends Component
                                     <td><span class="inline-flex items-center justify-center h-8 w-8 rounded-lg bg-[#405189] text-white font-bold text-sm">{{ $item->nomor_antrian }}</span></td>
                                     <td><span class="font-mono text-sm font-semibold text-[#405189] dark:text-[#8ab4f8]">{{ $item->pasien?->no_rm ?? '-' }}</span></td>
                                     <td>
-                                        <div class="font-semibold text-[#495057] dark:text-gray-200">{{ $item->pasien?->nama_pasien ?? $item->nama_pasien_input_manual ?? '-' }}</div>
+                                        <div class="font-semibold text-[#495057] dark:text-[#000000]">{{ $item->pasien?->nama_pasien ?? $item->nama_pasien_input_manual ?? '-' }}</div>
                                         @if(!$item->pasien_id)<span class="text-[10px] text-orange-500 font-medium"><i class="ri-alert-line mr-0.5"></i>Belum sinkron</span>@endif
                                     </td>
                                     <td>{{ $item->poli?->nama_poli ?? $item->kode_poli ?? '-' }}</td>

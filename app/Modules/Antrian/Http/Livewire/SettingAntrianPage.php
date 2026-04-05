@@ -6,6 +6,7 @@ use Livewire\Component;
 use App\Models\MstSettingAntrian;
 use App\Models\MstSettingAntrianDetail;
 use App\Models\MstSettingAntrianHari;
+use App\Models\MstSettingAntrianLibur;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
@@ -23,6 +24,12 @@ class SettingAntrianPage extends Component
     public $durasi_slot;
     public $max_antrian;
     public $is_holiday = false;
+
+    // Holiday Range Management
+    public $libur_mulai;
+    public $libur_selesai;
+    public $libur_keterangan;
+    public $listLibur = [];
 
     // State Props
     public $days = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
@@ -50,6 +57,9 @@ class SettingAntrianPage extends Component
 
         // 4. Load Right Side Slots
         $this->loadTimeSlots();
+
+        // 5. Load Holiday Ranges
+        $this->loadHolidayRanges();
     }
 
     private function initDayConfigs()
@@ -83,6 +93,11 @@ class SettingAntrianPage extends Component
         }
     }
 
+    public function loadHolidayRanges()
+    {
+        $this->listLibur = MstSettingAntrianLibur::orderBy('tanggal_mulai', 'desc')->get();
+    }
+
     public function rules()
     {
         return [
@@ -113,21 +128,43 @@ class SettingAntrianPage extends Component
     public function toggleHoliday()
     {
         $this->is_holiday = !$this->is_holiday;
-        
-        // Auto save for convenience or wait for "Simpan"? 
-        // Let's iterate: Save holiday status immediately to provide better feedback
         MstSettingAntrianHari::where('hari', $this->selectedDay)->update([
             'is_holiday' => $this->is_holiday
         ]);
 
         if ($this->is_holiday) {
-            // Clear slots for this day if it's now a holiday
             MstSettingAntrianDetail::where('hari', $this->selectedDay)->delete();
             $this->loadTimeSlots();
             $this->dispatch('alert', ['type' => 'info', 'message' => "Hari $this->selectedDay sekarang diatur sebagai Libur."]);
         } else {
             $this->dispatch('alert', ['type' => 'success', 'message' => "Hari $this->selectedDay diatur sebagai Hari Kerja."]);
         }
+    }
+
+    public function addLiburRange()
+    {
+        $this->validate([
+            'libur_mulai' => 'required|date',
+            'libur_selesai' => 'required|date|after_or_equal:libur_mulai',
+            'libur_keterangan' => 'required|string|max:100',
+        ]);
+
+        MstSettingAntrianLibur::create([
+            'tanggal_mulai' => $this->libur_mulai,
+            'tanggal_selesai' => $this->libur_selesai,
+            'keterangan' => $this->libur_keterangan,
+        ]);
+
+        $this->reset(['libur_mulai', 'libur_selesai', 'libur_keterangan']);
+        $this->loadHolidayRanges();
+        $this->dispatch('alert', ['type' => 'success', 'message' => 'Hari libur khusus berhasil ditambahkan!']);
+    }
+
+    public function deleteLiburRange($id)
+    {
+        MstSettingAntrianLibur::destroy($id);
+        $this->loadHolidayRanges();
+        $this->dispatch('alert', ['type' => 'info', 'message' => 'Hari libur khusus berhasil dihapus.']);
     }
 
     public function applyToAllDays()
@@ -159,7 +196,7 @@ class SettingAntrianPage extends Component
         try {
             DB::beginTransaction();
 
-            MstSettingAntrianDetail::truncate();
+            MstSettingAntrianDetail::query()->delete();
 
             $configs = MstSettingAntrianHari::where('is_holiday', false)->get();
             $data = [];
@@ -167,6 +204,8 @@ class SettingAntrianPage extends Component
             $user = Auth::user()->name ?? 'System';
 
             foreach ($configs as $config) {
+                if (empty($config->jam_buka) || empty($config->jam_tutup)) continue;
+
                 $startTime = Carbon::createFromFormat('H:i', substr($config->jam_buka, 0, 5));
                 $endTime = Carbon::createFromFormat('H:i', substr($config->jam_tutup, 0, 5));
                 
@@ -219,11 +258,6 @@ class SettingAntrianPage extends Component
         $global->mode_antrian = $this->mode_antrian;
         $global->running_text = $this->running_text;
         $global->is_active = $this->is_active;
-        // Keep these in sync for fallback if needed
-        $global->jam_buka = $this->jam_buka;
-        $global->jam_tutup = $this->jam_tutup;
-        $global->durasi_slot = $this->durasi_slot;
-        $global->max_antrian = $this->max_antrian;
         $global->save();
 
         // 2. Save Per-Day Config
@@ -243,6 +277,7 @@ class SettingAntrianPage extends Component
             $this->timeSlots = [];
         }
 
+        $this->loadTimeSlots();
         $this->dispatch('alert', ['type' => 'success', 'message' => "Pengaturan hari $this->selectedDay & Global berhasil disimpan!"]);
     }
 
@@ -267,9 +302,9 @@ class SettingAntrianPage extends Component
             <div class="mt-6 px-4 pb-12">
                 <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
                     <!-- Left Column: Settings Configuration -->
-                    <div class="lg:col-span-3">
+                    <div class="lg:col-span-3 space-y-6">
                         <form wire:submit.prevent="save">
-                            <div class="card overflow-hidden border-t-4 {{ $is_holiday ? 'border-red-500' : 'border-[#405189]' }} shadow-lg rounded-xl h-full flex flex-col transition-all duration-300">
+                            <div class="card overflow-hidden border-t-4 {{ $is_holiday ? 'border-red-500' : 'border-[#405189]' }} shadow-lg rounded-xl flex flex-col transition-all duration-300">
                                 <div class="p-6 border-b border-[#eff2f7] {{ $is_holiday ? 'bg-red-50/50' : 'bg-gray-50/50' }} transition-colors duration-300">
                                     <div class="flex items-center justify-between">
                                         <h5 class="text-lg font-bold text-[#495057] flex items-center gap-2">
@@ -331,14 +366,14 @@ class SettingAntrianPage extends Component
                                     </div>
                                     
                                     <!-- Section: Per-Day -->
-                                    <div class="{{ $is_holiday ? 'bg-red-50/30 border-red-200' : 'bg-gray-50/50 border-gray-200' }} p-6 rounded-2xl border border-dashed relative transition-all duration-300">
+                                    <div class="{{ $is_holiday ? 'bg-red-50/30 border-red-200' : 'bg-gray-50/50 border-indigo-200' }} p-6 rounded-2xl border border-dashed relative transition-all duration-300">
                                         <div class="absolute -top-3 left-6 px-3 bg-white border {{ $is_holiday ? 'border-red-200' : 'border-gray-200' }} rounded-full text-xs font-bold transition-all duration-300">
                                             Pengaturan Khusus Hari: <span class="{{ $is_holiday ? 'text-red-600' : 'text-[#405189]' }} uppercase">{{ $selectedDay }}</span>
                                         </div>
 
-                                        <div class="flex items-center justify-between mb-4 mt-2">
+                                        <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-4 mt-2 gap-3">
                                             <h6 class="text-xs font-bold text-gray-600 uppercase tracking-widest">Jam Operasional & Kuota</h6>
-                                            <div class="flex items-center gap-2">
+                                            <div class="flex flex-wrap items-center gap-2">
                                                 <button type="button" wire:click="toggleHoliday" class="text-[10px] font-bold {{ $is_holiday ? 'bg-red-600 text-white border-red-700' : 'bg-white text-red-600 border-red-100' }} hover:shadow-md px-3 py-1 rounded-full border transition-all flex items-center gap-1">
                                                     <i class="{{ $is_holiday ? 'ri-sun-line' : 'ri-calendar-close-line' }}"></i> {{ $is_holiday ? 'Atur Jadi Hari Kerja' : 'Atur Hari Libur' }}
                                                 </button>
@@ -348,7 +383,7 @@ class SettingAntrianPage extends Component
                                             </div>
                                         </div>
 
-                                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 {{ $is_holiday ? 'opacity-30 pointer-events-none' : '' }} transition-opacity duration-300">
+                                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 {{ $is_holiday ? 'opacity-30 pointer-events-none' : '' }} transition-opacity duration-300">
                                             <div>
                                                 <label class="block text-sm font-semibold text-gray-700 mb-1">Jam Buka</label>
                                                 <input type="time" wire:model="jam_buka" class="w-full rounded-lg border-gray-200 text-sm px-4 h-11 focus:border-[#405189] shadow-sm font-mono font-bold text-[#405189]">
@@ -377,22 +412,91 @@ class SettingAntrianPage extends Component
                                     </div>
                                 </div>
                                 
-                                <div class="p-5 bg-gray-50 flex justify-end gap-3 border-t border-[#eff2f7]">
-                                    <button type="button" class="btn bg-gray-500 text-white font-bold text-sm px-6 hover:bg-gray-600 transition-all" wire:click="resetSettings">
+                                <div class="p-5 bg-gray-50 flex flex-col sm:flex-row justify-end gap-3 border-t border-[#eff2f7]">
+                                    <button type="button" class="btn bg-gray-500 text-white font-bold text-sm px-6 hover:bg-gray-600 transition-all justify-center" wire:click="resetSettings">
                                         <i class="ri-refresh-line"></i> Reset
                                     </button>
-                                    <button type="submit" class="btn bg-[#0d6efd] text-white font-bold text-sm px-8 shadow-md hover:bg-[#0b5ed7] transition-all">
+                                    <button type="submit" class="btn bg-[#0d6efd] text-white font-bold text-sm px-8 shadow-md hover:bg-[#0b5ed7] transition-all justify-center">
                                         <i class="ri-save-3-line"></i> Simpan Pengaturan
                                     </button>
                                 </div>
                             </div>
                         </form>
+
+                        <!-- Holiday Range Management -->
+                        <div class="card border-t-4 border-orange-500 shadow-lg rounded-xl flex flex-col overflow-hidden">
+                            <div class="p-5 border-b border-[#eff2f7] bg-gray-50/50">
+                                <h5 class="text-sm font-bold text-[#495057] flex items-center gap-2">
+                                    <i class="ri-calendar-event-line text-orange-500"></i> Manajemen Hari Libur Khusus (Tanggal Tertentu)
+                                </h5>
+                                <p class="text-[11px] text-[#878a99] mt-1">Blokir antrian & pendaftaran untuk rentang tanggal libur nasional atau cuti.</p>
+                            </div>
+                            <div class="p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
+                                <!-- Form Add Holiday -->
+                                <div class="md:col-span-1 space-y-4 md:border-r md:pr-6 border-gray-100">
+                                    <h6 class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Tambah Hari Libur</h6>
+                                    <div>
+                                        <label class="block text-[11px] font-bold text-gray-600 mb-1">Tanggal Mulai</label>
+                                        <input type="date" wire:model="libur_mulai" class="w-full rounded-lg border-gray-200 text-xs px-4 h-10 focus:border-orange-500 shadow-sm">
+                                        @error('libur_mulai') <span class="text-[10px] text-red-500">{{ $message }}</span> @enderror
+                                    </div>
+                                    <div>
+                                        <label class="block text-[11px] font-bold text-gray-600 mb-1">Tanggal Selesai</label>
+                                        <input type="date" wire:model="libur_selesai" class="w-full rounded-lg border-gray-200 text-xs px-4 h-10 focus:border-orange-500 shadow-sm">
+                                        @error('libur_selesai') <span class="text-[10px] text-red-500">{{ $message }}</span> @enderror
+                                    </div>
+                                    <div>
+                                        <label class="block text-[11px] font-bold text-gray-600 mb-1">Keterangan</label>
+                                        <input type="text" wire:model="libur_keterangan" class="w-full rounded-lg border-gray-200 text-xs px-4 h-10 focus:border-orange-500 shadow-sm" placeholder="Contoh: Libur Idul Fitri">
+                                        @error('libur_keterangan') <span class="text-[10px] text-red-500">{{ $message }}</span> @enderror
+                                    </div>
+                                    <button type="button" wire:click="addLiburRange" class="w-full btn bg-[#0d6efd] text-white font-bold text-xs h-10 rounded-lg hover:bg-[#0b5ed7] transition-all flex items-center justify-center gap-2">
+                                        <i class="ri-save-3-line"></i> Simpan Libur
+                                    </button>
+                                </div>
+
+                                <!-- List Holidays -->
+                                <div class="md:col-span-2">
+                                    <h6 class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4">Daftar Hari Libur Aktif</h6>
+                                    <div class="overflow-auto max-h-[300px] border rounded-xl bg-gray-50/30">
+                                        <table class="w-full text-left border-collapse text-xs">
+                                            <thead>
+                                                <tr class="bg-gray-100/80">
+                                                    <th class="px-4 py-2 font-bold text-gray-600 border-b">Rentang Tanggal</th>
+                                                    <th class="px-4 py-2 font-bold text-gray-600 border-b">Keterangan</th>
+                                                    <th class="px-4 py-2 font-bold text-gray-600 border-b text-center">Aksi</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody class="divide-y divide-gray-100 bg-white">
+                                                @forelse($listLibur as $libur)
+                                                <tr class="hover:bg-gray-50 transition-colors">
+                                                    <td class="px-4 py-3 font-medium text-[#405189]">
+                                                        {{ \Carbon\Carbon::parse($libur->tanggal_mulai)->format('d M Y') }} - {{ \Carbon\Carbon::parse($libur->tanggal_selesai)->format('d M Y') }}
+                                                    </td>
+                                                    <td class="px-4 py-3 text-gray-500 italic">{{ $libur->keterangan }}</td>
+                                                    <td class="px-4 py-3 text-center">
+                                                        <button type="button" wire:click="deleteLiburRange({{ $libur->id }})" class="text-red-400 hover:text-red-600 transition-all">
+                                                            <i class="ri-delete-bin-line"></i>
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                                @empty
+                                                <tr>
+                                                    <td colspan="3" class="px-4 py-8 text-center text-gray-400 italic">Belum ada hari libur khusus yang ditambahkan.</td>
+                                                </tr>
+                                                @endforelse
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Right Column: Time Selection / Detail Slots -->
                     <div class="lg:col-span-2">
                         <div class="card overflow-hidden border-t-4 border-[#0ab39c] shadow-lg rounded-xl h-full flex flex-col">
-                            <div class="p-6 border-b border-[#eff2f7] bg-gray-50/50 flex items-center justify-between">
+                            <div class="p-6 border-b border-[#eff2f7] bg-gray-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                                 <div>
                                     <h5 class="text-lg font-bold text-[#495057] flex items-center gap-2">
                                         <i class="ri-time-line text-[#0ab39c]"></i> Preview Jadwal
@@ -400,7 +504,7 @@ class SettingAntrianPage extends Component
                                     <p class="text-sm text-[#878a99] mt-1">Slot waktu otomatis yang dihasilkan.</p>
                                 </div>
                                 @if($mode_antrian !== 'Nomor Urut')
-                                <button type="button" wire:click="generateTimeSlots" class="btn bg-[#0ab39c] text-white font-bold text-xs px-4 py-2 rounded-lg hover:bg-[#099885] transition-all flex items-center gap-2 shadow-sm">
+                                <button type="button" wire:click="generateTimeSlots" class="btn bg-[#0ab39c] text-white font-bold text-xs px-4 py-2 rounded-lg hover:bg-[#099885] transition-all flex items-center justify-center gap-2 shadow-sm">
                                     <i class="ri-flashlight-line"></i> Update Semua Hari
                                 </button>
                                 @endif
@@ -426,14 +530,14 @@ class SettingAntrianPage extends Component
                                         @endforeach
                                     </div>
 
-                                    <div class="mt-4 flex-grow overflow-y-auto max-h-[500px] border rounded-xl relative min-h-[300px]">
+                                    <div class="mt-4 flex-grow overflow-y-auto border rounded-xl relative min-h-[300px]">
                                         @if($is_holiday)
                                         <div class="absolute inset-0 flex flex-col items-center justify-center p-8 text-center bg-red-50/20">
                                             <div class="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mb-4 border border-red-100">
                                                 <i class="ri-calendar-event-line text-4xl text-red-300"></i>
                                             </div>
                                             <h6 class="font-bold text-red-600">Hari Libur Terdeteksi</h6>
-                                            <p class="text-[10px] text-red-400 mt-2 max-w-[200px]">Tidak ada slot waktu yang dihasilkan karena hari <b>{{ $selectedDay }}</b> diatur sebagai hari libur.</p>
+                                            <p class="text-[10px] text-red-400 mt-2 max-w-[200px]">Tidak ada slot waktu yang dihasilkan karena hari <b>{{ $selectedDay }}</b> diatur sebagai hari libur mingguan.</p>
                                         </div>
                                         @else
                                         <table class="w-full text-left border-collapse">
@@ -444,9 +548,9 @@ class SettingAntrianPage extends Component
                                                     <th class="px-4 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider border-b">No. Urut</th>
                                                 </tr>
                                             </thead>
-                                            <tbody class="divide-y divide-gray-100 bg-white">
+                                            <tbody class="divide-y divide-gray-100 bg-white shadow-sm">
                                                 @forelse($timeSlots as $index => $slot)
-                                                <tr class="hover:bg-gray-50/50 transition-colors">
+                                                <tr class="hover:bg-gray-50/50 transition-colors" wire:key="slot-{{ $slot->id }}">
                                                     <td class="px-4 py-3 text-xs font-bold text-gray-400 text-center">{{ $index + 1 }}</td>
                                                     <td class="px-4 py-3">
                                                         <span class="inline-flex items-center px-4 py-1 rounded-lg text-xs font-bold bg-[#0ab39c15] text-[#0ab39c]">
@@ -463,7 +567,7 @@ class SettingAntrianPage extends Component
                                                         <div class="flex flex-col items-center">
                                                             <i class="ri-calendar-todo-line text-3xl text-gray-200 mb-2"></i>
                                                             <p class="text-xs text-gray-400 font-bold uppercase tracking-widest">Belum ada data untuk hari ini</p>
-                                                            <button wire:click="generateTimeSlots" class="mt-4 text-[10px] font-bold text-[#0ab39c] uppercase flex items-center gap-1 hover:underline">
+                                                            <button type="button" wire:click="generateTimeSlots" class="mt-4 text-[10px] font-bold text-[#0ab39c] uppercase flex items-center gap-1 hover:underline">
                                                                 <i class="ri-magic-line"></i> Generate Sekarang
                                                             </button>
                                                         </div>

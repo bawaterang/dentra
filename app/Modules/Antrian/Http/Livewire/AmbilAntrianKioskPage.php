@@ -6,6 +6,9 @@ use Livewire\Component;
 use Livewire\Attributes\Layout;
 use App\Models\TrxAntrian;
 use App\Models\MstPoli;
+use App\Models\MstSettingAntrianHari;
+use App\Models\MstSettingAntrianLibur;
+use App\Models\MstSettingAntrian;
 
 #[Layout('components.layouts.blank')]
 class AmbilAntrianKioskPage extends Component
@@ -17,10 +20,60 @@ class AmbilAntrianKioskPage extends Component
     public $poliList = [];
     public $generatedAntrian = null;
 
+    public $isHoliday = false;
+    public $holidayMessage = '';
+
     public function mount()
     {
         $this->tanggal_antrian = now()->format('Y-m-d');
-        $this->poliList = MstPoli::where('status', 'Aktif')->get();
+        $this->checkHoliday();
+        
+        if (!$this->isHoliday) {
+            $this->poliList = MstPoli::where('status', 'Aktif')->get();
+        }
+    }
+
+    private function checkHoliday()
+    {
+        $now = now();
+        $hariMap = [
+            'Monday' => 'Senin',
+            'Tuesday' => 'Selasa',
+            'Wednesday' => 'Rabu',
+            'Thursday' => 'Kamis',
+            'Friday' => 'Jumat',
+            'Saturday' => 'Sabtu',
+            'Sunday' => 'Minggu',
+        ];
+
+        $hariIni = $hariMap[$now->format('l')];
+        
+        // 1. Check Global Status
+        $global = MstSettingAntrian::first();
+        if ($global && !$global->is_active) {
+            $this->isHoliday = true;
+            $this->holidayMessage = 'Sistem Kiosk saat ini sedang dinonaktifkan oleh Admin.';
+            return;
+        }
+
+        // 2. Check Specific Date Holiday
+        $liburKhusus = MstSettingAntrianLibur::where('tanggal_mulai', '<=', $now->format('Y-m-d'))
+            ->where('tanggal_selesai', '>=', $now->format('Y-m-d'))
+            ->first();
+            
+        if ($liburKhusus) {
+            $this->isHoliday = true;
+            $this->holidayMessage = $liburKhusus->keterangan ?: 'Klinik Sedang Libur';
+            return;
+        }
+
+        // 3. Check Weekly Holiday
+        $settingHari = MstSettingAntrianHari::where('hari', $hariIni)->first();
+        if ($settingHari && $settingHari->is_holiday) {
+            $this->isHoliday = true;
+            $this->holidayMessage = "Maaf, hari $hariIni klinik tidak beroperasi (Libur Mingguan).";
+            return;
+        }
     }
 
     public function setPoli($kode)
@@ -30,6 +83,12 @@ class AmbilAntrianKioskPage extends Component
 
     public function simpan()
     {
+        $this->checkHoliday();
+        if ($this->isHoliday) {
+            $this->addError('general', 'Pendaftaran gagal: Klinik sedang libur.');
+            return;
+        }
+
         $this->validate([
             'nama_pasien' => 'required|string|max:100',
             'kode_poli' => 'required',
@@ -77,6 +136,7 @@ class AmbilAntrianKioskPage extends Component
     {
         $this->reset(['nama_pasien', 'kode_poli', 'generatedAntrian']);
         $this->tanggal_antrian = now()->format('Y-m-d');
+        $this->checkHoliday();
     }
 
     public function render()
@@ -113,7 +173,24 @@ class AmbilAntrianKioskPage extends Component
                 <p class="text-base md:text-lg opacity-70 tracking-widest uppercase mt-2">Self-Service Kiosk Antrian</p>
             </div>
 
-            @if($generatedAntrian)
+            @if($isHoliday)
+            <!-- Holiday Screen -->
+            <div class="w-full max-w-2xl bg-white rounded-3xl shadow-2xl p-12 text-center text-[#333] animate-[fadeIn_0.5s_ease-out]">
+                <div class="w-32 h-32 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center mx-auto mb-8 animate-bounce">
+                    <i class="ri-calendar-close-line text-6xl"></i>
+                </div>
+                <h2 class="text-4xl font-black text-orange-600 uppercase mb-4">MAAF, KLINIK LIBUR</h2>
+                <div class="h-1 w-20 bg-orange-200 mx-auto mb-6"></div>
+                <p class="text-xl font-bold text-gray-500 italic mb-8">"{{ $holidayMessage }}"</p>
+                <div class="bg-gray-50 p-6 rounded-2xl border border-gray-100 flex items-center gap-4 text-left">
+                    <i class="ri-information-line text-3xl text-orange-400"></i>
+                    <p class="text-sm font-medium text-gray-600">Terima kasih atas pengertian Anda. Silakan kembali pada hari kerja berikutnya atau hubungi Admin untuk informasi lebih lanjut.</p>
+                </div>
+                <button onclick="window.location.reload()" class="mt-10 px-8 py-3 bg-gray-100 text-gray-600 rounded-full font-bold hover:bg-gray-200 transition-all flex items-center gap-2 mx-auto active:scale-95">
+                    <i class="ri-refresh-line"></i> Refresh Halaman
+                </button>
+            </div>
+            @elseif($generatedAntrian)
             <!-- Ticket Result -->
             <div class="w-full max-w-md animate-[bounce_0.5s_ease-out]">
                 <!-- Screen UI (Hidden on Print) -->
@@ -216,6 +293,10 @@ class AmbilAntrianKioskPage extends Component
             </div>
 
             <style>
+                @keyframes fadeIn {
+                    from { opacity: 0; transform: translateY(10px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
                 @media print {
                     @page { margin: 0; }
                     body * { visibility: hidden; }
