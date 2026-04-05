@@ -12,4 +12,5 @@ return [
     App\Modules\Setting\Providers\SettingServiceProvider::class,
     App\Modules\Bridging\Providers\BridgingServiceProvider::class,
     App\Modules\Transaksi\Providers\TransaksiServiceProvider::class,
+    App\Modules\Keuangan\Providers\KeuanganServiceProvider::class,
 ];
