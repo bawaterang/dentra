@@ -22,19 +22,15 @@
         <!-- Sidebar Left: Filtering & Patient List -->
         <div class="space-y-6">
             <!-- Card: Filter Data -->
-            <div class="card shadow-sm border-t-4 border-[#405189] relative z-[30]" style="overflow: visible !important;">
-                <div class="p-5">
-                    <div class="flex items-center gap-3 mb-6">
-                        <div class="h-10 w-10 flex items-center justify-center bg-[#405189]/10 text-[#405189] rounded-xl shadow-sm">
-                            <i class="ri-filter-3-line text-lg"></i>
-                        </div>
-                        <h5 class="text-sm font-black uppercase tracking-widest mb-0">Filter Data</h5>
-                    </div>
-                    <div class="space-y-4">
-                        <div>
-                            <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Tanggal Kunjungan</label>
-                            <input type="date" wire:model.live="selectedDate" class="form-control text-sm h-10 border-gray-200 rounded-lg w-full focus:border-[#405189] transition-all">
-                        </div>
+            <div class="card shadow-sm border-t-2 border-[#405189]">
+                <div class="p-4 border-b border-[#eff2f7]">
+                    <h6 class="text-xs font-bold text-[#405189] uppercase tracking-widest mb-0"><i class="ri-calendar-line mr-1"></i>Pilih Tanggal</h6>
+                </div>
+                <div class="p-4">
+                    <input type="date" wire:model.live="selectedDate" class="w-full rounded-lg border-gray-200 text-sm px-4 h-[42px] focus:border-[#405189] transition-all text-center font-semibold">
+                    <div class="mt-3 text-center">
+                        <p class="text-xs text-[#878a99]">Tanggal dipilih:</p>
+                        <p class="font-bold text-[#405189] text-sm">{{ \Carbon\Carbon::parse($selectedDate)->translatedFormat('l, d F Y') }}</p>
                     </div>
                 </div>
             </div>
