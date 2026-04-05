@@ -1330,6 +1330,25 @@
             SIGI Dental EMR v1.0
         </div>
     </footer>
+    
+    {{-- Back to Top Button --}}
+    <div x-data="{ show: false }" 
+         x-on:scroll.window="show = window.pageYOffset > 400"
+         class="back-to-top fixed z-[1001] transition-all duration-300 group"
+         :class="show ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10 pointer-events-none'"
+         style="bottom: 90px; right: 20px;">
+        <button @click="window.scrollTo({top: 0, behavior: 'smooth'})" 
+                class="flex items-center justify-center w-10 h-10 rounded-2xl bg-[#405189] text-white shadow-2xl hover:bg-[#0ab39c] active:scale-90 transition-all duration-300 border border-white/20 backdrop-blur-sm md:w-12 md:h-12">
+            <i class="ri-arrow-up-line text-2xl md:text-3xl"></i>
+        </button>
+    </div>
+
+    {{-- Mobile Adjustment Style --}}
+    <style>
+        @media (min-width: 769px) {
+            .back-to-top { bottom: 32px !important; right: 32px !important; }
+        }
+    </style>
 
     @livewireScripts
     <script>
