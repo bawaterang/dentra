@@ -81,7 +81,7 @@ new class extends Component
                 <path d="M2.26 10c.85-6.79 5-8 9.74-8s8.89 1.21 9.74 8c.55 4.39-1.32 8.52-4.14 11.2a2 2 0 0 1-2.82-.12l-2-2.13a1 1 0 0 0-1.46 0l-2 2.13a2 2 0 0 1-2.82.12C3.58 18.52 1.71 14.39 2.26 10Z" />
                 <path d="M12 11v11" />
             </svg>
-            <div class="loader-text text-center tracking-[4px] uppercase mr-[-4px]">Memuat...</div>
+            <div class="loader-text text-center tracking-[4px]">Memuat...</div>
         </div>
     </div>
 
