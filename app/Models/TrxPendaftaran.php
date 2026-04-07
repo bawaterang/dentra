@@ -2,8 +2,8 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class TrxPendaftaran extends Model
@@ -68,6 +68,11 @@ class TrxPendaftaran extends Model
         return $this->hasMany(TrxScreening::class, 'pendaftaran_id');
     }
 
+    public function billing()
+    {
+        return $this->hasOne(TrxBilling::class, 'nomor_kunjungan', 'nomor_kunjungan');
+    }
+
     /**
      * Generate nomor kunjungan otomatis format: YYYYMMDDXXXX
      */
@@ -75,7 +80,7 @@ class TrxPendaftaran extends Model
     {
         $today = now()->format('Ymd');
         $last = self::query()->withTrashed()
-            ->where('nomor_kunjungan', 'like', $today . '%')
+            ->where('nomor_kunjungan', 'like', $today.'%')
             ->orderBy('nomor_kunjungan', 'desc')
             ->first();
 
@@ -86,6 +91,6 @@ class TrxPendaftaran extends Model
             $nextNumber = 1;
         }
 
-        return $today . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
+        return $today.str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
     }
 }

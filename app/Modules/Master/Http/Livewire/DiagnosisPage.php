@@ -221,8 +221,8 @@ class DiagnosisPage extends Component
                     font-size: 13px !important;
                     font-weight: 700 !important;
                     transition: all 0.2s ease-in-out !important;
-                    background-color: #767070ff !important;
-                    color: #eaecefff !important;
+                    background-color: #ffffff !important;
+                    color: #475569 !important;
                     text-decoration: none !important;
                 }
 
