@@ -706,8 +706,10 @@ class TransaksiPage extends Component
         }
 
         $this->poliListOptions = $this->poliList->map(fn($p) => ['value' => $p->id, 'label' => $p->nama_poli, 'icon' => 'ri-hospital-line text-blue-500'])->toArray();
-        if ($this->poliList->count() > 0) {
+        if ($this->poliList->count() > 1) {
             array_unshift($this->poliListOptions, ['value' => 'all', 'label' => 'Semua Poli', 'icon' => 'ri-group-line text-gray-500']);
+        } elseif ($this->poliList->count() === 1 && $this->selectedPoli === 'all') {
+            $this->selectedPoli = $this->poliList->first()->id;
         }
         
         $this->kesadaranList = [
@@ -798,7 +800,7 @@ class TransaksiPage extends Component
                             
                             <div class="border-t border-[#eff2f7] pt-4 mt-2">
                                 <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Poli Tujuan</label>
-                                <x-custom-dropdown model="selectedPoli" :options="$this->poliListOptions" placeholder="Pilih Poli" searchable="true" />
+                                <x-custom-dropdown model="selectedPoli" :options="$this->poliListOptions" placeholder="Pilih Poli" searchable="true" live="true" />
                             </div>
                         </div>
                     </div>
@@ -1449,6 +1451,7 @@ class TransaksiPage extends Component
                             </div>
                         </div>
 
+                        @if($selectedPendaftaran && $selectedPendaftaran->poli && $selectedPendaftaran->poli->kode_poli === '002')
                         <!-- Odontogram Card -->
                         <div class="card shadow-sm border-t-4 border-indigo-500 relative z-10 mt-4" style="border-color: #0a31b3ff;">
                             <div class="rounded-t-xl" style="overflow-x: auto; overflow-y: visible;">
@@ -1840,6 +1843,7 @@ class TransaksiPage extends Component
                                 </button>
                             </div>
                         </div>
+                        @endif
 
                     @else
                         <!-- Selection Call to Action -->
