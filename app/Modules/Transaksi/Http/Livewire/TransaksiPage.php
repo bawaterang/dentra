@@ -56,7 +56,6 @@ class TransaksiPage extends Component
     public $kode_diagnosa = '';
     public $jenis_icd = 'Utama';
     public $kasus_icd = 'Baru';
-    public $diagnosisListOptions = [];
 
     // Tindakan Modal State
     public $showTindakanModal = false;
@@ -65,7 +64,6 @@ class TransaksiPage extends Component
     public $jasmed_tindakan = 0;
     public $bhp_tindakan = 0;
     public $satuan_tindakan = '';
-    public $tindakanListOptions = [];
 
     // Resep (Obat) Modal State
     public $showResepModal = false;
@@ -73,14 +71,12 @@ class TransaksiPage extends Component
     public $jumlah_obat = 1;
     public $dosis_obat = '';
     public $aturan_obat = '3x1';
-    public $obatListOptions = [];
 
     // BMHP Modal State
     public $showBmhpModal = false;
     public $kode_bmhp = '';
     public $jumlah_bmhp = 1;
     public $satuan_bmhp = '';
-    public $bmhpListOptions = [];
 
     // Odontogram State
     public $kategoriGigiOptions = [];
@@ -169,7 +165,7 @@ class TransaksiPage extends Component
             ->join('mst_tindakan', 'trx_tindakan.kode_tindakan', '=', 'mst_tindakan.kode_tindakan')
             ->where('trx_tindakan.nomor_kunjungan', $this->selectedPendaftaran->nomor_kunjungan)
             ->whereNull('trx_tindakan.deleted_at')
-            ->select('trx_tindakan.id', 'mst_tindakan.nama_tindakan as nama', 'trx_tindakan.kode_tindakan as kode', 'trx_tindakan.biaya', 'trx_tindakan.satuan')
+            ->select('trx_tindakan.id', 'mst_tindakan.nama_tindakan as nama', 'trx_tindakan.kode_tindakan as kode', 'trx_tindakan.biaya', 'trx_tindakan.satuan', 'trx_tindakan.bhp')
             ->orderBy('trx_tindakan.created_at', 'asc')
             ->get();
             
@@ -613,6 +609,91 @@ class TransaksiPage extends Component
         }
     }
 
+    // ─── Async Search Methods (Server-Side, max 20 results) ───
+
+    public function searchDiagnosis($term)
+    {
+        if (strlen($term) < 2) return [];
+        return DB::table('mst_diagnosis')
+            ->where(function($q) use ($term) {
+                $q->where('kode_diagnosa', 'like', '%'.$term.'%')
+                  ->orWhere('nama_diagnosa', 'like', '%'.$term.'%');
+            })
+            ->limit(20)
+            ->get()
+            ->map(fn($d) => ['value' => $d->kode_diagnosa, 'label' => $d->kode_diagnosa.' - '.$d->nama_diagnosa, 'icon' => 'ri-microscope-line text-warning'])
+            ->toArray();
+    }
+
+    public function getDiagnosisLabel($kode)
+    {
+        $d = DB::table('mst_diagnosis')->where('kode_diagnosa', $kode)->first();
+        return $d ? ['label' => $d->kode_diagnosa.' - '.$d->nama_diagnosa, 'icon' => 'ri-microscope-line text-warning'] : null;
+    }
+
+    public function searchTindakan($term)
+    {
+        if (strlen($term) < 2) return [];
+        return DB::table('mst_tindakan')
+            ->where('status', 'Aktif')
+            ->where(function($q) use ($term) {
+                $q->where('kode_tindakan', 'like', '%'.$term.'%')
+                  ->orWhere('nama_tindakan', 'like', '%'.$term.'%');
+            })
+            ->limit(20)
+            ->get()
+            ->map(fn($t) => ['value' => $t->kode_tindakan, 'label' => $t->kode_tindakan.' - '.$t->nama_tindakan, 'icon' => 'ri-hand-heart-line text-primary'])
+            ->toArray();
+    }
+
+    public function getTindakanLabel($kode)
+    {
+        $t = DB::table('mst_tindakan')->where('kode_tindakan', $kode)->first();
+        return $t ? ['label' => $t->kode_tindakan.' - '.$t->nama_tindakan, 'icon' => 'ri-hand-heart-line text-primary'] : null;
+    }
+
+    public function searchObat($term)
+    {
+        if (strlen($term) < 2) return [];
+        return DB::table('mst_obat')
+            ->where('status', 'Aktif')
+            ->where(function($q) use ($term) {
+                $q->where('kode_obat', 'like', '%'.$term.'%')
+                  ->orWhere('nama_obat', 'like', '%'.$term.'%');
+            })
+            ->limit(20)
+            ->get()
+            ->map(fn($o) => ['value' => $o->kode_obat, 'label' => $o->kode_obat.' - '.$o->nama_obat, 'icon' => 'ri-capsule-line text-emerald-500'])
+            ->toArray();
+    }
+
+    public function getObatLabel($kode)
+    {
+        $o = DB::table('mst_obat')->where('kode_obat', $kode)->first();
+        return $o ? ['label' => $o->kode_obat.' - '.$o->nama_obat, 'icon' => 'ri-capsule-line text-emerald-500'] : null;
+    }
+
+    public function searchBmhp($term)
+    {
+        if (strlen($term) < 2) return [];
+        return DB::table('mst_bmhp')
+            ->where('status', 'Aktif')
+            ->where(function($q) use ($term) {
+                $q->where('kode_bmhp', 'like', '%'.$term.'%')
+                  ->orWhere('nama_bmhp', 'like', '%'.$term.'%');
+            })
+            ->limit(20)
+            ->get()
+            ->map(fn($b) => ['value' => $b->kode_bmhp, 'label' => $b->kode_bmhp.' - '.$b->nama_bmhp, 'icon' => 'ri-flask-line text-purple-500'])
+            ->toArray();
+    }
+
+    public function getBmhpLabel($kode)
+    {
+        $b = DB::table('mst_bmhp')->where('kode_bmhp', $kode)->first();
+        return $b ? ['label' => $b->kode_bmhp.' - '.$b->nama_bmhp, 'icon' => 'ri-flask-line text-purple-500'] : null;
+    }
+
     public function render()
     {
         // Filter Poli based on User Mapping (trx_user_poli -> mst_poli)
@@ -636,40 +717,16 @@ class TransaksiPage extends Component
             ['value' => 'Coma', 'label' => 'Coma', 'icon' => 'ri-close-circle-line text-red-500'],
         ];
 
-        if (empty($this->diagnosisListOptions)) {
-            $this->diagnosisListOptions = DB::table('mst_diagnosis')
-                ->select('kode_diagnosa as value', 'nama_diagnosa as label')
-                ->get()
-                ->map(fn($d) => ['value' => $d->value, 'label' => $d->value . ' - ' . $d->label, 'icon' => 'ri-microscope-line text-warning'])
-                ->toArray();
-                
-            $this->tindakanListOptions = DB::table('mst_tindakan')
-                ->where('status', 'Aktif')
-                ->select('kode_tindakan as value', 'nama_tindakan as label')
-                ->get()
-                ->map(fn($t) => ['value' => $t->value, 'label' => $t->value . ' - ' . $t->label, 'icon' => 'ri-hand-heart-line text-primary'])
-                ->toArray();
-                
-            $this->obatListOptions = DB::table('mst_obat')
-                ->where('status', 'Aktif')
-                ->select('kode_obat as value', 'nama_obat as label')
-                ->get()
-                ->map(fn($o) => ['value' => $o->value, 'label' => $o->value . ' - ' . $o->label, 'icon' => 'ri-capsule-line text-emerald-500'])
-                ->toArray();
-                
-            $this->bmhpListOptions = DB::table('mst_bmhp')
-                ->where('status', 'Aktif')
-                ->select('kode_bmhp as value', 'nama_bmhp as label')
-                ->get()
-                ->map(fn($b) => ['value' => $b->value, 'label' => $b->value . ' - ' . $b->label, 'icon' => 'ri-flask-line text-purple-500'])
-                ->toArray();
-                
+        // Load only small datasets eagerly (kategori gigi is tiny)
+        if (empty($this->kategoriGigiOptions)) {
             $this->kategoriGigiOptions = DB::table('mst_kategori_gigi')
                 ->where('status', 'Aktif')
                 ->select('id', 'kode_kategori', 'nama_kategori', 'warna')
                 ->get()
                 ->toArray();
         }
+        // NOTE: diagnosisListOptions, tindakanListOptions, obatListOptions, bmhpListOptions
+        // are now loaded on-demand via searchDiagnosis(), searchTindakan(), searchObat(), searchBmhp()
 
         $query = TrxPendaftaran::with(['pasien', 'poli', 'dokter'])
             ->whereDate('created_at', $this->selectedDate)
@@ -1821,11 +1878,11 @@ class TransaksiPage extends Component
                             
                             <div>
                                 <label class="block text-xs font-semibold text-gray-500 mb-1">Diagnosis / ICD-10 <span class="text-red-500">*</span></label>
-                                <x-custom-dropdown 
+                                <x-custom-dropdown-async 
                                     model="kode_diagnosa" 
-                                    :options="$diagnosisListOptions"
-                                    placeholder="Pilih Diagnosis (ICD-10)"
-                                    searchable="true"
+                                    search-method="searchDiagnosis"
+                                    label-method="getDiagnosisLabel"
+                                    placeholder="Ketik kode/nama diagnosis..."
                                     live="true"
                                 />
                                 @error('kode_diagnosa') <span class="text-[11px] text-red-500 mt-1 italic">{{ $message }}</span> @enderror
@@ -1901,11 +1958,11 @@ class TransaksiPage extends Component
                         <div class="grid grid-cols-1 gap-6">
                             <div>
                                 <label class="block text-xs font-semibold text-gray-500 mb-1">Pilih Tindakan <span class="text-red-500">*</span></label>
-                                <x-custom-dropdown 
+                                <x-custom-dropdown-async 
                                     model="kode_tindakan" 
-                                    :options="$tindakanListOptions"
-                                    placeholder="Cari tindakan..."
-                                    searchable="true"
+                                    search-method="searchTindakan"
+                                    label-method="getTindakanLabel"
+                                    placeholder="Ketik kode/nama tindakan..."
                                     live="true"
                                 />
                                 @error('kode_tindakan') <span class="text-[11px] text-red-500 mt-1 italic">{{ $message }}</span> @enderror
@@ -1982,11 +2039,11 @@ class TransaksiPage extends Component
                         <div class="grid grid-cols-1 gap-6">
                             <div>
                                 <label class="block text-xs font-semibold text-gray-500 mb-1">Pilih Obat <span class="text-red-500">*</span></label>
-                                <x-custom-dropdown 
+                                <x-custom-dropdown-async 
                                     model="kode_obat" 
-                                    :options="$obatListOptions"
-                                    placeholder="Cari nama obat..."
-                                    searchable="true"
+                                    search-method="searchObat"
+                                    label-method="getObatLabel"
+                                    placeholder="Ketik kode/nama obat..."
                                     live="true"
                                 />
                                 @error('kode_obat') <span class="text-[11px] text-red-500 mt-1 italic">{{ $message }}</span> @enderror
@@ -2047,11 +2104,11 @@ class TransaksiPage extends Component
                         <div class="grid grid-cols-1 gap-6">
                             <div>
                                 <label class="block text-xs font-semibold text-gray-500 mb-1">Pilih BMHP <span class="text-red-500">*</span></label>
-                                <x-custom-dropdown 
+                                <x-custom-dropdown-async 
                                     model="kode_bmhp" 
-                                    :options="$bmhpListOptions"
-                                    placeholder="Cari BMHP..."
-                                    searchable="true"
+                                    search-method="searchBmhp"
+                                    label-method="getBmhpLabel"
+                                    placeholder="Ketik kode/nama BMHP..."
                                     live="true"
                                 />
                                 @error('kode_bmhp') <span class="text-[11px] text-red-500 mt-1 italic">{{ $message }}</span> @enderror
