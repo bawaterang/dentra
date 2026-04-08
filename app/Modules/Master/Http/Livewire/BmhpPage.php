@@ -3,6 +3,7 @@
 namespace App\Modules\Master\Http\Livewire;
 
 use App\Models\MstBmhp;
+use App\Traits\DynamicKodeGenerator;
 use Illuminate\Database\QueryException;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -12,7 +13,7 @@ use Livewire\WithPagination;
 
 class BmhpPage extends Component
 {
-    use WithPagination;
+    use WithPagination, DynamicKodeGenerator;
 
     public $bmhpId;
 
@@ -45,6 +46,8 @@ class BmhpPage extends Component
     public $search = '';
 
     public $isEdit = false;
+
+    public $kodeReadonly = false;
 
     protected $queryString = ['search', 'selectedStatus'];
 
@@ -101,22 +104,16 @@ class BmhpPage extends Component
         $this->resetErrorBag();
     }
 
-    private function generateKode()
-    {
-        $last = MstBmhp::withTrashed()->orderBy('id', 'desc')->first();
-        $next = 1;
-        if ($last && $last->kode_bmhp) {
-            $num = (int) substr($last->kode_bmhp, 3);
-            $next = $num + 1;
-        }
-
-        return 'BHP'.str_pad($next, 5, '0', STR_PAD_LEFT);
-    }
-
     public function create()
     {
         $this->resetForm();
-        $this->kode_bmhp = $this->generateKode();
+        $generated = $this->generateDynamicKode('mst_bmhp', 'kode_bmhp');
+        if ($generated) {
+            $this->kode_bmhp = $generated;
+            $this->kodeReadonly = true;
+        } else {
+            $this->kodeReadonly = false;
+        }
         $this->dispatch('open-modal');
     }
 
@@ -154,7 +151,7 @@ class BmhpPage extends Component
                     $item = $this->bmhpId ? MstBmhp::withTrashed()->findOrFail($this->bmhpId) : new MstBmhp;
 
                     if (! $this->bmhpId && empty($this->kode_bmhp)) {
-                        $this->kode_bmhp = $this->generateKode();
+                        $this->kode_bmhp = $this->generateDynamicKode('mst_bmhp', 'kode_bmhp');
                     }
 
                     $item->fill([
@@ -180,7 +177,7 @@ class BmhpPage extends Component
                     if ($e->errorInfo[1] == 1062 && str_contains($e->getMessage(), 'kode_bmhp')) {
                         if (! $this->bmhpId) {
                             $attempts++;
-                            $this->kode_bmhp = $this->generateKode();
+                            $this->kode_bmhp = $this->generateDynamicKode('mst_bmhp', 'kode_bmhp');
 
                             continue;
                         }
@@ -568,8 +565,8 @@ class BmhpPage extends Component
                                 <div class="space-y-1.5">
                                     <label class="text-[9px] sm:text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Kode BMHP <span class="text-rose-500">*</span></label>
                                     <input type="text" wire:model="kode_bmhp" x-ref="firstInput" 
-                                           class="w-full bg-gray-50 border border-gray-100 rounded-xl sm:rounded-2xl py-2.5 sm:py-3 px-4 text-sm font-black text-[#405189] uppercase tracking-wider focus:bg-white focus:ring-4 focus:ring-indigo-100 focus:border-[#405189] transition-all outline-none {{ $isEdit ? 'bg-gray-100 cursor-not-allowed' : '' }}" 
-                                           placeholder="BHP00001" {{ $isEdit ? 'readonly' : '' }}>
+                                           class="w-full bg-gray-50 border border-gray-100 rounded-xl sm:rounded-2xl py-2.5 sm:py-3 px-4 text-sm font-black text-[#405189] uppercase tracking-wider focus:bg-white focus:ring-4 focus:ring-indigo-100 focus:border-[#405189] transition-all outline-none {{ ($isEdit || $kodeReadonly) ? 'bg-gray-100 cursor-not-allowed' : '' }}" 
+                                           placeholder="BHP00001" {{ ($isEdit || $kodeReadonly) ? 'readonly' : '' }}>
                                 </div>
                                 <div class="space-y-1.5">
                                     <label class="text-[9px] sm:text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Satuan</label>

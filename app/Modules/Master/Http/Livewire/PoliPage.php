@@ -3,6 +3,7 @@
 namespace App\Modules\Master\Http\Livewire;
 
 use App\Models\MstPoli;
+use App\Traits\DynamicKodeGenerator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
@@ -11,7 +12,7 @@ use Livewire\WithPagination;
 
 class PoliPage extends Component
 {
-    use WithPagination;
+    use WithPagination, DynamicKodeGenerator;
 
     public $poliId;
 
@@ -32,6 +33,8 @@ class PoliPage extends Component
     public $search = '';
 
     public $isEdit = false;
+
+    public $kodeReadonly = false;
 
     protected $queryString = ['search', 'selectedStatus'];
 
@@ -80,22 +83,16 @@ class PoliPage extends Component
         $this->resetErrorBag();
     }
 
-    private function generateKode()
-    {
-        $last = MstPoli::withTrashed()->orderBy('id', 'desc')->first();
-        $next = 1;
-        if ($last && $last->kode_poli) {
-            $num = (int) preg_replace('/[^0-9]/', '', $last->kode_poli);
-            $next = $num + 1;
-        }
-
-        return 'POL'.str_pad($next, 3, '0', STR_PAD_LEFT);
-    }
-
     public function create()
     {
         $this->resetForm();
-        $this->kode_poli = $this->generateKode();
+        $generated = $this->generateDynamicKode('mst_poli', 'kode_poli');
+        if ($generated) {
+            $this->kode_poli = $generated;
+            $this->kodeReadonly = true;
+        } else {
+            $this->kodeReadonly = false;
+        }
         $this->dispatch('open-modal');
     }
 
@@ -454,8 +451,8 @@ class PoliPage extends Component
                                 <div class="space-y-1.5">
                                     <label class="text-[9px] sm:text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Kode Poli <span class="text-rose-500">*</span></label>
                                     <input type="text" wire:model="kode_poli" x-ref="firstInput" 
-                                           class="w-full bg-gray-50 border border-gray-100 rounded-xl sm:rounded-2xl py-2.5 sm:py-3 px-4 text-sm font-black text-[#405189] uppercase tracking-wider focus:bg-white focus:ring-4 focus:ring-indigo-100 focus:border-[#405189] transition-all outline-none @error('kode_poli') border-rose-300 bg-rose-50/30 @enderror {{ $isEdit ? 'bg-gray-100 cursor-not-allowed' : '' }}" 
-                                           placeholder="POL001" {{ $isEdit ? 'readonly' : '' }}>
+                                           class="w-full bg-gray-50 border border-gray-100 rounded-xl sm:rounded-2xl py-2.5 sm:py-3 px-4 text-sm font-black text-[#405189] uppercase tracking-wider focus:bg-white focus:ring-4 focus:ring-indigo-100 focus:border-[#405189] transition-all outline-none @error('kode_poli') border-rose-300 bg-rose-50/30 @enderror {{ ($isEdit || $kodeReadonly) ? 'bg-gray-100 cursor-not-allowed' : '' }}" 
+                                           placeholder="POL001" {{ ($isEdit || $kodeReadonly) ? 'readonly' : '' }}>
                                     @error('kode_poli') <span class="text-[10px] text-rose-500 font-bold px-1">{{ $message }}</span> @enderror
                                 </div>
                                 <div class="space-y-1.5">

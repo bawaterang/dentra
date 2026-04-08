@@ -3,6 +3,7 @@
 namespace App\Modules\Master\Http\Livewire;
 
 use App\Models\MstPasien;
+use App\Traits\DynamicKodeGenerator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
@@ -11,7 +12,7 @@ use Livewire\WithPagination;
 
 class PasienPage extends Component
 {
-    use WithPagination;
+    use WithPagination, DynamicKodeGenerator;
 
     public $pasienId;
 
@@ -54,6 +55,8 @@ class PasienPage extends Component
     public $search = '';
 
     public $isEdit = false;
+
+    public $kodeReadonly = false;
 
     protected $queryString = ['search', 'selectedStatus'];
 
@@ -115,22 +118,16 @@ class PasienPage extends Component
         $this->resetErrorBag();
     }
 
-    private function generateNoRM()
-    {
-        $lastPasien = MstPasien::withTrashed()->orderBy('id', 'desc')->first();
-        $nextNumber = 1;
-        if ($lastPasien && $lastPasien->no_rm) {
-            $lastNumber = (int) substr($lastPasien->no_rm, 1);
-            $nextNumber = $lastNumber + 1;
-        }
-
-        return 'P'.str_pad($nextNumber, 5, '0', STR_PAD_LEFT);
-    }
-
     public function create()
     {
         $this->resetForm();
-        $this->no_rm = $this->generateNoRM();
+        $generated = $this->generateDynamicKode('mst_pasien', 'no_rm');
+        if ($generated) {
+            $this->no_rm = $generated;
+            $this->kodeReadonly = true;
+        } else {
+            $this->kodeReadonly = false;
+        }
         $this->dispatch('open-modal');
     }
 
@@ -174,7 +171,7 @@ class PasienPage extends Component
                 : new MstPasien;
 
             if (! $this->pasienId && empty($this->no_rm)) {
-                $this->no_rm = $this->generateNoRM();
+                $this->no_rm = $this->generateDynamicKode('mst_pasien', 'no_rm');
             }
 
             $pasien->fill([
@@ -574,8 +571,8 @@ class PasienPage extends Component
                                 <div class="space-y-1.5">
                                     <label class="text-[9px] sm:text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Nomor RM <span class="text-rose-500">*</span></label>
                                     <input type="text" wire:model="no_rm" x-ref="firstInput" 
-                                           class="w-full bg-gray-50 border border-gray-100 rounded-xl sm:rounded-2xl py-2.5 sm:py-3 px-4 text-sm font-black text-[#405189] uppercase tracking-wider focus:bg-white focus:ring-4 focus:ring-indigo-100 focus:border-[#405189] transition-all outline-none @error('no_rm') border-rose-300 bg-rose-50/30 @enderror" 
-                                           placeholder="P00001">
+                                           class="w-full bg-gray-50 border border-gray-100 rounded-xl sm:rounded-2xl py-2.5 sm:py-3 px-4 text-sm font-black text-[#405189] uppercase tracking-wider focus:bg-white focus:ring-4 focus:ring-indigo-100 focus:border-[#405189] transition-all outline-none @error('no_rm') border-rose-300 bg-rose-50/30 @enderror {{ ($isEdit || $kodeReadonly) ? 'bg-gray-100 cursor-not-allowed' : '' }}" 
+                                           placeholder="P00001" {{ ($isEdit || $kodeReadonly) ? 'readonly' : '' }}>
                                     @error('no_rm') <span class="text-[10px] text-rose-500 font-bold px-1">{{ $message }}</span> @enderror
                                 </div>
                                 <div class="space-y-1.5">

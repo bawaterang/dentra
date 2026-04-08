@@ -3,6 +3,7 @@
 namespace App\Modules\Master\Http\Livewire;
 
 use App\Models\MstAsuransi;
+use App\Traits\DynamicKodeGenerator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
@@ -11,7 +12,7 @@ use Livewire\WithPagination;
 
 class AsuransiPage extends Component
 {
-    use WithPagination;
+    use WithPagination, DynamicKodeGenerator;
 
     public $asuransiId;
 
@@ -42,6 +43,8 @@ class AsuransiPage extends Component
     public $search = '';
 
     public $isEdit = false;
+
+    public $kodeReadonly = false;
 
     protected $queryString = ['search', 'selectedStatus'];
 
@@ -98,22 +101,16 @@ class AsuransiPage extends Component
         $this->resetErrorBag();
     }
 
-    private function generateKode()
-    {
-        $last = MstAsuransi::withTrashed()->orderBy('id', 'desc')->first();
-        $next = 1;
-        if ($last && $last->kode_asuransi) {
-            $num = (int) substr($last->kode_asuransi, 3);
-            $next = $num + 1;
-        }
-
-        return 'ASR'.str_pad($next, 5, '0', STR_PAD_LEFT);
-    }
-
     public function create()
     {
         $this->resetForm();
-        $this->kode_asuransi = $this->generateKode();
+        $generated = $this->generateDynamicKode('mst_asuransi', 'kode_asuransi');
+        if ($generated) {
+            $this->kode_asuransi = $generated;
+            $this->kodeReadonly = true;
+        } else {
+            $this->kodeReadonly = false;
+        }
         $this->dispatch('open-modal');
     }
 
@@ -146,7 +143,7 @@ class AsuransiPage extends Component
                 : new MstAsuransi;
 
             if (! $this->asuransiId && empty($this->kode_asuransi)) {
-                $this->kode_asuransi = $this->generateKode();
+                $this->kode_asuransi = $this->generateDynamicKode('mst_asuransi', 'kode_asuransi');
             }
 
             $item->fill([
@@ -537,8 +534,8 @@ class AsuransiPage extends Component
                                 <div class="space-y-1.5">
                                     <label class="text-[9px] sm:text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Kode Asuransi <span class="text-rose-500">*</span></label>
                                     <input type="text" wire:model="kode_asuransi" x-ref="firstInput" 
-                                           class="w-full bg-gray-50 border border-gray-100 rounded-xl sm:rounded-2xl py-2.5 sm:py-3 px-4 text-sm font-black text-[#405189] uppercase tracking-wider focus:bg-white focus:ring-4 focus:ring-indigo-100 focus:border-[#405189] transition-all outline-none @error('kode_asuransi') border-rose-300 bg-rose-50/30 @enderror" 
-                                           placeholder="ASR00001">
+                                           class="w-full bg-gray-50 border border-gray-100 rounded-xl sm:rounded-2xl py-2.5 sm:py-3 px-4 text-sm font-black text-[#405189] uppercase tracking-wider focus:bg-white focus:ring-4 focus:ring-indigo-100 focus:border-[#405189] transition-all outline-none @error('kode_asuransi') border-rose-300 bg-rose-50/30 @enderror {{ ($isEdit || $kodeReadonly) ? 'bg-gray-100 cursor-not-allowed' : '' }}" 
+                                           placeholder="ASR00001" {{ ($isEdit || $kodeReadonly) ? 'readonly' : '' }}>
                                     @error('kode_asuransi') <span class="text-[10px] text-rose-500 font-bold px-1">{{ $message }}</span> @enderror
                                 </div>
                                 <div class="space-y-1.5">

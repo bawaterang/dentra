@@ -3,6 +3,7 @@
 namespace App\Modules\Master\Http\Livewire;
 
 use App\Models\MstObat;
+use App\Traits\DynamicKodeGenerator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
@@ -11,7 +12,7 @@ use Livewire\WithPagination;
 
 class ObatPage extends Component
 {
-    use WithPagination;
+    use WithPagination, DynamicKodeGenerator;
 
     public $obatId;
 
@@ -50,6 +51,8 @@ class ObatPage extends Component
     public $search = '';
 
     public $isEdit = false;
+
+    public $kodeReadonly = false;
 
     protected $queryString = ['search', 'selectedStatus'];
 
@@ -107,22 +110,16 @@ class ObatPage extends Component
         $this->resetErrorBag();
     }
 
-    private function generateKode()
-    {
-        $last = MstObat::withTrashed()->orderBy('id', 'desc')->first();
-        $next = 1;
-        if ($last && $last->kode_obat) {
-            $num = (int) substr($last->kode_obat, 3);
-            $next = $num + 1;
-        }
-
-        return 'OBT'.str_pad($next, 5, '0', STR_PAD_LEFT);
-    }
-
     public function create()
     {
         $this->resetForm();
-        $this->kode_obat = $this->generateKode();
+        $generated = $this->generateDynamicKode('mst_obat', 'kode_obat');
+        if ($generated) {
+            $this->kode_obat = $generated;
+            $this->kodeReadonly = true;
+        } else {
+            $this->kodeReadonly = false;
+        }
         $this->dispatch('open-modal');
     }
 
@@ -156,7 +153,7 @@ class ObatPage extends Component
                 : new MstObat;
 
             if (! $this->obatId && empty($this->kode_obat)) {
-                $this->kode_obat = $this->generateKode();
+                $this->kode_obat = $this->generateDynamicKode('mst_obat', 'kode_obat');
             }
 
             $item->fill([
@@ -584,8 +581,8 @@ class ObatPage extends Component
                                 <div class="space-y-1.5">
                                     <label class="text-[9px] sm:text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Kode Obat <span class="text-rose-500">*</span></label>
                                     <input type="text" wire:model="kode_obat" x-ref="firstInput" 
-                                           class="w-full bg-gray-50 border border-gray-100 rounded-xl sm:rounded-2xl py-2.5 sm:py-3 px-4 text-sm font-black text-[#405189] uppercase tracking-wider focus:bg-white focus:ring-4 focus:ring-indigo-100 focus:border-[#405189] transition-all outline-none @error('kode_obat') border-rose-300 bg-rose-50/30 @enderror" 
-                                           placeholder="OBT00001">
+                                           class="w-full bg-gray-50 border border-gray-100 rounded-xl sm:rounded-2xl py-2.5 sm:py-3 px-4 text-sm font-black text-[#405189] uppercase tracking-wider focus:bg-white focus:ring-4 focus:ring-indigo-100 focus:border-[#405189] transition-all outline-none @error('kode_obat') border-rose-300 bg-rose-50/30 @enderror {{ ($isEdit || $kodeReadonly) ? 'bg-gray-100 cursor-not-allowed' : '' }}" 
+                                           placeholder="OBT00001" {{ ($isEdit || $kodeReadonly) ? 'readonly' : '' }}>
                                     @error('kode_obat') <span class="text-[10px] text-rose-500 font-bold px-1">{{ $message }}</span> @enderror
                                 </div>
                                 <div class="space-y-1.5">
