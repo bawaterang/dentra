@@ -429,8 +429,8 @@ class LaporanKunjunganPage extends Component
                 </div>
             </div>
 
-            <div class="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden mb-12">
-                <div class="p-4 sm:p-6 border-b border-gray-50 flex flex-col lg:flex-row justify-between items-stretch lg:items-center gap-4 sm:gap-6 glass-header sticky top-0 z-20">
+            <div class="bg-white rounded-3xl shadow-sm border border-gray-100 mb-12 relative">
+                <div class="p-4 sm:p-6 border-b border-gray-50 flex flex-col lg:flex-row justify-between items-stretch lg:items-center gap-4 sm:gap-6 glass-header sticky top-0 z-20 rounded-t-3xl">
                     <div class="grid grid-cols-2 lg:flex lg:items-end gap-3 sm:gap-4 w-full lg:w-auto">
                         <div class="space-y-1 col-span-2 lg:w-40 min-w-0">
                             <label class="text-[9px] font-black text-gray-400 uppercase tracking-widest px-1">Periode</label>
@@ -737,7 +737,7 @@ class LaporanKunjunganPage extends Component
                 </div>
 
                 @if($this->laporanKunjungan->hasPages())
-                <div class="px-6 py-5 sm:px-8 sm:py-6 bg-gray-50/50 border-t border-gray-100 pagination-custom">
+                <div class="px-6 py-5 sm:px-8 sm:py-6 bg-gray-50/50 border-t border-gray-100 pagination-custom rounded-b-3xl">
                     <div class="flex flex-col sm:flex-row items-center justify-between gap-5">
                         <div class="text-[11px] font-bold text-[#878a99] tracking-tight text-center sm:text-left">
                             <i class="ri-list-check-2 text-[#405189] mr-1 hidden sm:inline"></i>

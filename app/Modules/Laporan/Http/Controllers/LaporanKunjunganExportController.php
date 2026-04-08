@@ -181,14 +181,112 @@ class LaporanKunjunganExportController extends Controller
             ->orderBy('nama_kategori', 'asc')
             ->get();
 
+        // Generate tooth images as base64 PNGs for PDF rendering
+        $allTeeth = [
+            18,17,16,15,14,13,12,11, 21,22,23,24,25,26,27,28,
+            55,54,53,52,51, 61,62,63,64,65,
+            85,84,83,82,81, 71,72,73,74,75,
+            48,47,46,45,44,43,42,41, 31,32,33,34,35,36,37,38
+        ];
+
+        $toothImages = [];
+        foreach ($allTeeth as $t) {
+            $colors = [
+                'T' => $odontogramState[$t.'-T']['color'] ?? '#ffffff',
+                'R' => $odontogramState[$t.'-R']['color'] ?? '#ffffff',
+                'B' => $odontogramState[$t.'-B']['color'] ?? '#ffffff',
+                'L' => $odontogramState[$t.'-L']['color'] ?? '#ffffff',
+                'C' => $odontogramState[$t.'-C']['color'] ?? '#ffffff',
+            ];
+            $toothImages[$t] = $this->generateToothImage($colors);
+        }
+
         $pdf = Pdf::loadView('modules.Laporan.riwayat-pasien-pdf', [
             'pasien' => $pasien,
             'historyData' => $historyData,
             'odontogramState' => $odontogramState,
             'latestOhis' => $latestOhis,
-            'odontogramCategories' => $odontogramCategories
+            'odontogramCategories' => $odontogramCategories,
+            'toothImages' => $toothImages
         ])->setPaper('a4', 'portrait');
 
         return $pdf->stream('Riwayat_Kunjungan_' . str_replace(' ', '_', $pasien->nama_pasien) . '.pdf');
+    }
+
+    /**
+     * Generate a single tooth PNG image using GD library.
+     * Draws the exact same cross/trapezoid shape as the modal SVG odontogram.
+     * Returns a base64-encoded PNG string.
+     */
+    private function generateToothImage(array $colors): string
+    {
+        $size = 80; // Render at 80px for crisp quality, display at ~22px in PDF
+        $img = imagecreatetruecolor($size, $size);
+
+        // White background
+        $white = imagecolorallocate($img, 255, 255, 255);
+        imagefill($img, 0, 0, $white);
+
+        // Scale factor: SVG viewBox is 40x40, we render at 80x80
+        // SVG coordinates × 2
+        // Inner offset: SVG 10 → pixel 20, SVG 30 → pixel 60
+        $s = $size - 1; // 79
+        $i = 20;        // inner border start
+        $o = 60;        // inner border end
+
+        // Define segments matching SVG paths exactly:
+        // T: M0,0 L40,0 L30,10 L10,10 Z  → top trapezoid
+        // R: M40,0 L40,40 L30,30 L30,10 Z → right trapezoid
+        // B: M40,40 L0,40 L10,30 L30,30 Z → bottom trapezoid
+        // L: M0,0 L10,10 L10,30 L0,40 Z   → left trapezoid
+        // C: M10,10 L30,10 L30,30 L10,30 Z → center square
+        $segmentDefs = [
+            'T' => [0,0, $s,0, $o,$i, $i,$i],
+            'R' => [$s,0, $s,$s, $o,$o, $o,$i],
+            'B' => [$s,$s, 0,$s, $i,$o, $o,$o],
+            'L' => [0,0, $i,$i, $i,$o, 0,$s],
+            'C' => [$i,$i, $o,$i, $o,$o, $i,$o],
+        ];
+
+        foreach ($segmentDefs as $seg => $points) {
+            $hex = ltrim($colors[$seg] ?? '#ffffff', '#');
+            if (strlen($hex) === 3) {
+                $hex = $hex[0].$hex[0].$hex[1].$hex[1].$hex[2].$hex[2];
+            }
+            $r = hexdec(substr($hex, 0, 2));
+            $g = hexdec(substr($hex, 2, 2));
+            $b = hexdec(substr($hex, 4, 2));
+            $color = imagecolorallocate($img, $r, $g, $b);
+            imagefilledpolygon($img, $points, $color);
+        }
+
+        // Draw borders with dark gray lines
+        $black = imagecolorallocate($img, 51, 51, 51); // #333333
+        imagesetthickness($img, 2);
+
+        // Outer square border
+        imageline($img, 0, 0, $s, 0, $black);  // top edge
+        imageline($img, $s, 0, $s, $s, $black); // right edge
+        imageline($img, $s, $s, 0, $s, $black); // bottom edge
+        imageline($img, 0, $s, 0, 0, $black);   // left edge
+
+        // Diagonal lines from corners to inner square
+        imageline($img, 0, 0, $i, $i, $black);   // top-left diagonal
+        imageline($img, $s, 0, $o, $i, $black);   // top-right diagonal
+        imageline($img, $s, $s, $o, $o, $black);  // bottom-right diagonal
+        imageline($img, 0, $s, $i, $o, $black);   // bottom-left diagonal
+
+        // Inner square border
+        imageline($img, $i, $i, $o, $i, $black);  // inner top
+        imageline($img, $o, $i, $o, $o, $black);  // inner right
+        imageline($img, $o, $o, $i, $o, $black);  // inner bottom
+        imageline($img, $i, $o, $i, $i, $black);  // inner left
+
+        ob_start();
+        imagepng($img);
+        $data = ob_get_clean();
+        imagedestroy($img);
+
+        return base64_encode($data);
     }
 }

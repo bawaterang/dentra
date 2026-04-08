@@ -407,35 +407,29 @@
                         @endphp
 
                         @foreach($rows as $key => $halves)
-                            <div class="tooth-row">
+                            <table style="width: 100%; margin-bottom: 8px; border-collapse: collapse;">
+                                <tr>
                                 @foreach($halves as $halfIdx => $teeth)
-                                    <div class="tooth-group">
-                                        @foreach($teeth as $t)
-                                            <div class="tooth-unit">
-                                                @if(!str_contains($key, 'Bot')) <span class="tooth-num">{{ $t }}</span> @endif
-                                                <svg width="100" height="100" viewBox="0 0 100 100" class="tooth-svg" xmlns="http://www.w3.org/2000/svg">
-                                                    <path d="M0,0 L40,0 L30,10 L10,10 Z"
-                                                        fill="{{ $odontogramState[$t . '-T']['color'] ?? '#ffffff' }}"
-                                                        stroke="#000000" stroke-width="1.5" shape-rendering="crispEdges"></path>
-                                                    <path d="M40,0 L40,40 L30,30 L30,10 Z"
-                                                        fill="{{ $odontogramState[$t . '-R']['color'] ?? '#ffffff' }}"
-                                                        stroke="#000000" stroke-width="1.5" shape-rendering="crispEdges"></path>
-                                                    <path d="M40,40 L0,40 L10,30 L30,30 Z"
-                                                        fill="{{ $odontogramState[$t . '-B']['color'] ?? '#ffffff' }}"
-                                                        stroke="#000000" stroke-width="1.5" shape-rendering="crispEdges"></path>
-                                                    <path d="M0,0 L10,10 L10,30 L0,40 Z"
-                                                        fill="{{ $odontogramState[$t . '-L']['color'] ?? '#ffffff' }}"
-                                                        stroke="#000000" stroke-width="1.5" shape-rendering="crispEdges"></path>
-                                                    <path d="M10,10 L30,10 L30,30 L10,30 Z"
-                                                        fill="{{ $odontogramState[$t . '-C']['color'] ?? '#ffffff' }}"
-                                                        stroke="#000000" stroke-width="1.5" shape-rendering="crispEdges"></path>
-                                                </svg>
-                                                @if(str_contains($key, 'Bot')) <span class="tooth-num">{{ $t }}</span> @endif
-                                            </div>
-                                        @endforeach
-                                    </div>
+                                    <td style="text-align: center; vertical-align: top; padding: 0 {{ $halfIdx == 0 ? '10px' : '0' }} 0 {{ $halfIdx == 1 ? '10px' : '0' }};">
+                                        <table style="border-collapse: collapse; margin: 0 auto;">
+                                            <tr>
+                                            @foreach($teeth as $t)
+                                                <td style="padding: 0 1px; vertical-align: top; text-align: center;">
+                                                    @if(!str_contains($key, 'Bot'))
+                                                        <div style="font-size: 6pt; font-weight: bold; color: #64748b; text-align: center; margin-bottom: 1px;">{{ $t }}</div>
+                                                    @endif
+                                                    <img src="data:image/png;base64,{{ $toothImages[$t] }}" width="22" height="22" style="display: block; margin: 0 auto;">
+                                                    @if(str_contains($key, 'Bot'))
+                                                        <div style="font-size: 6pt; font-weight: bold; color: #64748b; text-align: center; margin-top: 1px;">{{ $t }}</div>
+                                                    @endif
+                                                </td>
+                                            @endforeach
+                                            </tr>
+                                        </table>
+                                    </td>
                                 @endforeach
-                            </div>
+                                </tr>
+                            </table>
                         @endforeach
                     </div>
                 </td>
