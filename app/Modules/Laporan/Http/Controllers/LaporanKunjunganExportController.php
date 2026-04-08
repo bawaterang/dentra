@@ -15,7 +15,12 @@ class LaporanKunjunganExportController extends Controller
 {
     public function getData($periodType, $selectedDate, $selectedBulan, $selectedTahun, $selectedDokter = 'all')
     {
-        $query = TrxPendaftaran::with(['pasien', 'dokter', 'asuransi', 'billing'])
+        $query = TrxPendaftaran::with([
+            'pasien', 
+            'dokter' => fn($q) => $q->withTrashed(), 
+            'asuransi', 
+            'billing'
+        ])
             ->whereNotNull('created_at');
 
         if ($periodType === 'DAILY') {
@@ -166,10 +171,22 @@ class LaporanKunjunganExportController extends Controller
             ];
         }
 
+        // Get OHI-S from the most recent visit specifically
+        $latestOhis = $historyData[0]['clinical']['ohis'] ?? null;
+
+        // Get odontogram categories for legend
+        $odontogramCategories = DB::table('mst_kategori_gigi')
+            ->where('status', 'Aktif')
+            ->whereNull('deleted_at')
+            ->orderBy('nama_kategori', 'asc')
+            ->get();
+
         $pdf = Pdf::loadView('modules.Laporan.riwayat-pasien-pdf', [
             'pasien' => $pasien,
             'historyData' => $historyData,
-            'odontogramState' => $odontogramState
+            'odontogramState' => $odontogramState,
+            'latestOhis' => $latestOhis,
+            'odontogramCategories' => $odontogramCategories
         ])->setPaper('a4', 'portrait');
 
         return $pdf->stream('Riwayat_Kunjungan_' . str_replace(' ', '_', $pasien->nama_pasien) . '.pdf');

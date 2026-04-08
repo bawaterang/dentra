@@ -28,7 +28,12 @@ class LaporanKunjunganExport implements FromView, WithTitle
 
     public function view(): View
     {
-        $query = TrxPendaftaran::with(['pasien', 'dokter', 'asuransi', 'billing'])
+        $query = TrxPendaftaran::with([
+            'pasien', 
+            'dokter' => fn($q) => $q->withTrashed(), 
+            'asuransi', 
+            'billing'
+        ])
             ->whereNotNull('created_at');
 
         if ($this->periodType === 'DAILY') {

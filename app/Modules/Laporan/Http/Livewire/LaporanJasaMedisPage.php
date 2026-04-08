@@ -84,7 +84,7 @@ class LaporanJasaMedisPage extends Component
 
     public function loadDokterList()
     {
-        $dokters = MstDokter::where('status', 'Aktif')
+        $dokters = MstDokter::withTrashed()
             ->orderBy('nama_dokter')
             ->get()
             ->map(function ($d) {
@@ -108,7 +108,12 @@ class LaporanJasaMedisPage extends Component
     #[Computed]
     public function laporanJasaMedis()
     {
-        $query = TrxPendaftaran::with(['pasien', 'dokter', 'asuransi', 'billing'])
+        $query = TrxPendaftaran::with([
+            'pasien', 
+            'dokter' => fn($q) => $q->withTrashed(), 
+            'asuransi', 
+            'billing'
+        ])
             ->whereNotNull('created_at')
             ->whereMonth('created_at', $this->selectedBulan)
             ->whereYear('created_at', $this->selectedTahun);

@@ -153,7 +153,7 @@ class DokterPage extends Component
         $this->nik = $dokter->nik;
         $this->jenis_kelamin = $dokter->jenis_kelamin;
         $this->tempat_lahir = $dokter->tempat_lahir;
-        $this->tanggal_lahir = $dokter->tanggal_lahir ? $dokter->tanggal_lahir->format('Y-m-d') : null;
+        $this->tanggal_lahir = $dokter->tanggal_lahir instanceof \DateTimeInterface ? $dokter->tanggal_lahir->format('Y-m-d') : null;
         $this->alamat = $dokter->alamat;
         $this->no_telepon = $dokter->no_telepon;
         $this->agama = $dokter->agama;
@@ -713,20 +713,25 @@ class DokterPage extends Component
                                 </div>
                             </div>
 
-                            <div class="flex items-center justify-between p-3 sm:p-4 bg-gray-50 rounded-xl sm:rounded-2xl border border-dashed border-gray-200">
-                                <div class="flex items-center gap-2 sm:gap-3">
-                                    <div class="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-lg {{ $status === 'Aktif' ? 'bg-emerald-100 text-emerald-600 uppercase' : ($status === 'Cuti' ? 'bg-amber-100 text-amber-600' : 'bg-rose-100 text-rose-600') }} shadow-sm">
-                                        <i class="ri-{{ $status === 'Aktif' ? 'check-line' : ($status === 'Cuti' ? 'calendar-event-line' : 'close-line') }} text-base sm:text-lg font-bold"></i>
-                                    </div>
-                                    <div>
-                                        <p class="text-[8px] sm:text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none">Status Praktik</p>
-                                        <p class="text-[11px] sm:text-xs font-black {{ $status === 'Aktif' ? 'text-emerald-600' : ($status === 'Cuti' ? 'text-amber-600' : 'text-rose-600') }} mt-1">{{ strtoupper($status) }}</p>
-                                    </div>
+                            <div class="space-y-1.5 p-3 sm:p-4 bg-gray-50 rounded-xl sm:rounded-2xl border border-dashed border-gray-200">
+                                <label class="text-[9px] sm:text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Status Praktik <span class="text-rose-500">*</span></label>
+                                <div class="grid grid-cols-3 gap-2">
+                                    <button type="button" wire:click="$set('status', 'Aktif')" 
+                                            class="flex flex-col items-center justify-center p-2 rounded-xl border-2 transition-all {{ $status === 'Aktif' ? 'bg-emerald-50 border-emerald-500 text-emerald-700 shadow-sm' : 'bg-white border-transparent text-gray-400 hover:border-gray-200' }}">
+                                        <i class="ri-checkbox-circle-fill text-lg"></i>
+                                        <span class="text-[9px] font-black uppercase tracking-tighter">Aktif</span>
+                                    </button>
+                                    <button type="button" wire:click="$set('status', 'Cuti')" 
+                                            class="flex flex-col items-center justify-center p-2 rounded-xl border-2 transition-all {{ $status === 'Cuti' ? 'bg-amber-50 border-amber-500 text-amber-700 shadow-sm' : 'bg-white border-transparent text-gray-400 hover:border-gray-200' }}">
+                                        <i class="ri-calendar-event-fill text-lg"></i>
+                                        <span class="text-[9px] font-black uppercase tracking-tighter">Cuti</span>
+                                    </button>
+                                    <button type="button" wire:click="$set('status', 'Tidak Aktif')" 
+                                            class="flex flex-col items-center justify-center p-2 rounded-xl border-2 transition-all {{ $status === 'Tidak Aktif' ? 'bg-rose-50 border-rose-500 text-rose-700 shadow-sm' : 'bg-white border-transparent text-gray-400 hover:border-gray-200' }}">
+                                        <i class="ri-close-circle-fill text-lg"></i>
+                                        <span class="text-[9px] font-black uppercase tracking-tighter">Non-Aktif</span>
+                                    </button>
                                 </div>
-                                <label class="relative inline-flex items-center cursor-pointer scale-90 sm:scale-100">
-                                    <input type="checkbox" class="sr-only peer" {{ $status === 'Aktif' ? 'checked' : '' }} @click="$wire.set('status', '{{ $status === 'Aktif' ? 'Tidak Aktif' : 'Aktif' }}')">
-                                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#0ab39c]"></div>
-                                </label>
                             </div>
                         </form>
                     </div>

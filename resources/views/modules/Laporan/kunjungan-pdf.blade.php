@@ -166,6 +166,24 @@
                 </div>
             </div>
             @endif
+
+            @if(count($details['odontogram_visit']) > 0)
+            <div class="section-title">Gigi Diperiksa</div>
+            <div style="margin: 0 12px 12px; padding: 8px; background: #fff7ed; border: 1px solid #fed7aa; border-radius: 4px;">
+                <table width="100%" style="font-size: 8pt; border-collapse: collapse;">
+                    @foreach($details['odontogram_visit']->chunk(2) as $row)
+                    <tr>
+                        @foreach($row as $gv)
+                        <td width="50%" style="padding: 2px 0;">
+                            <span style="display:inline-block; width:8px; height:8px; background:{{ $gv->warna ?: '#ccc' }}; border:1px solid #0002; vertical-align:middle; margin-right:4px;"></span>
+                            <strong>Gigi {{ $gv->nomor_gigi }} ({{ $gv->bagian }})</strong>: {{ $gv->nama_kategori ?: '-' }}
+                        </td>
+                        @endforeach
+                    </tr>
+                    @endforeach
+                </table>
+            </div>
+            @endif
         </div>
     @endforeach
 

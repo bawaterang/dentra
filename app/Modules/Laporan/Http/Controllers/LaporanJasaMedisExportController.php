@@ -14,7 +14,11 @@ class LaporanJasaMedisExportController extends Controller
 {
     public function getData($bulan, $tahun, $dokter = 'all')
     {
-        $query = TrxPendaftaran::with(['pasien', 'dokter', 'asuransi'])
+        $query = TrxPendaftaran::with([
+            'pasien', 
+            'dokter' => fn($q) => $q->withTrashed(), 
+            'asuransi'
+        ])
             ->whereNotNull('created_at')
             ->whereMonth('created_at', $bulan)
             ->whereYear('created_at', $tahun);

@@ -29,6 +29,7 @@ class LaporanKunjunganPage extends Component
     public $pasienHistoryData = [];
     public $currentPasien;
     public $latestOdontogramState = [];
+    public $dentalCategories = [];
 
     public $search = '';
 
@@ -94,7 +95,7 @@ class LaporanKunjunganPage extends Component
 
     public function loadDokterList()
     {
-        $dokters = MstDokter::where('status', 'Aktif')
+        $dokters = MstDokter::withTrashed()
             ->orderBy('nama_dokter')
             ->get()
             ->map(function ($d) {
@@ -118,7 +119,12 @@ class LaporanKunjunganPage extends Component
     #[Computed]
     public function laporanKunjungan()
     {
-        $query = TrxPendaftaran::with(['pasien', 'dokter', 'asuransi', 'billing'])
+        $query = TrxPendaftaran::with([
+            'pasien',
+            'dokter' => fn($q) => $q->withTrashed(),
+            'asuransi',
+            'billing'
+        ])
             ->whereNotNull('created_at');
 
         if ($this->periodType === 'DAILY') {
@@ -134,12 +140,12 @@ class LaporanKunjunganPage extends Component
             $query->where('dokter_id', $this->selectedDokter);
         }
 
-        if (! empty($this->search)) {
+        if (!empty($this->search)) {
             $query->where(function ($q) {
-                $q->where('nomor_kunjungan', 'like', '%'.$this->search.'%')
+                $q->where('nomor_kunjungan', 'like', '%' . $this->search . '%')
                     ->orWhereHas('pasien', function ($pq) {
-                        $pq->where('nama_pasien', 'like', '%'.$this->search.'%')
-                            ->orWhere('no_rm', 'like', '%'.$this->search.'%');
+                        $pq->where('nama_pasien', 'like', '%' . $this->search . '%')
+                            ->orWhere('no_rm', 'like', '%' . $this->search . '%');
                     });
             });
         }
@@ -150,9 +156,9 @@ class LaporanKunjunganPage extends Component
     public function getClinicalDetails($nomorKunjungan)
     {
         $pendaftaran = TrxPendaftaran::where('nomor_kunjungan', $nomorKunjungan)->first();
-        
+
         $soap = DB::table('trx_pemeriksaan')->where('nomor_kunjungan', $nomorKunjungan)->first();
-        
+
         $diagnoses = DB::table('trx_diagnosis')
             ->join('mst_diagnosis', 'trx_diagnosis.kode_diagnosa', '=', 'mst_diagnosis.kode_diagnosa')
             ->where('trx_diagnosis.nomor_kunjungan', $nomorKunjungan)
@@ -202,7 +208,7 @@ class LaporanKunjunganPage extends Component
     {
         $this->selectedPasienId = $pasienId;
         $this->currentPasien = \App\Models\MstPasien::find($pasienId);
-        
+
         $history = TrxPendaftaran::with(['dokter', 'asuransi', 'billing'])
             ->where('pasien_id', $pasienId)
             ->whereNotNull('created_at')
@@ -230,6 +236,12 @@ class LaporanKunjunganPage extends Component
                 'kategori' => $o->kode_kategori
             ];
         }
+
+        // Fetch dental categories for legend
+        $this->dentalCategories = \App\Models\MstKategoriGigi::where('status', 'Aktif')
+            ->whereNull('deleted_at')
+            ->orderBy('nama_kategori', 'asc')
+            ->get();
 
         $this->showRiwayatModal = true;
     }
@@ -633,11 +645,26 @@ class LaporanKunjunganPage extends Component
                                                     <span class="text-[10px] font-black text-indigo-500 font-mono">{{ $diag->kode_diagnosa }}</span>
                                                     <span class="text-[9px] px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-600 font-bold uppercase">{{ $diag->jenis_icd }}</span>
                                                 </div>
-                                                <p class="text-xs font-bold text-gray-700">{{ $diag->nama_diagnosa }}</p>
+                                                <p class="text-xs font-bold text-gray-700 leading-tight">{{ $diag->nama_diagnosa }}</p>
                                             </div>
                                             @empty
                                             <div class="text-center py-4 text-gray-400 text-xs italic">Tidak ada diagnosis</div>
                                             @endforelse
+
+                                            @if(count($details['odontogram_visit']) > 0)
+                                            <div class="clinical-title mt-6"><i class="ri-tooth-line"></i> Gigi Diperiksa</div>
+                                            <div class="grid grid-cols-2 gap-2">
+                                                @foreach($details['odontogram_visit'] as $gv)
+                                                <div class="flex items-center gap-2 p-2 bg-orange-50 rounded-lg border border-orange-100">
+                                                    <div class="w-3 h-3 rounded-sm border border-black/10 shrink-0" style="background-color: {{ $gv->warna ?: '#ccc' }}"></div>
+                                                    <div class="flex flex-col overflow-hidden">
+                                                        <span class="text-[10px] font-black text-orange-700 leading-none">Gigi {{ $gv->nomor_gigi }} ({{ $gv->bagian }})</span>
+                                                        <span class="text-[9px] font-bold text-orange-600 leading-none truncate mt-0.5">{{ $gv->nama_kategori ?: '-' }}</span>
+                                                    </div>
+                                                </div>
+                                                @endforeach
+                                            </div>
+                                            @endif
 
                                             <div class="clinical-title mt-6"><i class="ri-capsule-line"></i> Resep Obat</div>
                                             <div class="space-y-2">
@@ -938,6 +965,23 @@ class LaporanKunjunganPage extends Component
                                                 </div>
                                             </div>
                                         </div>
+
+                                        <!-- Color Legend -->
+                                        <div class="px-5 py-4 border-t border-gray-50 bg-gray-50/30">
+                                            <div class="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-3 text-center">LEGENDA KONDISI GIGI</div>
+                                            <div class="flex flex-wrap justify-center gap-x-6 gap-y-2">
+                                                @foreach($dentalCategories as $cat)
+                                                <div class="flex items-center gap-2">
+                                                    <div class="w-2.5 h-2.5 rounded-sm border border-black/10 shrink-0" style="background-color: {{ $cat->warna }}"></div>
+                                                    <span class="text-[10px] font-bold text-gray-600 uppercase">{{ $cat->nama_kategori }}</span>
+                                                </div>
+                                                @endforeach
+                                                <div class="flex items-center gap-2">
+                                                    <div class="w-2.5 h-2.5 rounded-sm border border-gray-200 bg-white shadow-inner shrink-0"></div>
+                                                    <span class="text-[10px] font-bold text-gray-600 uppercase">NORMAL</span>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
 
                                     <!-- latest OHI-S Stats -->
@@ -947,7 +991,7 @@ class LaporanKunjunganPage extends Component
                                     <div class="bg-white rounded-2xl border border-gray-100 shadow-sm flex flex-col h-full">
                                         <div class="px-5 py-4 border-b border-gray-50 flex items-center justify-between bg-gray-50/50">
                                             <h4 class="text-sm font-black text-purple-700 flex items-center gap-2">
-                                                <i class="ri-health-book-line"></i> DATA OHI-S TERAKHIR
+                                                <i class="ri-health-book-line"></i> KESIMPULAN OHI-S (KUNJUNGAN TERAKHIR)
                                             </h4>
                                         </div>
                                         <div class="p-6 flex-grow flex flex-col justify-center gap-6">
@@ -992,9 +1036,7 @@ class LaporanKunjunganPage extends Component
 
                         <!-- Modal Footer -->
                         <div class="px-6 py-4 bg-gray-50/80 border-t border-gray-100 flex items-center justify-between sm:justify-start gap-4">
-                            <button wire:click="closeRiwayatModal" class="px-6 py-2.5 bg-white border border-gray-200 rounded-xl text-xs font-black text-gray-600 hover:bg-gray-50 transition-all shadow-sm">
-                                TUTUP
-                            </button>
+                            
                             <a href="{{ route('laporan.kunjungan.print-riwayat', $selectedPasienId) }}" target="_blank"
                                class="sm:hidden flex flex-grow items-center justify-center gap-2 bg-indigo-600 text-white px-6 py-2.5 rounded-xl text-xs font-black transition-all shadow-lg active:scale-95">
                                 <i class="ri-printer-line"></i> CETAK RIWAYAT
