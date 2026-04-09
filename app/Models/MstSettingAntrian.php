@@ -13,6 +13,7 @@ class MstSettingAntrian extends Model
 
     protected $fillable = [
         'mode_antrian',
+        'format_nomor_antrian',
         'jam_buka',
         'jam_tutup',
         'durasi_slot',

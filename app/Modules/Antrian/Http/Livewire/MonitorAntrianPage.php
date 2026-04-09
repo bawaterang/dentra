@@ -121,7 +121,7 @@ class MonitorAntrianPage extends Component
                         <div class="flex-1 overflow-y-auto p-4 space-y-2">
                             @forelse($waitingList as $item)
                             <div class="flex items-center gap-4 p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-all border border-white/5">
-                                <div class="flex items-center justify-center h-12 w-12 rounded-xl bg-white/10 text-xl font-black">{{ $item->nomor_antrian }}</div>
+                                <div class="flex items-center justify-center min-w-[48px] px-3 h-12 rounded-xl bg-white/10 text-xl font-black">{{ $item->nomor_antrian }}</div>
                                 <div class="flex-1 min-w-0">
                                     <p class="font-semibold text-sm truncate">{{ $item->pasien?->nama_pasien ?? $item->nama_pasien_input_manual }}</p>
                                     @if($item->kode_poli)<p class="text-xs text-white/50">{{ $item->poli?->nama_poli ?? $item->kode_poli }}</p>@endif

@@ -15,6 +15,7 @@ class SettingAntrianPage extends Component
 {
     // Global Settings
     public $mode_antrian;
+    public $format_nomor_antrian;
     public $running_text;
     public $is_active;
 
@@ -42,10 +43,12 @@ class SettingAntrianPage extends Component
         $globalSetting = MstSettingAntrian::first();
         if ($globalSetting) {
             $this->mode_antrian = $globalSetting->mode_antrian;
+            $this->format_nomor_antrian = $globalSetting->format_nomor_antrian ?? '[nomor]';
             $this->running_text = $globalSetting->running_text;
             $this->is_active = $globalSetting->is_active;
         } else {
             $this->mode_antrian = 'Nomor Urut';
+            $this->format_nomor_antrian = '[nomor]';
             $this->is_active = true;
         }
 
@@ -102,6 +105,7 @@ class SettingAntrianPage extends Component
     {
         return [
             'mode_antrian' => 'required|in:Nomor Urut,Waktu Periksa,Keduanya',
+            'format_nomor_antrian' => ['required', 'string', 'max:50', 'regex:/[0-9]$/'],
             'jam_buka' => 'required',
             'jam_tutup' => 'required',
             'durasi_slot' => 'required|integer|min:5|max:120',
@@ -212,11 +216,27 @@ class SettingAntrianPage extends Component
                 $currentTime = $startTime->copy();
                 $count = 0;
                 
+                // Prepare formatting logic
+                $prefix = '';
+                $suffixTpl = '000';
+                $base = 0;
+                if (preg_match('/(.*?)([0-9]+)$/', $this->format_nomor_antrian, $matches)) {
+                    $prefix = $matches[1];
+                    $suffixTpl = $matches[2];
+                    $len = strlen($suffixTpl);
+                    $base = intval($suffixTpl);
+                } else {
+                    $len = 3;
+                }
+                
                 while ($currentTime->lt($endTime) && $count < $config->max_antrian) {
+                    $sequence = $count + 1;
+                    $formattedNo = $prefix . str_pad($base + $sequence, $len, '0', STR_PAD_LEFT);
+                    
                     $data[] = [
                         'hari' => $config->hari,
                         'waktu' => $currentTime->format('H:i:s'),
-                        'nomor_urut' => $count + 1,
+                        'nomor_urut' => $formattedNo,
                         'created_by' => $user,
                         'created_at' => $now,
                     ];
@@ -256,6 +276,7 @@ class SettingAntrianPage extends Component
             $global = new MstSettingAntrian();
         }
         $global->mode_antrian = $this->mode_antrian;
+        $global->format_nomor_antrian = $this->format_nomor_antrian;
         $global->running_text = $this->running_text;
         $global->is_active = $this->is_active;
         $global->save();
@@ -344,6 +365,13 @@ class SettingAntrianPage extends Component
                                             </div>
                                             
                                             <div class="space-y-6">
+                                                <div>
+                                                    <label class="block text-sm font-semibold text-gray-700 mb-2">Format Nomor Antrian</label>
+                                                    <input type="text" wire:model.lazy="format_nomor_antrian" class="w-full rounded-xl border-gray-200 text-sm px-4 h-11 focus:border-[#405189] transition-all shadow-sm font-mono" placeholder="Misal: A000">
+                                                    <p class="text-[10px] text-gray-500 mt-1">Harus diakhiri angka. Contoh: <b>A000</b> (Berarti nomor mulai dari A001).</p>
+                                                    @error('format_nomor_antrian') <span class="text-[10px] text-red-500">{{ $message }}</span> @enderror
+                                                </div>
+                                                
                                                 <div>
                                                     <label class="block text-sm font-semibold text-gray-700 mb-2">Status Sistem Kiosk</label>
                                                     <div class="flex items-center justify-between p-4 border rounded-xl {{ $is_active ? 'border-green-200 bg-green-50/30' : 'border-red-200 bg-red-50/30' }}">
@@ -558,7 +586,7 @@ class SettingAntrianPage extends Component
                                                         </span>
                                                     </td>
                                                     <td class="px-4 py-3 text-xs font-bold text-[#405189]">
-                                                        A-{{ str_pad($slot->nomor_urut, 3, '0', STR_PAD_LEFT) }}
+                                                        {{ $slot->nomor_urut }}
                                                     </td>
                                                 </tr>
                                                 @empty

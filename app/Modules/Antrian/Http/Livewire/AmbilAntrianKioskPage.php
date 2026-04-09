@@ -9,6 +9,8 @@ use App\Models\MstPoli;
 use App\Models\MstSettingAntrianHari;
 use App\Models\MstSettingAntrianLibur;
 use App\Models\MstSettingAntrian;
+use App\Models\MstSettingAntrianDetail;
+use Carbon\Carbon;
 
 #[Layout('components.layouts.blank')]
 class AmbilAntrianKioskPage extends Component
@@ -16,6 +18,10 @@ class AmbilAntrianKioskPage extends Component
     public $nama_pasien;
     public $kode_poli;
     public $tanggal_antrian;
+    public $time_slot;
+    public $mode_antrian = 'Nomor Urut';
+    public $format_nomor_antrian = '[nomor]';
+    public $availableTimeSlots = [];
 
     public $poliList = [];
     public $generatedAntrian = null;
@@ -26,11 +32,49 @@ class AmbilAntrianKioskPage extends Component
     public function mount()
     {
         $this->tanggal_antrian = now()->format('Y-m-d');
+        $setting = MstSettingAntrian::first();
+        if ($setting) {
+            $this->mode_antrian = $setting->mode_antrian;
+            $this->format_nomor_antrian = $setting->format_nomor_antrian ?? '[nomor]';
+        }
         $this->checkHoliday();
         
         if (!$this->isHoliday) {
             $this->poliList = MstPoli::where('status', 'Aktif')->get();
+            $this->loadAvailableSlots();
         }
+    }
+
+    public function loadAvailableSlots()
+    {
+        if ($this->mode_antrian === 'Nomor Urut') {
+            $this->availableTimeSlots = [];
+            return;
+        }
+
+        $hariMap = ['Monday' => 'Senin', 'Tuesday' => 'Selasa', 'Wednesday' => 'Rabu', 'Thursday' => 'Kamis', 'Friday' => 'Jumat', 'Saturday' => 'Sabtu', 'Sunday' => 'Minggu'];
+        $hariNama = $hariMap[now()->format('l')];
+
+        $bookedSlotsShort = TrxAntrian::whereDate('tanggal_antrian', $this->tanggal_antrian)
+            ->where('status', '!=', 'batal')
+            ->whereNotNull('time_slot')
+            ->pluck('time_slot')
+            ->map(function($t) { return substr($t, 0, 5); })
+            ->toArray();
+
+        $this->availableTimeSlots = MstSettingAntrianDetail::where('hari', $hariNama)
+            ->orderBy('waktu')
+            ->get()
+            ->filter(function($slot) use ($bookedSlotsShort) {
+                return !in_array(substr($slot->waktu, 0, 5), $bookedSlotsShort);
+            })
+            ->map(function($slot) {
+                return [
+                    'value' => substr($slot->waktu, 0, 5) . ':00',
+                    'label' => substr($slot->waktu, 0, 5),
+                    'nomor_urut' => $slot->nomor_urut
+                ];
+            })->values()->toArray();
     }
 
     private function checkHoliday()
@@ -81,6 +125,11 @@ class AmbilAntrianKioskPage extends Component
         $this->kode_poli = $kode;
     }
 
+    public function setTimeSlot($waktu)
+    {
+        $this->time_slot = $waktu;
+    }
+
     public function simpan()
     {
         $this->checkHoliday();
@@ -106,15 +155,54 @@ class AmbilAntrianKioskPage extends Component
                 ->exists();
                 
             if ($duplicateCheck) {
-                $this->addError('general', 'Anda sudah mengambil antrian untuk poli ini pada tanggal tersebut.');
+                $this->addError('general', 'Anda sudah mengambil antrian untuk poli ini pada hari ini.');
                 return;
             }
 
-            $lastAntrian = TrxAntrian::where(fn($q) => $q->where('tanggal_antrian', $this->tanggal_antrian))
-                ->orderBy('nomor_antrian', 'desc')
-                ->first();
-            $nextNumber = $lastAntrian ? ((int)$lastAntrian->nomor_antrian + 1) : 1;
-            $nomorAntrian = str_pad($nextNumber, 3, '0', STR_PAD_LEFT);
+            if ($this->mode_antrian !== 'Nomor Urut') {
+                if (!$this->time_slot) {
+                    $this->addError('time_slot', 'Silakan pilih Slot Waktu terlebih dahulu.');
+                    return;
+                }
+                
+                $isBooked = TrxAntrian::whereDate('tanggal_antrian', $this->tanggal_antrian)
+                    ->where('time_slot', 'like', substr($this->time_slot, 0, 5) . '%')
+                    ->where('status', '!=', 'batal')
+                    ->exists();
+                    
+                if ($isBooked) {
+                    $this->loadAvailableSlots();
+                    $this->time_slot = null;
+                    $this->addError('time_slot', 'Maaf, slot waktu ini baru saja diambil orang lain.');
+                    return;
+                }
+
+                $hariMap = ['Monday' => 'Senin', 'Tuesday' => 'Selasa', 'Wednesday' => 'Rabu', 'Thursday' => 'Kamis', 'Friday' => 'Jumat', 'Saturday' => 'Sabtu', 'Sunday' => 'Minggu'];
+                $hariNama = $hariMap[now()->format('l')];
+                $slotDetail = MstSettingAntrianDetail::where('hari', $hariNama)->where('waktu', 'like', substr($this->time_slot, 0, 5).'%')->first();
+                if (!$slotDetail) {
+                    $this->addError('time_slot', 'Slot waktu tidak valid.');
+                    return;
+                }
+                
+                $nomorAntrian = $slotDetail->nomor_urut;
+            } else {
+                $countToday = TrxAntrian::whereDate('tanggal_antrian', $this->tanggal_antrian)->count();
+                $nextSequence = $countToday + 1;
+                
+                $base = 0;
+                $len = 3;
+                $prefix = '';
+                if (preg_match('/(.*?)([0-9]+)$/', $this->format_nomor_antrian, $matches)) {
+                    $prefix = $matches[1];
+                    $suffixTpl = $matches[2];
+                    $len = strlen($suffixTpl);
+                    $base = intval($suffixTpl);
+                }
+                
+                $nomorString = str_pad($base + $nextSequence, $len, '0', STR_PAD_LEFT);
+                $nomorAntrian = $prefix . $nomorString;
+            }
 
             $antrian = TrxAntrian::create([
                 'nomor_antrian' => $nomorAntrian,
@@ -122,6 +210,7 @@ class AmbilAntrianKioskPage extends Component
                 'jenis_antrian' => 'offline',
                 'nama_pasien_input_manual' => $this->nama_pasien,
                 'kode_poli' => $this->kode_poli,
+                'time_slot' => $this->time_slot,
                 'status' => 'menunggu',
             ]);
 
@@ -134,9 +223,12 @@ class AmbilAntrianKioskPage extends Component
 
     public function ambilLagi()
     {
-        $this->reset(['nama_pasien', 'kode_poli', 'generatedAntrian']);
+        $this->reset(['nama_pasien', 'kode_poli', 'generatedAntrian', 'time_slot']);
         $this->tanggal_antrian = now()->format('Y-m-d');
         $this->checkHoliday();
+        if (!$this->isHoliday) {
+            $this->loadAvailableSlots();
+        }
     }
 
     public function render()
@@ -272,6 +364,32 @@ class AmbilAntrianKioskPage extends Component
                         </div>
                         @error('kode_poli') <span class="text-red-300 block mt-2 font-medium"><i class="ri-alert-line mr-1"></i>{{ $message }}</span> @enderror
                     </div>
+
+                    @if($mode_antrian !== 'Nomor Urut')
+                    <!-- Pilih Waktu -->
+                    <div>
+                        <label class="block text-white/80 font-bold mb-3 text-lg">Pilih Slot Waktu Kehadiran</label>
+                        @if(count($availableTimeSlots) > 0)
+                        <div class="flex gap-3 overflow-x-auto pb-4 no-scrollbar snap-x snap-mandatory">
+                            @foreach($availableTimeSlots as $slot)
+                            <button type="button" wire:click="setTimeSlot('{{ $slot['value'] }}')" class="flex-shrink-0 snap-center p-4 rounded-2xl border-2 transition-all active:scale-95 select-none text-center min-w-[120px] {{ $time_slot === $slot['value'] ? 'bg-white text-[#405189] border-white shadow-[0_0_20px_rgba(255,255,255,0.3)]' : 'bg-white/5 text-white border-white/20 hover:bg-white/10' }}">
+                                <i class="ri-time-line text-2xl mb-1 block {{ $time_slot === $slot['value'] ? 'text-[#0ab39c]' : 'text-white/70' }}"></i>
+                                <span class="font-black text-xl">{{ $slot['label'] }}</span>
+                            </button>
+                            @endforeach
+                        </div>
+                        @else
+                        <div class="bg-red-500/20 border border-red-500/50 p-4 rounded-xl flex items-center gap-3 text-white">
+                            <i class="ri-error-warning-line text-2xl"></i>
+                            <div>
+                                <p class="font-bold">Slot Habis</p>
+                                <p class="text-sm opacity-80">Maaf, semua slot waktu hari ini sudah penuh dipesan.</p>
+                            </div>
+                        </div>
+                        @endif
+                        @error('time_slot') <span class="text-red-300 block mt-2 font-medium"><i class="ri-alert-line mr-1"></i>{{ $message }}</span> @enderror
+                    </div>
+                    @endif
 
                     <!-- Tombol Ambil -->
                     <div class="pt-6">

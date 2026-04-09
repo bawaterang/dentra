@@ -11,6 +11,8 @@ use App\Models\MstDokter;
 use App\Models\MstAsuransi;
 use App\Models\MstSettingAntrianHari;
 use App\Models\MstSettingAntrianLibur;
+use App\Models\MstSettingAntrian;
+use App\Models\MstSettingAntrianDetail;
 
 class AmbilAntrianPage extends Component
 {
@@ -18,6 +20,9 @@ class AmbilAntrianPage extends Component
     public $kode_poli, $kode_dokter, $asuransi, $no_asuransi;
     public $tanggal_antrian, $jenis_antrian = 'offline';
     public $time_slot;
+    public $mode_antrian = 'Nomor Urut';
+    public $format_nomor_antrian = '[nomor]';
+    public $availableTimeSlots = [];
 
     // Search properties
     public $searchPasien = '';
@@ -35,6 +40,54 @@ class AmbilAntrianPage extends Component
     public function mount()
     {
         $this->tanggal_antrian = now()->format('Y-m-d');
+        $setting = MstSettingAntrian::first();
+        if ($setting) {
+            $this->mode_antrian = $setting->mode_antrian;
+            $this->format_nomor_antrian = $setting->format_nomor_antrian ?? '[nomor]';
+        }
+        $this->loadAvailableSlots();
+    }
+
+    public function updatedTanggalAntrian()
+    {
+        $this->loadAvailableSlots();
+    }
+
+    public function loadAvailableSlots()
+    {
+        if ($this->mode_antrian === 'Nomor Urut' || empty($this->tanggal_antrian)) {
+            $this->availableTimeSlots = [];
+            return;
+        }
+
+        $hariMap = ['Monday' => 'Senin', 'Tuesday' => 'Selasa', 'Wednesday' => 'Rabu', 'Thursday' => 'Kamis', 'Friday' => 'Jumat', 'Saturday' => 'Sabtu', 'Sunday' => 'Minggu'];
+        $hariNama = $hariMap[Carbon::parse($this->tanggal_antrian)->format('l')];
+
+        $bookedSlotsShort = TrxAntrian::whereDate('tanggal_antrian', $this->tanggal_antrian)
+            ->where('status', '!=', 'batal')
+            ->whereNotNull('time_slot')
+            ->pluck('time_slot')
+            ->map(function($t) { return substr($t, 0, 5); })
+            ->toArray();
+
+        $this->availableTimeSlots = MstSettingAntrianDetail::where('hari', $hariNama)
+            ->orderBy('waktu')
+            ->get()
+            ->filter(function($slot) use ($bookedSlotsShort) {
+                return !in_array(substr($slot->waktu, 0, 5), $bookedSlotsShort);
+            })
+            ->map(function($slot) {
+                return [
+                    'value' => substr($slot->waktu, 0, 5) . ':00', // standardize back to sql TIME length
+                    'label' => substr($slot->waktu, 0, 5) . ' (' . $slot->nomor_urut . ')',
+                    'icon' => 'ri-time-line text-green-500'
+                ];
+            })->values()->toArray();
+            
+        // Reset time_slot if the previous selection is newly booked or invalid
+        if ($this->time_slot && !in_array(substr($this->time_slot, 0, 5).':00', array_column($this->availableTimeSlots, 'value'))) {
+            $this->time_slot = null;
+        }
     }
 
     protected function rules()
@@ -119,11 +172,50 @@ class AmbilAntrianPage extends Component
             }
 
             // Generate nomor antrian
-            $lastAntrian = TrxAntrian::where(fn($q) => $q->where('tanggal_antrian', $this->tanggal_antrian))
-                ->orderBy('nomor_antrian', 'desc')
-                ->first();
-            $nextNumber = $lastAntrian ? ((int)$lastAntrian->nomor_antrian + 1) : 1;
-            $nomorAntrian = str_pad($nextNumber, 3, '0', STR_PAD_LEFT);
+            if ($this->mode_antrian !== 'Nomor Urut') {
+                if (!$this->time_slot) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'time_slot' => 'Silakan pilih Slot Waktu.'
+                    ]);
+                }
+                
+                $isBooked = TrxAntrian::whereDate('tanggal_antrian', $this->tanggal_antrian)
+                    ->where('time_slot', 'like', substr($this->time_slot, 0, 5) . '%')
+                    ->where('status', '!=', 'batal')
+                    ->exists();
+                    
+                if ($isBooked) {
+                    $this->loadAvailableSlots();
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'time_slot' => 'Slot waktu ini baru saja diambil. Silakan pilih slot lain.'
+                    ]);
+                }
+
+                $slotDetail = MstSettingAntrianDetail::where('hari', $hariNama)->where('waktu', 'like', substr($this->time_slot, 0, 5).'%')->first();
+                if (!$slotDetail) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'time_slot' => 'Slot waktu tidak valid.'
+                    ]);
+                }
+                
+                $nomorAntrian = $slotDetail->nomor_urut;
+            } else {
+                $countToday = TrxAntrian::whereDate('tanggal_antrian', $this->tanggal_antrian)->count();
+                $nextSequence = $countToday + 1;
+                
+                $base = 0;
+                $len = 3;
+                $prefix = '';
+                if (preg_match('/(.*?)([0-9]+)$/', $this->format_nomor_antrian, $matches)) {
+                    $prefix = $matches[1];
+                    $suffixTpl = $matches[2];
+                    $len = strlen($suffixTpl);
+                    $base = intval($suffixTpl);
+                }
+                
+                $nomorString = str_pad($base + $nextSequence, $len, '0', STR_PAD_LEFT);
+                $nomorAntrian = $prefix . $nomorString;
+            }
 
             $antrian = TrxAntrian::create([
                 'nomor_antrian' => $nomorAntrian,
@@ -151,6 +243,7 @@ class AmbilAntrianPage extends Component
     public function ambilLagi()
     {
         $this->resetForm();
+        $this->mount();
     }
 
     public function updatedSearchPasien($value)
@@ -290,7 +383,7 @@ class AmbilAntrianPage extends Component
 
                                 <h6 class="text-xs font-bold text-[#0ab39c] uppercase tracking-widest border-b pb-2 !mt-6">Informasi Kunjungan</h6>
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div><label class="block text-xs font-semibold text-gray-500 mb-1">Tanggal Antrian <span class="text-red-500">*</span></label><input type="date" wire:model="tanggal_antrian" class="w-full rounded-lg border-gray-200 text-sm px-4 h-[42px] focus:border-[#405189] transition-all"></div>
+                                    <div><label class="block text-xs font-semibold text-gray-500 mb-1">Tanggal Antrian <span class="text-red-500">*</span></label><input type="date" wire:model.live="tanggal_antrian" class="w-full rounded-lg border-gray-200 text-sm px-4 h-[42px] focus:border-[#405189] transition-all"></div>
                                     <div>
                                         <label class="block text-xs font-semibold text-gray-500 mb-1">Jenis Antrian</label>
                                         <x-custom-dropdown model="jenis_antrian" :options="[
@@ -299,6 +392,19 @@ class AmbilAntrianPage extends Component
                                         ]" placeholder="Pilih Jenis" />
                                     </div>
                                 </div>
+                                
+                                @if($mode_antrian !== 'Nomor Urut')
+                                <div class="p-4 bg-blue-50 border border-blue-100 rounded-lg">
+                                    <label class="block text-xs font-bold text-[#405189] mb-2">Slot Waktu Periksa <span class="text-red-500">*</span></label>
+                                    @if(count($availableTimeSlots) > 0)
+                                        <x-custom-dropdown model="time_slot" :options="$availableTimeSlots" placeholder="Pilih Slot Waktu..." searchable="true" />
+                                        @error('time_slot') <span class="text-[11px] text-red-500 mt-1 italic">{{ $message }}</span> @enderror
+                                    @else
+                                        <div class="text-xs text-orange-600 font-bold flex items-center gap-2"><i class="ri-error-warning-line"></i> Tidak ada slot waktu tersedia di tanggal ini.</div>
+                                    @endif
+                                </div>
+                                @endif
+                                
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
                                         <label class="block text-xs font-semibold text-gray-500 mb-1">Poli Tujuan</label>

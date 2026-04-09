@@ -136,7 +136,7 @@ class AntrianPage extends Component
         $this->editNamaPasien = $antrian->pasien?->nama_pasien ?? $antrian->nama_pasien_input_manual;
         $this->editPoli = $antrian->kode_poli;
         $this->editDokter = $antrian->kode_dokter;
-        $this->editTanggal = $antrian->tanggal_antrian->format('Y-m-d');
+        $this->editTanggal = \Carbon\Carbon::parse($antrian->tanggal_antrian)->format('Y-m-d');
         $this->editAsuransi = $antrian->asuransi;
         $this->editNoAsuransi = $antrian->no_asuransi;
         
@@ -240,19 +240,31 @@ class AntrianPage extends Component
                         </div></div>
                         <div class="card-body p-0"><div class="table-responsive dark:bg-transparent">
                             <table id="antrianTable" class="table align-middle table-nowrap w-full">
-                            <thead class="table-light text-muted"><tr><th width="8%">No</th><th>No RM</th><th>Pasien</th><th>Poli</th><th>Dokter</th><th>Jenis</th><th>Status</th><th class="!text-center" style="text-align:center!important;">Aksi</th></tr></thead>
+                                                         <thead class="table-light text-muted"><tr><th width="8%">No</th><th width="10%">Waktu</th><th>Pasien</th><th>Poli</th><th class="text-center">Jenis</th><th>Status</th><th class="!text-center" style="text-align:center!important;">Aksi</th></tr></thead>
                             <tbody>
                                 @foreach($antrianList as $item)
                                 <tr wire:key="antrian-{{ $item->id }}" class="{{ $item->status === 'dipanggil' ? 'bg-blue-50 dark:bg-blue-900/20' : ($item->status === 'hadir' ? 'bg-green-50 dark:bg-green-900/20' : ($item->status === 'tidak_hadir' ? 'bg-red-50 dark:bg-red-900/20' : 'bg-transparent')) }}">
-                                    <td><span class="inline-flex items-center justify-center h-8 w-8 rounded-lg bg-[#405189] text-white font-bold text-sm">{{ $item->nomor_antrian }}</span></td>
-                                    <td><span class="font-mono text-sm font-semibold text-[#405189] dark:text-[#8ab4f8]">{{ $item->pasien?->no_rm ?? '-' }}</span></td>
+                                    <td><span class="inline-flex items-center justify-center min-w-[32px] px-2 h-8 rounded-lg bg-[#405189] text-white font-bold text-sm">{{ $item->nomor_antrian }}</span></td>
                                     <td>
-                                        <div class="font-semibold text-[#495057] dark:text-[#000000]">{{ $item->pasien?->nama_pasien ?? $item->nama_pasien_input_manual ?? '-' }}</div>
-                                        @if(!$item->pasien_id)<span class="text-[10px] text-orange-500 font-medium"><i class="ri-alert-line mr-0.5"></i>Belum sinkron</span>@endif
+                                        @if($item->time_slot)
+                                            <span class="text-xs font-bold text-[#0ab39c]"><i class="ri-time-line mr-1 opacity-70"></i>{{ substr($item->time_slot, 0, 5) }}</span>
+                                        @else
+                                            <span class="text-xs text-gray-300">-</span>
+                                        @endif
                                     </td>
-                                    <td>{{ $item->poli?->nama_poli ?? $item->kode_poli ?? '-' }}</td>
-                                    <td>{{ $item->dokter?->nama_dokter ?? $item->kode_dokter ?? '-' }}</td>
-                                    <td><span class="badge {{ $item->jenis_antrian === 'online' ? 'bg-info-subtle' : 'bg-secondary-subtle' }}">{{ ucfirst($item->jenis_antrian) }}</span></td>
+                                    <td>
+                                        <div class="font-semibold text-[#495057] dark:text-black">{{ $item->pasien?->nama_pasien ?? $item->nama_pasien_input_manual ?? '-' }}</div>
+                                        @if($item->pasien_id)
+                                            <div class="text-[11px] font-mono text-[#878a99]">{{ $item->pasien?->no_rm }}</div>
+                                        @else
+                                            <span class="text-[10px] text-orange-500 font-medium"><i class="ri-alert-line mr-0.5"></i>Belum sinkron</span>
+                                        @endif
+                                    </td>
+                                    <td>
+                                        <div class="font-medium text-[#495057]">{{ $item->poli?->nama_poli ?? $item->kode_poli ?? '-' }}</div>
+                                        <div class="text-[10px] text-gray-500 font-medium italic"><i class="ri-user-star-line mr-0.5"></i> {{ $item->dokter?->nama_dokter ?? $item->kode_dokter ?? 'Belum ada dokter' }}</div>
+                                    </td>
+                                    <td class="text-center"><span class="badge {{ $item->jenis_antrian === 'online' ? 'bg-info-subtle text-info' : 'bg-secondary-subtle text-secondary' }}">{{ ucfirst($item->jenis_antrian) }}</span></td>
                                     <td>
                                         @php $statusColors = ['menunggu'=>'bg-warning-subtle','dipanggil'=>'bg-primary-subtle','hadir'=>'bg-success-subtle','tidak_hadir'=>'bg-danger-subtle','batal'=>'bg-secondary-subtle','selesai'=>'bg-success-subtle']; @endphp
                                         <span class="badge {{ $statusColors[$item->status] ?? 'bg-secondary-subtle' }}">{{ ucfirst(str_replace('_',' ',$item->status)) }}</span>
