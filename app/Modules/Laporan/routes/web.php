@@ -25,4 +25,9 @@ Route::middleware(['web', 'auth'])->prefix('laporan')->name('laporan.')->group(f
     Route::get('/kritik-saran', LaporanKritikSaranPage::class)->name('kritik-saran');
     Route::get('/kritik-saran/print', [\App\Modules\Laporan\Http\Controllers\LaporanKritikSaranExportController::class, 'print'])->name('kritik-saran.print');
     Route::get('/kritik-saran/export-excel', [\App\Modules\Laporan\Http\Controllers\LaporanKritikSaranExportController::class, 'exportExcel'])->name('kritik-saran.export');
+
+    // Satu Sehat
+    Route::get('/satu-sehat', \App\Modules\Laporan\Http\Livewire\LaporanSatuSehatPage::class)->name('satu-sehat');
+    Route::get('/satu-sehat/print', [\App\Modules\Laporan\Http\Controllers\LaporanSatuSehatExportController::class, 'print'])->name('satu-sehat.print');
+    Route::get('/satu-sehat/export-excel', [\App\Modules\Laporan\Http\Controllers\LaporanSatuSehatExportController::class, 'exportExcel'])->name('satu-sehat.export');
 });
