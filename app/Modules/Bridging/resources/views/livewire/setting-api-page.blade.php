@@ -81,49 +81,106 @@
             <form wire:submit.prevent="saveSatuSehat">
                 <div class="p-6 space-y-5">
                     <div>
-                        <label class="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-tight">Client ID <span class="text-red-500">*</span></label>
-                        <input type="text" wire:model="ss_client_id" class="w-full rounded-lg border-gray-200 text-sm px-4 py-2.5 focus:border-[#0ab39c] transition-all shadow-sm @error('ss_client_id') border-red-500 @enderror" placeholder="Masukkan Client ID">
-                        @error('ss_client_id') <span class="text-red-500 text-[10px] mt-1 font-bold">{{ $message }}</span> @enderror
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-tight">Client Secret <span class="text-red-500">*</span></label>
-                        <textarea wire:model="ss_client_secret" class="w-full rounded-lg border-gray-200 text-sm px-4 py-2 focus:border-[#0ab39c] transition-all shadow-sm @error('ss_client_secret') border-red-500 @enderror" rows="2" placeholder="Masukkan Client Secret"></textarea>
-                        @error('ss_client_secret') <span class="text-red-500 text-[10px] mt-1 font-bold">{{ $message }}</span> @enderror
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-                        <div>
-                            <label class="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-tight">Organization ID <span class="text-red-500">*</span></label>
-                            <input type="text" wire:model="ss_organization_id" class="w-full rounded-lg border-gray-200 text-sm px-4 py-2.5 focus:border-[#0ab39c] transition-all shadow-sm @error('ss_organization_id') border-red-500 @enderror" placeholder="ID Organisasi">
-                            @error('ss_organization_id') <span class="text-red-500 text-[10px] mt-1 font-bold">{{ $message }}</span> @enderror
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-tight">Organization Name <span class="text-red-500">*</span></label>
-                            <input type="text" wire:model="ss_organization_name" class="w-full rounded-lg border-gray-200 text-sm px-4 py-2.5 focus:border-[#0ab39c] transition-all shadow-sm @error('ss_organization_name') border-red-500 @enderror" placeholder="Nama Klinik">
-                            @error('ss_organization_name') <span class="text-red-500 text-[10px] mt-1 font-bold">{{ $message }}</span> @enderror
+                        <label class="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-tight">Mode Bridging SATUSEHAT <span class="text-red-500">*</span></label>
+                        <div class="flex items-center gap-6 mt-2">
+                            <label class="flex items-center gap-2 cursor-pointer group">
+                                <input type="radio" wire:model.live="ss_mode_bridging" value="klinik" class="w-4 h-4 text-[#0ab39c] focus:ring-[#0ab39c] border-gray-300">
+                                <span class="text-sm font-bold text-[#495057] group-hover:text-[#0ab39c] transition-colors">Kredensial Klinik (Global)</span>
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer group">
+                                <input type="radio" wire:model.live="ss_mode_bridging" value="dokter" class="w-4 h-4 text-[#0ab39c] focus:ring-[#0ab39c] border-gray-300">
+                                <span class="text-sm font-bold text-[#495057] group-hover:text-[#0ab39c] transition-colors">Kredensial Tiap Dokter</span>
+                            </label>
                         </div>
                     </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-                        <div>
-                            <label class="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-tight">Practitioner ID <span class="text-red-500">*</span></label>
-                            <input type="text" wire:model="ss_practitioner_id" class="w-full rounded-lg border-gray-200 text-sm px-4 py-2.5 focus:border-[#0ab39c] transition-all shadow-sm @error('ss_practitioner_id') border-red-500 @enderror" placeholder="ID Praktisi">
-                            @error('ss_practitioner_id') <span class="text-red-500 text-[10px] mt-1 font-bold">{{ $message }}</span> @enderror
+
+                    <div class="bg-[#f3f6f9]/30 p-4 rounded-xl border border-gray-100 space-y-5">
+                        <h6 class="text-xs font-extrabold text-[#0ab39c] uppercase tracking-wider border-b border-gray-200 pb-2 mb-3">Konfigurasi URL & Endpoint</h6>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <div>
+                                <label class="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-tight">Organization ID <span class="text-red-500">*</span></label>
+                                <input type="text" wire:model="ss_organization_id" class="w-full rounded-lg border-gray-200 text-sm px-4 py-2.5 focus:border-[#0ab39c] transition-all shadow-sm @error('ss_organization_id') border-red-500 @enderror" placeholder="ID Organisasi">
+                                @error('ss_organization_id') <span class="text-red-500 text-[10px] mt-1 font-bold">{{ $message }}</span> @enderror
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-tight">Organization Name <span class="text-red-500">*</span></label>
+                                <input type="text" wire:model="ss_organization_name" class="w-full rounded-lg border-gray-200 text-sm px-4 py-2.5 focus:border-[#0ab39c] transition-all shadow-sm @error('ss_organization_name') border-red-500 @enderror" placeholder="Nama Klinik">
+                                @error('ss_organization_name') <span class="text-red-500 text-[10px] mt-1 font-bold">{{ $message }}</span> @enderror
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <div>
+                                <label class="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-tight">Practitioner ID <span class="text-red-500">*</span></label>
+                                <input type="text" wire:model="ss_practitioner_id" class="w-full rounded-lg border-gray-200 text-sm px-4 py-2.5 focus:border-[#0ab39c] transition-all shadow-sm @error('ss_practitioner_id') border-red-500 @enderror" placeholder="ID Praktisi">
+                                @error('ss_practitioner_id') <span class="text-red-500 text-[10px] mt-1 font-bold">{{ $message }}</span> @enderror
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-tight">Location ID <span class="text-red-500">*</span></label>
+                                <input type="text" wire:model="ss_location_id" class="w-full rounded-lg border-gray-200 text-sm px-4 py-2.5 focus:border-[#0ab39c] transition-all shadow-sm @error('ss_location_id') border-red-500 @enderror" placeholder="ID Lokasi">
+                                @error('ss_location_id') <span class="text-red-500 text-[10px] mt-1 font-bold">{{ $message }}</span> @enderror
+                            </div>
                         </div>
                         <div>
-                            <label class="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-tight">Location ID <span class="text-red-500">*</span></label>
-                            <input type="text" wire:model="ss_location_id" class="w-full rounded-lg border-gray-200 text-sm px-4 py-2.5 focus:border-[#0ab39c] transition-all shadow-sm @error('ss_location_id') border-red-500 @enderror" placeholder="ID Lokasi">
-                            @error('ss_location_id') <span class="text-red-500 text-[10px] mt-1 font-bold">{{ $message }}</span> @enderror
+                            <label class="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-tight">FHIR Base URL <span class="text-red-500">*</span></label>
+                            <input type="text" wire:model="ss_url" class="w-full rounded-lg border-gray-200 text-sm px-4 py-2.5 focus:border-[#0ab39c] transition-all shadow-sm @error('ss_url') border-red-500 @enderror" placeholder="https://api-satusehat.kemkes.go.id/fhir-r4/v1">
+                            @error('ss_url') <span class="text-red-500 text-[10px] mt-1 font-bold">{{ $message }}</span> @enderror
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-tight">Auth Token URL <span class="text-red-500">*</span></label>
+                            <input type="text" wire:model="ss_token_url" class="w-full rounded-lg border-gray-200 text-sm px-4 py-2.5 focus:border-[#0ab39c] transition-all shadow-sm @error('ss_token_url') border-red-500 @enderror" placeholder="https://api-satusehat.kemkes.go.id/oauth2/v1/token">
+                            @error('ss_token_url') <span class="text-red-500 text-[10px] mt-1 font-bold">{{ $message }}</span> @enderror
                         </div>
                     </div>
-                    <div>
-                        <label class="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-tight">FHIR Base URL <span class="text-red-500">*</span></label>
-                        <input type="text" wire:model="ss_url" class="w-full rounded-lg border-gray-200 text-sm px-4 py-2.5 focus:border-[#0ab39c] transition-all shadow-sm @error('ss_url') border-red-500 @enderror" placeholder="https://api-satusehat.kemkes.go.id/fhir-r4/v1">
-                        @error('ss_url') <span class="text-red-500 text-[10px] mt-1 font-bold">{{ $message }}</span> @enderror
+
+                    <div class="bg-indigo-50/50 p-4 rounded-xl border border-indigo-100 space-y-5">
+                        <h6 class="text-xs font-extrabold text-indigo-600 uppercase tracking-wider border-b border-indigo-200 pb-2 mb-3">
+                            <i class="ri-shield-keyhole-line"></i> Kredensial Klinik (Global / Default)
+                        </h6>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-tight">Client ID <span class="text-red-500">*</span></label>
+                            <input type="text" wire:model="ss_client_id" class="w-full rounded-lg border-gray-200 text-sm px-4 py-2.5 focus:border-[#0ab39c] transition-all shadow-sm @error('ss_client_id') border-red-500 @enderror" placeholder="Masukkan Client ID Klinik">
+                            @error('ss_client_id') <span class="text-red-500 text-[10px] mt-1 font-bold">{{ $message }}</span> @enderror
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-tight">Client Secret <span class="text-red-500">*</span></label>
+                            <textarea wire:model="ss_client_secret" class="w-full rounded-lg border-gray-200 text-sm px-4 py-2 focus:border-[#0ab39c] transition-all shadow-sm @error('ss_client_secret') border-red-500 @enderror" rows="2" placeholder="Masukkan Client Secret Klinik"></textarea>
+                            @error('ss_client_secret') <span class="text-red-500 text-[10px] mt-1 font-bold">{{ $message }}</span> @enderror
+                        </div>
                     </div>
-                    <div>
-                        <label class="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-tight">Auth Token URL <span class="text-red-500">*</span></label>
-                        <input type="text" wire:model="ss_token_url" class="w-full rounded-lg border-gray-200 text-sm px-4 py-2.5 focus:border-[#0ab39c] transition-all shadow-sm @error('ss_token_url') border-red-500 @enderror" placeholder="https://api-satusehat.kemkes.go.id/oauth2/v1/token">
-                        @error('ss_token_url') <span class="text-red-500 text-[10px] mt-1 font-bold">{{ $message }}</span> @enderror
+
+                    @if($ss_mode_bridging === 'dokter')
+                    <div class="bg-amber-50/50 p-4 rounded-xl border border-amber-100 mt-5 transition-all duration-300">
+                        <h6 class="text-xs font-extrabold text-amber-600 uppercase tracking-wider border-b border-amber-200 pb-2 mb-4">
+                            <i class="ri-team-line"></i> Kredensial Tiap Dokter
+                        </h6>
+                        
+                        <div class="space-y-4">
+                            @forelse($dokterList as $dokter)
+                                <div class="bg-white p-4 rounded-lg border border-gray-100 shadow-sm" wire:key="dokter-{{ $dokter->id }}">
+                                    <div class="font-bold text-[#495057] text-sm mb-3 pb-2 border-b border-gray-50 flex items-center gap-2">
+                                        <div class="w-6 h-6 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center text-[10px]">
+                                            <i class="ri-user-heart-line"></i>
+                                        </div>
+                                        {{ $dokter->nama_dokter }} 
+                                        <span class="text-[10px] text-gray-400 font-medium">({{ $dokter->spesialisasi ?: 'Dokter Umum' }})</span>
+                                    </div>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label class="block text-[10px] font-bold text-gray-500 mb-1 uppercase tracking-tight">Client ID</label>
+                                            <input type="text" wire:model="doctorCredentials.{{ $dokter->id }}.client_id" class="w-full rounded-md border-gray-200 text-xs px-3 py-2 bg-gray-50 focus:bg-white focus:border-amber-400 transition-all shadow-sm" placeholder="Client ID Dokter">
+                                        </div>
+                                        <div>
+                                            <label class="block text-[10px] font-bold text-gray-500 mb-1 uppercase tracking-tight">Client Secret</label>
+                                            <input type="text" wire:model="doctorCredentials.{{ $dokter->id }}.client_secret" class="w-full rounded-md border-gray-200 text-xs px-3 py-2 bg-gray-50 focus:bg-white focus:border-amber-400 transition-all shadow-sm" placeholder="Client Secret Dokter">
+                                        </div>
+                                    </div>
+                                </div>
+                            @empty
+                                <div class="text-center py-4 text-xs font-medium text-gray-400">Belum ada data dokter aktif.</div>
+                            @endforelse
+                        </div>
                     </div>
+                    @endif
                 </div>
                 <div class="p-5 bg-gray-50/80 flex justify-end gap-3 border-t border-gray-100">
                     <button type="submit" class="btn bg-[#0d6efd] text-white font-bold text-xs uppercase tracking-widest px-6 h-10 shadow-md hover:bg-[#099885] hover:translate-y-[-2px] transition-all active:scale-95">

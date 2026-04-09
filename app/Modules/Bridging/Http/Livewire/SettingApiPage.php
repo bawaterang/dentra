@@ -26,6 +26,9 @@ class SettingApiPage extends Component
     public $ss_organization_name;
     public $ss_url;
     public $ss_token_url;
+    public $ss_mode_bridging = 'klinik';
+    public $doctorCredentials = [];
+    public $dokterList = [];
 
     public function mount()
     {
@@ -50,6 +53,20 @@ class SettingApiPage extends Component
             $this->ss_organization_name = $ss->organization_name;
             $this->ss_url = $ss->url;
             $this->ss_token_url = $ss->token_url;
+            $this->ss_mode_bridging = $ss->mode_bridging ?? 'klinik';
+            $this->doctorCredentials = $ss->doctor_credentials ?? [];
+        }
+
+        $this->dokterList = \App\Models\MstDokter::where('status', 'Aktif')->get();
+        
+        // Inisialisasi kredensial kosong untuk dokter baru yang belum ada di DB
+        foreach ($this->dokterList as $dokter) {
+            if (!isset($this->doctorCredentials[$dokter->id])) {
+                $this->doctorCredentials[$dokter->id] = [
+                    'client_id' => '',
+                    'client_secret' => ''
+                ];
+            }
         }
     }
 
@@ -103,6 +120,7 @@ class SettingApiPage extends Component
             'ss_organization_name' => 'required',
             'ss_url' => 'required',
             'ss_token_url' => 'required',
+            'ss_mode_bridging' => 'required',
         ], $this->message_rules, [
             'ss_client_id' => 'Client ID',
             'ss_client_secret' => 'Client Secret',
@@ -112,6 +130,7 @@ class SettingApiPage extends Component
             'ss_organization_name' => 'Organization Name',
             'ss_url' => 'FHIR URL',
             'ss_token_url' => 'Token URL',
+            'ss_mode_bridging' => 'Mode Bridging',
         ]);
 
         $ss = MstSettingSatusehat::first() ?: new MstSettingSatusehat();
@@ -124,6 +143,8 @@ class SettingApiPage extends Component
             'organization_name' => $this->ss_organization_name,
             'url' => $this->ss_url,
             'token_url' => $this->ss_token_url,
+            'mode_bridging' => $this->ss_mode_bridging,
+            'doctor_credentials' => $this->doctorCredentials,
         ]);
         $ss->save();
 
