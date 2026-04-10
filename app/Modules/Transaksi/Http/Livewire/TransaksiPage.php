@@ -734,6 +734,17 @@ class TransaksiPage extends Component
             ->whereDate('created_at', $this->selectedDate)
             ->whereIn('status', ['terdaftar', 'menunggu_screening', 'selesai']);
 
+        if (!$isAdmin) {
+            // Personalized filtering for doctors
+            $user = auth()->user();
+            // Check if user is linked to a doctor
+            if ($user->dokter) {
+                // If linked, only show patients assigned to this doctor
+                $query->where('dokter_id', $user->dokter->id);
+            }
+            // Add other role-based overrides if necessary here
+        }
+
         if ($this->selectedPoli !== 'all') {
             $query->where('poli_id', $this->selectedPoli);
         }

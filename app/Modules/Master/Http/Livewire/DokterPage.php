@@ -41,16 +41,14 @@ class DokterPage extends Component
     public $no_str;
 
     public $status;
-
     public $color;
+    public $user_id;
 
     public $totalDokter = 0;
-
     public $totalSpesialis = 0;
-
     public $takAktif = 0;
-
     public $dokterCutiCount = 0;
+    public $userOptions = [];
 
     public $selectedStatus = 'all';
 
@@ -110,12 +108,13 @@ class DokterPage extends Component
             'no_sip' => 'nullable|string|max:50',
             'no_str' => 'nullable|string|max:50',
             'color' => 'nullable|string|max:20',
+            'user_id' => ['nullable', 'exists:mst_user,id'],
         ];
     }
 
     public function resetForm()
     {
-        $this->reset(['dokterId', 'kode_dokter', 'nama_dokter', 'nik', 'jenis_kelamin', 'tempat_lahir', 'tanggal_lahir', 'alamat', 'no_telepon', 'agama', 'spesialisasi', 'no_sip', 'no_str', 'isEdit']);
+        $this->reset(['dokterId', 'kode_dokter', 'nama_dokter', 'nik', 'jenis_kelamin', 'tempat_lahir', 'tanggal_lahir', 'alamat', 'no_telepon', 'agama', 'spesialisasi', 'no_sip', 'no_str', 'isEdit', 'user_id']);
         $this->status = 'Aktif';
         $this->color = '#405189';
         $this->resetErrorBag();
@@ -159,6 +158,7 @@ class DokterPage extends Component
         $this->no_str = $dokter->no_str;
         $this->status = $dokter->status;
         $this->color = $dokter->color ?? '#405189';
+        $this->user_id = $dokter->user_id;
 
         $this->isEdit = true;
         $this->dispatch('open-modal');
@@ -192,6 +192,7 @@ class DokterPage extends Component
                 'no_str' => $this->no_str,
                 'status' => $this->status ?? 'Aktif',
                 'color' => $this->color,
+                'user_id' => $this->user_id || $this->user_id == '0' ? $this->user_id : null,
             ]);
 
             $dokter->save();
@@ -245,6 +246,14 @@ class DokterPage extends Component
         $this->totalSpesialis = MstDokter::withTrashed()->whereNotNull('spesialisasi')->where('spesialisasi', '!=', '')->count();
         $this->takAktif = MstDokter::withTrashed()->where('status', 'Tidak Aktif')->count();
         $this->dokterCutiCount = MstDokter::withTrashed()->where('status', 'Cuti')->count();
+
+        // Fetch active users for mapping
+        $users = \App\Models\User::where('is_active', true)->orderBy('full_name')->get();
+        $this->userOptions = $users->map(fn($u) => [
+            'value' => $u->id, 
+            'label' => $u->full_name . ' (' . $u->username . ')', 
+            'icon' => 'ri-user-settings-line ' . ($u->role === 'dokter' ? 'text-primary' : 'text-gray-400')
+        ])->toArray();
 
         return <<<'HTML'
         <div x-data="{ showModal: false, init(){this.$watch('showModal',v=>{if(v){$nextTick(()=>{this.$refs.firstInput&&this.$refs.firstInput.focus()})}})} }" @open-modal.window="showModal=true" @close-modal.window="showModal=false" x-init="init()">
@@ -492,7 +501,12 @@ class DokterPage extends Component
                                 </td>
                                 <td class="px-6 py-4 min-w-[250px]">
                                     <div class="group relative">
-                                        <div class="font-bold text-[#2c3e50] text-sm group-hover:text-[#405189] transition-colors line-clamp-1">{{ $dokter->nama_dokter }}</div>
+                                        <div class="font-bold text-[#2c3e50] text-sm group-hover:text-[#405189] transition-colors line-clamp-1">
+                                            {{ $dokter->nama_dokter }}
+                                            @if($dokter->user_id)
+                                                <i class="ri-user-link-line text-xs text-blue-500 ml-1" title="Terhubung ke User: {{ $dokter->user?->username }}"></i>
+                                            @endif
+                                        </div>
                                         <div class="text-[11px] text-gray-400 font-medium italic mt-1 leading-relaxed line-clamp-1 group-hover:line-clamp-none transition-all duration-300">
                                             {{ $dokter->no_str ?: 'STR belum terdaftar.' }}
                                         </div>
@@ -626,6 +640,18 @@ class DokterPage extends Component
                                        class="w-full bg-gray-50 border border-gray-100 rounded-xl sm:rounded-2xl py-2.5 sm:py-3 px-4 text-sm font-bold text-[#2c3e50] focus:bg-white focus:ring-4 focus:ring-indigo-100 focus:border-[#405189] transition-all outline-none @error('nama_dokter') border-rose-300 bg-rose-50/30 @enderror" 
                                        placeholder="Contoh: drg. Ahmad Sulaiman">
                                 @error('nama_dokter') <span class="text-[10px] text-rose-500 font-bold px-1">{{ $message }}</span> @enderror
+                            </div>
+
+                            <div class="space-y-1.5 p-4 bg-blue-50/50 rounded-2xl border border border-blue-100/50">
+                                <label class="text-[9px] sm:text-[10px] font-black text-blue-600 uppercase tracking-widest px-1">Pilih Akun User <span class="text-gray-400 text-[8px] ml-1">(Untuk Akses Transaksi)</span></label>
+                                <x-custom-dropdown 
+                                    model="user_id" 
+                                    :options="$userOptions"
+                                    placeholder="Hubungkan ke Akun Login"
+                                    searchable="true"
+                                />
+                                <p class="text-[9px] text-blue-400 mt-1 px-1">Menghubungkan dokter ke user agar dokter hanya melihat pasiennya sendiri di menu Transaksi.</p>
+                                @error('user_id') <span class="text-[10px] text-rose-500 font-bold px-1">{{ $message }}</span> @enderror
                             </div>
 
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6">

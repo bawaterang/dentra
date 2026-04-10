@@ -13,6 +13,7 @@ class MstDokter extends Model
     protected $table = 'mst_dokter';
 
     protected $fillable = [
+        'user_id',
         'kode_dokter',
         'nama_dokter',
         'jenis_kelamin',
@@ -32,6 +33,11 @@ class MstDokter extends Model
     protected $casts = [
         'tanggal_lahir' => 'date',
     ];
+
+    public function user()
+    {
+        return $this->belongsTo(User::class, 'user_id');
+    }
 
     public function polis()
     {
