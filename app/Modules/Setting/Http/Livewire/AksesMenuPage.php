@@ -63,21 +63,20 @@ class AksesMenuPage extends Component
 
         $menus = MstMenu::all();
         foreach ($menus as $menu) {
-            $data = $this->access[$menu->id] ?? [
-                'can_view' => false,
-                'can_create' => false,
-                'can_update' => false,
-                'can_delete' => false,
-            ];
+            $row = $this->access[$menu->id] ?? [];
+            $can_view = $row['can_view'] ?? false;
+            $can_create = $row['can_create'] ?? false;
+            $can_update = $row['can_update'] ?? false;
+            $can_delete = $row['can_delete'] ?? false;
 
-            if ($data['can_view'] || $data['can_create'] || $data['can_update'] || $data['can_delete']) {
+            if ($can_view || $can_create || $can_update || $can_delete) {
                 MstRoleUserAccess::updateOrCreate(
                     ['role_id' => $this->selectedRoleId, 'menu_id' => $menu->id],
                     [
-                        'can_view' => $data['can_view'] ?? false,
-                        'can_create' => $data['can_create'] ?? false,
-                        'can_update' => $data['can_update'] ?? false,
-                        'can_delete' => $data['can_delete'] ?? false,
+                        'can_view' => $can_view,
+                        'can_create' => $can_create,
+                        'can_update' => $can_update,
+                        'can_delete' => $can_delete,
                     ]
                 );
             } else {

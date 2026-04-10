@@ -15,7 +15,7 @@
 
     <div class="grid grid-cols-1 lg:grid-cols-4 gap-6 animate-fade-in-up">
         <!-- Select Role Side -->
-        <div class="card overflow-hidden border-t-2 border-[#f7b84b] lg:col-span-1 h-fit">
+        <div class="card border-t-2 border-[#f7b84b] lg:col-span-1 h-fit relative" style="overflow: visible !important;">
             <div class="p-5 border-b border-[#eff2f7] bg-[#f3f6f9]/50">
                 <h6 class="text-sm font-bold text-[#f7b84b]"><i class="ri-shield-flash-line mr-2"></i>Pilih Role Target</h6>
                 <p class="text-xs text-gray-500 mt-1">Hak akses akan diterapkan pada role ini.</p>

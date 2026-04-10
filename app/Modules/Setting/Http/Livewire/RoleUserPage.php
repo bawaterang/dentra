@@ -424,7 +424,7 @@ class RoleUserPage extends Component
             <!-- TAB 2: PEMETAAN (MAPPING) USER KE ROLE -->
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fade-in-up" x-data="{ userSearch: '' }">
                 <!-- Select Role Side -->
-                <div class="card overflow-hidden border-t-2 border-[#f7b84b]">
+                <div class="card border-t-2 border-[#f7b84b] relative" style="overflow: visible !important;">
                     <div class="p-5 border-b border-[#eff2f7] bg-[#f3f6f9]/50">
                         <h6 class="text-sm font-bold text-[#f7b84b]"><i class="ri-shield-flash-line mr-2"></i>Pilih Role Target</h6>
                         <p class="text-xs text-gray-500 mt-1">Pilih role untuk mengatur anggota user.</p>

@@ -260,8 +260,18 @@ class AmbilAntrianPage extends Component
             $this->generatedAntrian = $antrian;
             $this->dispatch('alert', ['type' => 'success', 'message' => 'Antrian berhasil diambil! Nomor: ' . $nomorAntrian]);
 
-        } catch (\Illuminate\Validation\ValidationException $e) { throw $e;
-        } catch (\Exception $e) { $this->dispatch('alert', ['type' => 'error', 'message' => 'Gagal: ' . $e->getMessage()]); }
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            $this->dispatch('alert', [
+                'type' => 'error',
+                'message' => 'Ambil Antrian Gagal! Silakan periksa kembali isian form Anda.'
+            ]);
+            throw $e;
+        } catch (\Exception $e) {
+            $this->dispatch('alert', [
+                'type' => 'error',
+                'message' => 'Gagal mengambil antrian: ' . $e->getMessage()
+            ]);
+        }
     }
 
     public function ambilLagi()

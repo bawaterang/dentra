@@ -498,7 +498,7 @@ class UserPage extends Component
             <!-- TAB: PEMETAAN (MAPPING) USER KE POLI -->
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fade-in-up" x-data="{ poliSearch: '' }">
                 <!-- Select User Side -->
-                <div class="card overflow-hidden border-t-2 border-[#f7b84b]">
+                <div class="card border-t-2 border-[#f7b84b] relative" style="overflow: visible !important;">
                     <div class="p-5 border-b border-[#eff2f7] bg-[#f3f6f9]/50">
                         <h6 class="text-sm font-bold text-[#f7b84b]"><i class="ri-user-star-line mr-2"></i>Pilih User Target</h6>
                         <p class="text-xs text-gray-500 mt-1">Pilih user untuk mengatur akses poli.</p>
