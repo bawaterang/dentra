@@ -8,10 +8,9 @@ use App\Modules\Antrian\Http\Livewire\MonitorAntrianPage;
 use App\Modules\Antrian\Http\Livewire\AmbilAntrianKioskPage;
 use Illuminate\Support\Facades\Route;
 
-Route::middleware(['web', 'auth'])->prefix('antrian')->name('antrian.')->group(function () {
+Route::middleware(['web', 'auth'])->prefix('admisi/antrian')->name('antrian.')->group(function () {
     Route::get('/', AntrianPage::class)->name('index');
     Route::get('/ambil', AmbilAntrianPage::class)->name('ambil');
-    Route::get('/setting', \App\Modules\Antrian\Http\Livewire\SettingAntrianPage::class)->name('setting');
     Route::get('/cetak/{id}', \App\Modules\Antrian\Http\Livewire\CetakAntrianPage::class)->name('cetak');
 });
 

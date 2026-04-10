@@ -17,6 +17,7 @@ Route::middleware(['web', 'auth'])->group(function () {
     
     // Setting prefixed group
     Route::prefix('setting')->name('setting.')->group(function () {
+        Route::get('/antrian', \App\Modules\Antrian\Http\Livewire\SettingAntrianPage::class)->name('antrian');
         Route::get('/jadwal-dokter', JadwalDokterPage::class)->name('jadwal_dokter');
         
         Route::get('/user', UserPage::class)->name('user');
