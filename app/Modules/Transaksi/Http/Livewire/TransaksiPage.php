@@ -702,7 +702,7 @@ class TransaksiPage extends Component
         if ($isAdmin) {
             $this->poliList = MstPoli::where('status', 'Aktif')->get();
         } else {
-            $this->poliList = auth()->user()->polis()->wherePivot('status', 'Aktif')->get();
+            $this->poliList = auth()->user()->polis()->where('status', 'Aktif')->get();
         }
 
         $this->poliListOptions = $this->poliList->map(fn($p) => ['value' => $p->id, 'label' => $p->nama_poli, 'icon' => 'ri-hospital-line text-blue-500'])->toArray();
