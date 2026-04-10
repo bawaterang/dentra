@@ -35,8 +35,13 @@ class PoliPage extends Component
     public $isEdit = false;
 
     public $kodeReadonly = false;
+    public $activeTab = 'polis'; // 'polis' or 'mapping'
+    public $selectedPoliId = '';
+    public $mappedDokters = [];
+    public $allPolisMapping = [];
+    public $allDokters = [];
 
-    protected $queryString = ['search', 'selectedStatus'];
+    protected $queryString = ['search', 'selectedStatus', 'activeTab'];
 
     #[Computed]
     public function polis()
@@ -61,6 +66,42 @@ class PoliPage extends Component
     {
         $this->selectedStatus = $status;
         $this->resetPage();
+    }
+
+    public function switchTab($tab)
+    {
+        $this->activeTab = $tab;
+    }
+
+    public function updatedSelectedPoliId($value)
+    {
+        if ($value) {
+            $poli = MstPoli::with('dokters')->find($value);
+            if ($poli) {
+                $this->mappedDokters = $poli->dokters->pluck('id')->toArray();
+            } else {
+                $this->mappedDokters = [];
+            }
+        } else {
+            $this->mappedDokters = [];
+        }
+    }
+
+    public function saveMapping()
+    {
+        if (!$this->selectedPoliId) {
+            $this->dispatch('alert', ['type' => 'error', 'message' => 'Silakan pilih Poli terlebih dahulu!']);
+            return;
+        }
+
+        try {
+            $poli = MstPoli::findOrFail($this->selectedPoliId);
+            $poli->dokters()->sync($this->mappedDokters);
+            
+            $this->dispatch('alert', ['type' => 'success', 'message' => 'Pemetaan Poli ke Dokter berhasil disimpan!']);
+        } catch (\Exception $e) {
+            $this->dispatch('alert', ['type' => 'error', 'message' => 'Pemetaan Gagal: ' . $e->getMessage()]);
+        }
     }
 
     public function updatedSearch()
@@ -143,6 +184,10 @@ class PoliPage extends Component
         $this->totalPoli = MstPoli::count();
         $this->poliAktif = MstPoli::where('status', 'Aktif')->count();
         $this->takAktif = MstPoli::where('status', 'Tidak Aktif')->count();
+
+        // For Mapping Tab
+        $this->allPolisMapping = MstPoli::where('status', 'Aktif')->orderBy('nama_poli')->get();
+        $this->allDokters = \App\Models\MstDokter::where('status', 'Aktif')->orderBy('nama_dokter')->get();
 
         return <<<'HTML'
         <div x-data="{ showModal: false, init(){this.$watch('showModal',v=>{if(v){$nextTick(()=>{this.$refs.firstInput&&this.$refs.firstInput.focus()})}})} }" @open-modal.window="showModal=true" @close-modal.window="showModal=false" x-init="init()">
@@ -290,6 +335,27 @@ class PoliPage extends Component
                 </div>
             </div>
 
+            <!-- Tab Navigation -->
+            <div class="card mb-6">
+                <div class="card-body p-0">
+                    <ul class="flex flex-wrap text-sm font-medium text-center text-gray-500 border-b border-gray-200">
+                        <li class="me-2">
+                            <button wire:click="switchTab('polis')" class="inline-flex items-center justify-center p-4 border-b-2 rounded-t-lg transition-all {{ $activeTab === 'polis' ? 'text-[#405189] border-[#405189] font-bold bg-[#405189]/5' : 'border-transparent hover:text-gray-600 hover:border-gray-300' }}">
+                                <i class="ri-hospital-line mr-2 text-lg"></i>
+                                Manajemen Poli
+                            </button>
+                        </li>
+                        <li class="me-2">
+                            <button wire:click="switchTab('mapping')" class="inline-flex items-center justify-center p-4 border-b-2 rounded-t-lg transition-all {{ $activeTab === 'mapping' ? 'text-[#f7b84b] border-[#f7b84b] font-bold bg-[#f7b84b]/5' : 'border-transparent hover:text-gray-600 hover:border-gray-300' }}">
+                                <i class="ri-user-star-line mr-2 text-lg"></i>
+                                Pemetaan Poli ke Dokter
+                            </button>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            @if($activeTab === 'polis')
             <div class="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden mb-12">
                 <div class="p-6 border-b border-gray-50 flex flex-col lg:flex-row justify-between items-center gap-6 glass-header sticky top-0 z-20">
                     <div class="flex overflow-x-auto scrollbar-hide -mx-2 px-2 lg:mx-0 lg:px-0">
@@ -426,6 +492,102 @@ class PoliPage extends Component
                 </div>
                 @endif
             </div>
+            @endif
+
+            @if($activeTab === 'mapping')
+            <!-- TAB: PEMETAAN (MAPPING) POLI KE DOKTER -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fade-in-up" x-data="{ dokterSearch: '' }">
+                <!-- Select Poli Side -->
+                <div class="card overflow-hidden border-t-2 border-[#f7b84b]">
+                    <div class="p-5 border-b border-[#eff2f7] bg-[#f3f6f9]/50">
+                        <h6 class="text-sm font-bold text-[#f7b84b]"><i class="ri-hospital-line mr-2"></i>Pilih Poli Target</h6>
+                        <p class="text-xs text-gray-500 mt-1">Pilih poli untuk mengatur dokter yang bertugas.</p>
+                    </div>
+                    <div class="p-5">
+                        <x-custom-dropdown 
+                            model="selectedPoliId" 
+                            :options="collect($allPolisMapping)->map(fn($p) => ['value' => $p->id, 'label' => $p->nama_poli . ' (' . $p->kode_poli . ')', 'icon' => 'ri-building-3-line text-[#405189]'])->toArray()"
+                            placeholder="Pilih Poli Target"
+                            searchable="true"
+                            icon="ri-hospital-line"
+                            live="true"
+                        />
+                        
+                        @if($selectedPoliId)
+                            @php $selP = collect($allPolisMapping)->firstWhere('id', (int)$selectedPoliId); @endphp
+                            <div class="mt-4 p-4 rounded-xl bg-orange-50 border border-orange-100">
+                                <div class="flex items-center gap-3 mb-3">
+                                    <div class="h-10 w-10 flex items-center justify-center rounded-full bg-orange-500 text-white font-bold">
+                                        {{ strtoupper(substr($selP?->nama_poli ?? '', 0, 1)) }}
+                                    </div>
+                                    <div>
+                                        <h6 class="font-bold text-[#495057] mb-0">{{ $selP?->nama_poli ?? '' }}</h6>
+                                        <p class="text-xs text-gray-500">{{ $selP?->kode_poli ?? '' }}</p>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span class="badge bg-[#f7b84b] text-white px-2 py-1"><i class="ri-user-star-line mr-1"></i> {{ count($mappedDokters) }} Dokter Terpilih</span>
+                                </div>
+                            </div>
+                        @else
+                            <div class="mt-4 p-6 rounded-xl border border-dashed border-gray-300 flex flex-col items-center justify-center text-center">
+                                <i class="ri-focus-3-line text-3xl text-gray-300 mb-2"></i>
+                                <span class="text-sm text-gray-500">Gunakan dropdown di atas untuk memilih poli.</span>
+                            </div>
+                        @endif
+                    </div>
+                </div>
+
+                <!-- Select Dokters Side -->
+                <div class="card overflow-hidden lg:col-span-2 border-t-2 border-[#0ab39c] relative" style="overflow: visible !important;">
+                    @if(!$selectedPoliId)
+                    <div class="absolute inset-0 bg-white/60 backdrop-blur-sm z-50 flex flex-col items-center justify-center border border-gray-200 shadow-sm rounded-lg m-2">
+                        <i class="ri-lock-2-line text-4xl text-gray-400 mb-3"></i>
+                        <h5 class="text-gray-600 font-bold">Akses Pemetaan Terkunci</h5>
+                        <p class="text-sm text-gray-500">Pilih Poli di panel sebelah kiri untuk membuka daftar dokter.</p>
+                    </div>
+                    @endif
+
+                    <div class="p-5 border-b border-[#eff2f7] flex flex-col sm:flex-row justify-between sm:items-center gap-4 bg-[#f3f6f9]/50">
+                        <div>
+                            <h6 class="text-sm font-bold text-[#0ab39c]"><i class="ri-user-heart-line mr-2"></i>Daftar Dokter (Beri Centang)</h6>
+                            <p class="text-xs text-gray-500 mt-1">Satu poli dapat memiliki lebih dari satu dokter.</p>
+                        </div>
+                        <div class="relative w-full sm:w-64">
+                            <input type="text" x-model="dokterSearch" class="h-9 w-full rounded-lg border border-[#e9ecef] pl-9 pr-3 text-xs outline-none focus:border-[#0ab39c] focus:bg-white transition-all placeholder:text-[#adb5bd]" placeholder="Cari dokter...">
+                            <i class="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-[#878a99] text-sm"></i>
+                        </div>
+                    </div>
+                    
+                    <div class="p-0">
+                        <div class="max-h-[500px] overflow-y-auto w-full grid grid-cols-1 sm:grid-cols-2 gap-0">
+                            @foreach($allDokters as $dokter)
+                                <label x-show="dokterSearch === '' || '{{ strtolower($dokter->nama_dokter) }}'.includes(dokterSearch.toLowerCase()) || '{{ strtolower($dokter->kode_dokter) }}'.includes(dokterSearch.toLowerCase())" class="border-b border-r border-[#eff2f7] p-4 flex items-center gap-4 cursor-pointer hover:bg-teal-50/30 transition-colors group">
+                                    <div class="flex items-center justify-center w-6 h-6 shrink-0">
+                                        <input type="checkbox" wire:model="mappedDokters" value="{{ $dokter->id }}" class="w-5 h-5 text-[#0ab39c] bg-gray-100 border-gray-300 rounded focus:ring-[#0ab39c] transition-all cursor-pointer">
+                                    </div>
+                                    <div class="flex items-center gap-3">
+                                        <div class="h-9 w-9 flex items-center justify-center rounded-lg text-white font-bold text-xs" style="background-color: {{ $dokter->color ?? '#405189' }}">
+                                            {{ strtoupper(substr($dokter->nama_dokter, 0, 1)) }}
+                                        </div>
+                                        <div>
+                                            <h6 class="mb-0 text-sm font-bold text-[#495057] group-hover:text-[#0ab39c] transition-colors">{{ $dokter->nama_dokter }}</h6>
+                                            <p class="text-xs text-gray-500 mb-0 mt-0.5">{{ $dokter->kode_dokter }}</p>
+                                        </div>
+                                    </div>
+                                </label>
+                            @endforeach
+                        </div>
+                    </div>
+                    
+                    <div class="p-5 border-t border-[#eff2f7] bg-gray-50 flex justify-end">
+                        <button type="button" wire:click="saveMapping" class="btn bg-[#0d6efd] text-white px-8 h-10 shadow-md flex items-center gap-2 transition-all hover:bg-blue-600 hover:translate-y-[-2px] hover:shadow-lg">
+                            <i class="ri-save-3-line text-lg"></i> <span class="font-bold">Simpan Pemetaan</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            @endif
 
             <div x-show="showModal" class="fixed inset-0 z-[1050] flex items-center justify-center p-4" x-transition.opacity style="display: none;">
                 <div class="absolute inset-0 bg-[#0a192f]/60 backdrop-blur-md"></div>

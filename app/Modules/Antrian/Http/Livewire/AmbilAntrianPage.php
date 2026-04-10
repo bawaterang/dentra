@@ -53,6 +53,19 @@ class AmbilAntrianPage extends Component
         $this->loadAvailableSlots();
     }
 
+    public function updatedKodePoli()
+    {
+        $this->kode_dokter = null;
+        $this->time_slot = null;
+        $this->loadAvailableSlots();
+    }
+
+    public function updatedKodeDokter()
+    {
+        $this->time_slot = null;
+        $this->loadAvailableSlots();
+    }
+
     public function loadAvailableSlots()
     {
         if ($this->mode_antrian === 'Nomor Urut' || empty($this->tanggal_antrian)) {
@@ -62,11 +75,20 @@ class AmbilAntrianPage extends Component
 
         $hariMap = ['Monday' => 'Senin', 'Tuesday' => 'Selasa', 'Wednesday' => 'Rabu', 'Thursday' => 'Kamis', 'Friday' => 'Jumat', 'Saturday' => 'Sabtu', 'Sunday' => 'Minggu'];
         $hariNama = $hariMap[Carbon::parse($this->tanggal_antrian)->format('l')];
-
-        $bookedSlotsShort = TrxAntrian::whereDate('tanggal_antrian', $this->tanggal_antrian)
+        
+        // Filter booked slots by Poli and Dokter on the specific date
+        $query = TrxAntrian::whereDate('tanggal_antrian', $this->tanggal_antrian)
             ->where('status', '!=', 'batal')
-            ->whereNotNull('time_slot')
-            ->pluck('time_slot')
+            ->whereNotNull('time_slot');
+
+        if ($this->kode_poli) {
+            $query->where('kode_poli', $this->kode_poli);
+        }
+        if ($this->kode_dokter) {
+            $query->where('kode_dokter', $this->kode_dokter);
+        }
+
+        $bookedSlotsShort = $query->pluck('time_slot')
             ->map(function($t) { return substr($t, 0, 5); })
             ->toArray();
 
@@ -181,6 +203,8 @@ class AmbilAntrianPage extends Component
                 
                 $isBooked = TrxAntrian::whereDate('tanggal_antrian', $this->tanggal_antrian)
                     ->where('time_slot', 'like', substr($this->time_slot, 0, 5) . '%')
+                    ->where('kode_poli', $this->kode_poli)
+                    ->where('kode_dokter', $this->kode_dokter)
                     ->where('status', '!=', 'batal')
                     ->exists();
                     
@@ -277,7 +301,18 @@ class AmbilAntrianPage extends Component
     public function render()
     {
         $this->poliList = MstPoli::where('status', 'Aktif')->get()->map(fn($p) => ['value' => $p->kode_poli, 'label' => $p->nama_poli, 'icon' => 'ri-hospital-line text-blue-500'])->toArray();
-        $this->dokterList = MstDokter::where('status', 'Aktif')->get()->map(fn($d) => ['value' => $d->kode_dokter, 'label' => $d->nama_dokter, 'icon' => 'ri-user-star-line text-purple-500'])->toArray();
+        
+        $docQuery = MstDokter::where('status', 'Aktif');
+        if ($this->kode_poli) {
+            $poli = MstPoli::with('dokters')->where('kode_poli', $this->kode_poli)->first();
+            if ($poli) {
+                $mappedIds = $poli->dokters->pluck('id')->toArray();
+                $docQuery->whereIn('id', $mappedIds);
+            } else {
+                $docQuery->whereRaw('1=0');
+            }
+        }
+        $this->dokterList = $docQuery->get()->map(fn($d) => ['value' => $d->kode_dokter, 'label' => $d->nama_dokter, 'icon' => 'ri-user-star-line text-purple-500'])->toArray();
         $this->asuransiList = MstAsuransi::where('status', 'Aktif')->get()->map(fn($a) => ['value' => $a->nama_asuransi, 'label' => $a->nama_asuransi, 'icon' => 'ri-shield-check-line text-green-500'])->toArray();
 
         return <<<'HTML'
@@ -393,28 +428,31 @@ class AmbilAntrianPage extends Component
                                     </div>
                                 </div>
                                 
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-xs font-semibold text-gray-500 mb-1">Poli Tujuan</label>
+                                        <x-custom-dropdown model="kode_poli" :options="$poliList" placeholder="Pilih Poli" searchable="true" live="true" />
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-semibold text-gray-500 mb-1">Dokter</label>
+                                        <x-custom-dropdown model="kode_dokter" :options="$dokterList" placeholder="{{ $kode_poli && empty($dokterList) ? 'Tidak ada dokter di poli ini' : 'Pilih Dokter' }}" searchable="true" live="true" />
+                                        @if($kode_poli && empty($dokterList))
+                                            <span class="text-[10px] text-orange-500 font-bold italic mt-1 flex items-center gap-1"><i class="ri-information-line"></i> Tidak ada dokter tersedia di poli pilihan.</span>
+                                        @endif
+                                    </div>
+                                </div>
+
                                 @if($mode_antrian !== 'Nomor Urut')
                                 <div class="p-4 bg-blue-50 border border-blue-100 rounded-lg">
                                     <label class="block text-xs font-bold text-[#405189] mb-2">Slot Waktu Periksa <span class="text-red-500">*</span></label>
                                     @if(count($availableTimeSlots) > 0)
-                                        <x-custom-dropdown model="time_slot" :options="$availableTimeSlots" placeholder="Pilih Slot Waktu..." searchable="true" />
+                                        <x-custom-dropdown model="time_slot" :options="$availableTimeSlots" placeholder="Pilih Slot Waktu..." searchable="true" :disabled="empty($kode_dokter)" />
                                         @error('time_slot') <span class="text-[11px] text-red-500 mt-1 italic">{{ $message }}</span> @enderror
                                     @else
-                                        <div class="text-xs text-orange-600 font-bold flex items-center gap-2"><i class="ri-error-warning-line"></i> Tidak ada slot waktu tersedia di tanggal ini.</div>
+                                        <div class="text-xs text-orange-600 font-bold flex items-center gap-2"><i class="ri-error-warning-line"></i> Tidak ada slot waktu tersedia (Pastikan Poli & Dokter telah dipilih).</div>
                                     @endif
                                 </div>
                                 @endif
-                                
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <label class="block text-xs font-semibold text-gray-500 mb-1">Poli Tujuan</label>
-                                        <x-custom-dropdown model="kode_poli" :options="$poliList" placeholder="Pilih Poli" searchable="true" />
-                                    </div>
-                                    <div>
-                                        <label class="block text-xs font-semibold text-gray-500 mb-1">Dokter</label>
-                                        <x-custom-dropdown model="kode_dokter" :options="$dokterList" placeholder="Pilih Dokter" searchable="true" />
-                                    </div>
-                                </div>
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
                                         <label class="block text-xs font-semibold text-gray-500 mb-1">Asuransi</label>

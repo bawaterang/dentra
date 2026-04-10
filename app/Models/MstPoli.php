@@ -22,4 +22,9 @@ class MstPoli extends Model
     {
         return $this->belongsToMany(User::class, 'trx_user_poli', 'poli_id', 'user_id')->withTimestamps();
     }
+
+    public function dokters()
+    {
+        return $this->belongsToMany(MstDokter::class, 'mst_poli_dokter', 'poli_id', 'dokter_id')->withTimestamps();
+    }
 }

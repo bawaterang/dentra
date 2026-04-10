@@ -32,4 +32,9 @@ class MstDokter extends Model
     protected $casts = [
         'tanggal_lahir' => 'date',
     ];
+
+    public function polis()
+    {
+        return $this->belongsToMany(MstPoli::class, 'mst_poli_dokter', 'dokter_id', 'poli_id')->withTimestamps();
+    }
 }

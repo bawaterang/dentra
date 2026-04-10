@@ -115,6 +115,11 @@ class FormPendaftaranPage extends Component
         $this->searchPasien = '';
     }
 
+    public function updatedPoliId()
+    {
+        $this->dokter_id = null;
+    }
+
     public function editPasien()
     {
         if ($this->selectedPasien) {
@@ -306,7 +311,18 @@ class FormPendaftaranPage extends Component
     public function render()
     {
         $this->poliList = MstPoli::where('status', 'Aktif')->get()->map(fn($p) => ['value' => $p->id, 'label' => $p->nama_poli, 'icon' => 'ri-hospital-line text-blue-500'])->toArray();
-        $this->dokterList = MstDokter::where('status', 'Aktif')->get()->map(fn($d) => ['value' => $d->id, 'label' => $d->nama_dokter, 'icon' => 'ri-user-star-line text-purple-500'])->toArray();
+        
+        $docQuery = MstDokter::where('status', 'Aktif');
+        if ($this->poli_id) {
+            $poli = MstPoli::with('dokters')->find($this->poli_id);
+            if ($poli) {
+                $mappedIds = $poli->dokters->pluck('id')->toArray();
+                $docQuery->whereIn('id', $mappedIds);
+            } else {
+                $docQuery->whereRaw('1=0');
+            }
+        }
+        $this->dokterList = $docQuery->get()->map(fn($d) => ['value' => $d->id, 'label' => $d->nama_dokter, 'icon' => 'ri-user-star-line text-purple-500'])->toArray();
         $this->asuransiList = MstAsuransi::where('status', 'Aktif')->get()->map(fn($a) => ['value' => $a->id, 'label' => $a->nama_asuransi, 'icon' => 'ri-shield-check-line text-green-500'])->toArray();
         $this->kesadaranList = [
             ['value' => 'Compos Mentis', 'label' => 'Compos Mentis', 'icon' => 'ri-checkbox-circle-line text-green-500'],
@@ -423,8 +439,15 @@ class FormPendaftaranPage extends Component
                     <div class="px-6 py-4 border-b border-gray-100 bg-[#f3f6f9]/50"><h6 class="text-sm font-bold text-[#0ab39c]"><i class="ri-hospital-line mr-2"></i>Informasi Kunjungan</h6></div>
                     <div class="p-6 space-y-4">
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div><label class="block text-xs font-semibold text-gray-500 mb-1">Poli <span class="text-red-500">*</span></label><x-custom-dropdown model="poli_id" :options="$poliList" placeholder="Pilih Poli" searchable="true" />@error('poli_id')<span class="text-[11px] text-red-500 italic">{{ $message }}</span>@enderror</div>
-                            <div><label class="block text-xs font-semibold text-gray-500 mb-1">Dokter <span class="text-red-500">*</span></label><x-custom-dropdown model="dokter_id" :options="$dokterList" placeholder="Pilih Dokter" searchable="true" />@error('dokter_id')<span class="text-[11px] text-red-500 italic">{{ $message }}</span>@enderror</div>
+                            <div><label class="block text-xs font-semibold text-gray-500 mb-1">Poli <span class="text-red-500">*</span></label><x-custom-dropdown model="poli_id" :options="$poliList" placeholder="Pilih Poli" searchable="true" live="true" />@error('poli_id')<span class="text-[11px] text-red-500 italic">{{ $message }}</span>@enderror</div>
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-500 mb-1">Dokter <span class="text-red-500">*</span></label>
+                                <x-custom-dropdown model="dokter_id" :options="$dokterList" placeholder="{{ $poli_id && empty($dokterList) ? 'Tidak ada dokter di poli ini' : 'Pilih Dokter' }}" searchable="true" live="true" />
+                                @if($poli_id && empty($dokterList))
+                                    <span class="text-[10px] text-orange-500 font-bold italic mt-1 flex items-center gap-1"><i class="ri-information-line"></i> Tidak ada dokter tersedia di poli pilihan.</span>
+                                @endif
+                                @error('dokter_id')<span class="text-[11px] text-red-500 italic">{{ $message }}</span>@enderror
+                            </div>
                         </div>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div><label class="block text-xs font-semibold text-gray-500 mb-1">Asuransi</label><x-custom-dropdown model="asuransi_id" :options="$asuransiList" placeholder="Umum (tanpa asuransi)" searchable="true" /></div>

@@ -17,6 +17,7 @@ class AmbilAntrianKioskPage extends Component
 {
     public $nama_pasien;
     public $kode_poli;
+    public $kode_dokter;
     public $tanggal_antrian;
     public $time_slot;
     public $mode_antrian = 'Nomor Urut';
@@ -24,6 +25,7 @@ class AmbilAntrianKioskPage extends Component
     public $availableTimeSlots = [];
 
     public $poliList = [];
+    public $dokterList = [];
     public $generatedAntrian = null;
 
     public $isHoliday = false;
@@ -54,11 +56,20 @@ class AmbilAntrianKioskPage extends Component
 
         $hariMap = ['Monday' => 'Senin', 'Tuesday' => 'Selasa', 'Wednesday' => 'Rabu', 'Thursday' => 'Kamis', 'Friday' => 'Jumat', 'Saturday' => 'Sabtu', 'Sunday' => 'Minggu'];
         $hariNama = $hariMap[now()->format('l')];
-
-        $bookedSlotsShort = TrxAntrian::whereDate('tanggal_antrian', $this->tanggal_antrian)
+        
+        // Filter booked slots by Poli and Dokter
+        $query = TrxAntrian::whereDate('tanggal_antrian', $this->tanggal_antrian)
             ->where('status', '!=', 'batal')
-            ->whereNotNull('time_slot')
-            ->pluck('time_slot')
+            ->whereNotNull('time_slot');
+            
+        if ($this->kode_poli) {
+            $query->where('kode_poli', $this->kode_poli);
+        }
+        if ($this->kode_dokter) {
+            $query->where('kode_dokter', $this->kode_dokter);
+        }
+
+        $bookedSlotsShort = $query->pluck('time_slot')
             ->map(function($t) { return substr($t, 0, 5); })
             ->toArray();
 
@@ -123,6 +134,23 @@ class AmbilAntrianKioskPage extends Component
     public function setPoli($kode)
     {
         $this->kode_poli = $kode;
+        $this->kode_dokter = null;
+        $this->time_slot = null;
+        $this->availableTimeSlots = [];
+        
+        $poli = MstPoli::with('dokters')->where('kode_poli', $kode)->first();
+        if ($poli) {
+            $this->dokterList = $poli->dokters->where('status', 'Aktif')->toArray();
+        } else {
+            $this->dokterList = [];
+        }
+    }
+
+    public function setDokter($kode)
+    {
+        $this->kode_dokter = $kode;
+        $this->time_slot = null;
+        $this->loadAvailableSlots();
     }
 
     public function setTimeSlot($waktu)
@@ -141,9 +169,11 @@ class AmbilAntrianKioskPage extends Component
         $this->validate([
             'nama_pasien' => 'required|string|max:100',
             'kode_poli' => 'required',
+            'kode_dokter' => 'required',
         ], [
             'nama_pasien.required' => 'Silakan isi Nama Anda.',
             'kode_poli.required' => 'Silakan pilih Poli Tujuan.',
+            'kode_dokter.required' => 'Silakan pilih Dokter.',
         ]);
 
         try {
@@ -151,6 +181,7 @@ class AmbilAntrianKioskPage extends Component
                 ->where(fn($q) => $q->where('tanggal_antrian', $this->tanggal_antrian))
                 ->where(fn($q) => $q->where('nama_pasien_input_manual', $this->nama_pasien))
                 ->where(fn($q) => $q->where('kode_poli', $this->kode_poli))
+                ->where(fn($q) => $q->where('kode_dokter', $this->kode_dokter))
                 ->where(fn($q) => $q->where('status', '!=', 'batal'))
                 ->exists();
                 
@@ -210,6 +241,7 @@ class AmbilAntrianKioskPage extends Component
                 'jenis_antrian' => 'offline',
                 'nama_pasien_input_manual' => $this->nama_pasien,
                 'kode_poli' => $this->kode_poli,
+                'kode_dokter' => $this->kode_dokter,
                 'time_slot' => $this->time_slot,
                 'status' => 'menunggu',
             ]);
@@ -223,7 +255,7 @@ class AmbilAntrianKioskPage extends Component
 
     public function ambilLagi()
     {
-        $this->reset(['nama_pasien', 'kode_poli', 'generatedAntrian', 'time_slot']);
+        $this->reset(['nama_pasien', 'kode_poli', 'kode_dokter', 'dokterList', 'generatedAntrian', 'time_slot']);
         $this->tanggal_antrian = now()->format('Y-m-d');
         $this->checkHoliday();
         if (!$this->isHoliday) {
@@ -351,7 +383,7 @@ class AmbilAntrianKioskPage extends Component
 
                     <!-- Pilih Poli -->
                     <div>
-                        <label class="block text-white/80 font-bold mb-3 text-lg">Pilih Poli Tujuan</label>
+                        <label class="block text-white/80 font-bold mb-3 text-lg">1. Pilih Poli Tujuan</label>
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             @foreach($poliList as $poli)
                             <button type="button" wire:click="setPoli('{{ $poli->kode_poli }}')" class="flex items-center gap-3 md:gap-4 p-4 md:p-5 rounded-2xl border-2 transition-all active:scale-95 select-none {{ $kode_poli === $poli->kode_poli ? 'bg-white text-[#405189] border-white' : 'bg-transparent text-white border-white/20 hover:bg-white/5' }}">
@@ -365,10 +397,41 @@ class AmbilAntrianKioskPage extends Component
                         @error('kode_poli') <span class="text-red-300 block mt-2 font-medium"><i class="ri-alert-line mr-1"></i>{{ $message }}</span> @enderror
                     </div>
 
-                    @if($mode_antrian !== 'Nomor Urut')
+                    @if($kode_poli)
+                    <!-- Pilih Dokter -->
+                    <div class="animate-[fadeIn_0.3s_ease-out]">
+                        <label class="block text-white/80 font-bold mb-3 text-lg">2. Pilih Dokter</label>
+                        @if(count($dokterList) > 0)
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            @foreach($dokterList as $doc)
+                            <button type="button" wire:click="setDokter('{{ $doc['kode_dokter'] }}')" class="flex items-center gap-3 md:gap-4 p-4 md:p-5 rounded-2xl border-2 transition-all active:scale-95 select-none {{ $kode_dokter === $doc['kode_dokter'] ? 'bg-white text-[#405189] border-white shadow-lg' : 'bg-transparent text-white border-white/20 hover:bg-white/5' }}">
+                                <div class="h-10 w-10 md:h-12 md:w-12 rounded-full flex items-center justify-center text-xl md:text-2xl" style="background-color: {{ $kode_dokter === $doc['kode_dokter'] ? '#40518920' : ($doc['color'] ?? '#ffffff20') }}; color: {{ $kode_dokter === $doc['kode_dokter'] ? '#405189' : 'white' }}">
+                                    <i class="ri-user-star-line"></i>
+                                </div>
+                                <div class="text-left">
+                                    <span class="font-bold text-lg block leading-tight">{{ $doc['nama_dokter'] }}</span>
+                                    <span class="text-xs opacity-60 uppercase tracking-widest font-black">{{ $doc['spesialisasi'] ?? 'Umum' }}</span>
+                                </div>
+                            </button>
+                            @endforeach
+                        </div>
+                        @else
+                        <div class="bg-orange-500/20 border border-orange-500/50 p-6 rounded-2xl flex items-center gap-4 text-white">
+                            <i class="ri-error-warning-line text-3xl"></i>
+                            <div>
+                                <p class="font-bold text-xl">Dokter Tidak Tersedia</p>
+                                <p class="opacity-80">Maaf, saat ini belum ada dokter yang ditugaskan di poli {{ collect($poliList)->where('kode_poli', $kode_poli)->first()->nama_poli ?? '' }}.</p>
+                            </div>
+                        </div>
+                        @endif
+                        @error('kode_dokter') <span class="text-red-300 block mt-2 font-medium"><i class="ri-alert-line mr-1"></i>{{ $message }}</span> @enderror
+                    </div>
+                    @endif
+
+                    @if($mode_antrian !== 'Nomor Urut' && $kode_dokter)
                     <!-- Pilih Waktu -->
-                    <div>
-                        <label class="block text-white/80 font-bold mb-3 text-lg">Pilih Slot Waktu Kehadiran</label>
+                    <div class="animate-[fadeIn_0.3s_ease-out]">
+                        <label class="block text-white/80 font-bold mb-3 text-lg">3. Pilih Slot Waktu Kehadiran</label>
                         @if(count($availableTimeSlots) > 0)
                         <div class="flex gap-3 overflow-x-auto pb-4 no-scrollbar snap-x snap-mandatory">
                             @foreach($availableTimeSlots as $slot)
@@ -383,7 +446,7 @@ class AmbilAntrianKioskPage extends Component
                             <i class="ri-error-warning-line text-2xl"></i>
                             <div>
                                 <p class="font-bold">Slot Habis</p>
-                                <p class="text-sm opacity-80">Maaf, semua slot waktu hari ini sudah penuh dipesan.</p>
+                                <p class="text-sm opacity-80">Maaf, semua slot waktu untuk dokter ini pada hari ini sudah penuh dipesan.</p>
                             </div>
                         </div>
                         @endif

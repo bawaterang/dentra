@@ -5,7 +5,8 @@
     'placeholder' => 'Pilih opsi...', 
     'icon' => 'ri-list-check',
     'id' => null,
-    'live' => false
+    'live' => false,
+    'disabled' => false
 ])
 
 <div x-data="{ 
@@ -13,6 +14,7 @@
     search: '',
     selected: @entangle($model){{ $live ? '.live' : '' }},
     options: {{ json_encode($options) }},
+    disabled: {{ $disabled ? 'true' : 'false' }},
     get filteredOptions() {
         if (!this.search) return this.options;
         return this.options.filter(o => o.label.toLowerCase().includes(this.search.toLowerCase()));
@@ -28,9 +30,10 @@
 }" 
 class="relative w-full custom-dropdown-container"
 id="{{ $id ?? 'dropdown-' . bin2hex(random_bytes(4)) }}">
-    <button type="button" @click="open = !open; if(open && $refs.searchInput) $nextTick(() => $refs.searchInput.focus())" 
+    <button type="button" @click="if(!disabled) { open = !open; if(open && $refs.searchInput) $nextTick(() => $refs.searchInput.focus()) }" 
+        :disabled="disabled"
         class="w-full flex items-center justify-between rounded-lg border text-sm px-4 h-[42px] focus:border-[#405189] transition-all overflow-hidden"
-        :class="selected ? 'bg-white border-[#405189] text-[#405189] font-bold shadow-sm' : 'bg-gray-50/50 border-gray-200 text-gray-400'">
+        :class="disabled ? 'bg-gray-100/50 border-gray-100 text-gray-300 cursor-not-allowed' : (selected ? 'bg-white border-[#405189] text-[#405189] font-bold shadow-sm' : 'bg-gray-50/50 border-gray-200 text-gray-400')">
         <div class="flex items-center gap-2 overflow-hidden">
             <i :class="selectedIcon" class="text-lg shrink-0"></i>
             <span x-text="selectedLabel" class="truncate text-left"></span>
