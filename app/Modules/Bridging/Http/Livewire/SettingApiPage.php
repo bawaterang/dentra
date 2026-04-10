@@ -151,6 +151,38 @@ class SettingApiPage extends Component
         $this->dispatch('alert', ['type' => 'success', 'message' => 'Pengaturan SATUSEHAT berhasil disimpan!']);
     }
 
+    public function testConnection()
+    {
+        try {
+            // Kita simpan dulu sebelum test pencabutan token
+            $this->saveSatuSehat();
+            
+            $service = new \App\Modules\Bridging\Services\SatuSehatService();
+            $service->clearToken(); // Pastikan kita request baru
+            $token = $service->getToken();
+
+            if ($token) {
+                $this->dispatch('alert', [
+                    'type' => 'success', 
+                    'message' => 'Koneksi SATUSEHAT Berhasil! Token aktif didapatkan.'
+                ]);
+            } else {
+                $this->dispatch('alert', [
+                    'type' => 'error', 
+                    'message' => 'Gagal mendapatkan token. Periksa Client ID & Secret.'
+                ]);
+            }
+        } catch (\Exception $e) {
+            $this->dispatch('alert', [
+                'type' => 'error', 
+                'message' => 'Error: ' . $e->getMessage()
+            ]);
+        }
+    }
+
+
+
+
     public function render()
     {
         return view('bridging::livewire.setting-api-page');

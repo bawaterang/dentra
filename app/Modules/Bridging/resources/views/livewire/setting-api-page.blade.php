@@ -183,10 +183,19 @@
                     @endif
                 </div>
                 <div class="p-5 bg-gray-50/80 flex justify-end gap-3 border-t border-gray-100">
-                    <button type="submit" class="btn bg-[#0d6efd] text-white font-bold text-xs uppercase tracking-widest px-6 h-10 shadow-md hover:bg-[#099885] hover:translate-y-[-2px] transition-all active:scale-95">
+                    <button type="button" wire:click="testConnection" wire:loading.attr="disabled" class="btn bg-white text-[#0ab39c] border-[#0ab39c] font-bold text-xs uppercase tracking-widest px-6 h-10 shadow-sm hover:bg-[#0ab39c] hover:text-white hover:translate-y-[-2px] transition-all active:scale-95">
+                        <span wire:loading.remove wire:target="testConnection">
+                            <i class="ri-signal-tower-line mr-2"></i> Test Koneksi
+                        </span>
+                        <span wire:loading wire:target="testConnection">
+                            <i class="ri-loader-4-line mr-2 animate-spin"></i> Testing...
+                        </span>
+                    </button>
+                    <button type="submit" class="btn bg-[#0ab39c] text-white font-bold text-xs uppercase tracking-widest px-6 h-10 shadow-md hover:bg-[#099885] hover:translate-y-[-2px] transition-all active:scale-95">
                         <i class="ri-save-line mr-2"></i> Simpan SATUSEHAT
                     </button>
                 </div>
+
             </form>
         </div>
     </div>
