@@ -395,7 +395,59 @@ class SatuSehatService
     }
 
     /**
+     * Search for a Practitioner by NIK
+     */
+    public function searchPractitionerByNik(string $nik)
+    {
+        $url = $this->getBaseUrl() . '/Practitioner';
+        $params = ['identifier' => 'https://fhir.kemkes.go.id/id/nik|' . $nik];
+        
+        $response = Http::withHeaders($this->getHeaders())->get($url, $params);
+        if ($response->successful() && !empty($response->json()['entry'])) {
+            return $response->json()['entry'];
+        }
+
+        return null;
+    }
+
+    /**
+     * Search for a Practitioner by Name, Gender, and BirthDate
+     */
+    public function searchPractitionerByDetail(string $name, string $gender, string $birthDate)
+    {
+        $url = $this->getBaseUrl() . '/Practitioner';
+        $params = [
+            'name' => $name,
+            'gender' => $gender,
+            'birthdate' => $birthDate
+        ];
+        
+        $response = Http::withHeaders($this->getHeaders())->get($url, $params);
+        if ($response->successful() && !empty($response->json()['entry'])) {
+            return $response->json()['entry'];
+        }
+
+        return null;
+    }
+
+    /**
+     * Get a specific Practitioner by its SatuSehat UUID
+     */
+    public function getPractitioner(string $id)
+    {
+        $url = $this->getBaseUrl() . '/Practitioner/' . $id;
+        
+        $response = Http::withHeaders($this->getHeaders())->get($url);
+        if ($response->successful()) {
+            return $response->json();
+        }
+
+        return null;
+    }
+
+    /**
      * Request a fresh token from SatuSehat OAuth2 endpoint.
+
 
      */
     public function requestNewToken()

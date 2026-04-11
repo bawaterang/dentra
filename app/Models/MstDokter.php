@@ -23,7 +23,10 @@ class MstDokter extends Model
         'no_telepon',
         'agama',
         'nik',
+        'practitioner_id',
+        'bpjs_id',
         'spesialisasi',
+
         'no_sip',
         'no_str',
         'status',

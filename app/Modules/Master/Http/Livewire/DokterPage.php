@@ -44,6 +44,15 @@ class DokterPage extends Component
     public $color;
     public $user_id;
 
+    // SatuSehat & BPJS
+    public $practitioner_id;
+    public $bpjs_id;
+
+    // Search SS Practitioner
+    public $searchPracQuery = '';
+    public $foundPractitioners = [];
+
+
     public $totalDokter = 0;
     public $totalSpesialis = 0;
     public $takAktif = 0;
@@ -109,16 +118,20 @@ class DokterPage extends Component
             'no_str' => 'nullable|string|max:50',
             'color' => 'nullable|string|max:20',
             'user_id' => ['nullable', 'exists:mst_user,id'],
+            'practitioner_id' => 'nullable|string|max:50',
+            'bpjs_id' => 'nullable|string|max:50',
         ];
     }
 
+
     public function resetForm()
     {
-        $this->reset(['dokterId', 'kode_dokter', 'nama_dokter', 'nik', 'jenis_kelamin', 'tempat_lahir', 'tanggal_lahir', 'alamat', 'no_telepon', 'agama', 'spesialisasi', 'no_sip', 'no_str', 'isEdit', 'user_id']);
+        $this->reset(['dokterId', 'kode_dokter', 'nama_dokter', 'nik', 'jenis_kelamin', 'tempat_lahir', 'tanggal_lahir', 'alamat', 'no_telepon', 'agama', 'spesialisasi', 'no_sip', 'no_str', 'isEdit', 'user_id', 'practitioner_id', 'bpjs_id']);
         $this->status = 'Aktif';
         $this->color = '#405189';
         $this->resetErrorBag();
     }
+
 
     public function create()
     {
@@ -159,10 +172,13 @@ class DokterPage extends Component
         $this->status = $dokter->status;
         $this->color = $dokter->color ?? '#405189';
         $this->user_id = $dokter->user_id;
+        $this->practitioner_id = $dokter->practitioner_id;
+        $this->bpjs_id = $dokter->bpjs_id;
 
         $this->isEdit = true;
         $this->dispatch('open-modal');
     }
+
 
     public function save()
     {
@@ -193,7 +209,10 @@ class DokterPage extends Component
                 'status' => $this->status ?? 'Aktif',
                 'color' => $this->color,
                 'user_id' => $this->user_id || $this->user_id == '0' ? $this->user_id : null,
+                'practitioner_id' => $this->practitioner_id,
+                'bpjs_id' => $this->bpjs_id,
             ]);
+
 
             $dokter->save();
 
@@ -240,6 +259,50 @@ class DokterPage extends Component
         $this->dispatch('alert', ['type' => 'success', 'message' => 'Data dokter berhasil dihapus secara permanen dari database!']);
     }
 
+    public function searchSatuSehatPrac()
+    {
+        if (empty($this->searchPracQuery)) {
+            $this->dispatch('alert', ['type' => 'error', 'message' => 'Masukkan NIK atau Nama Dokter!']);
+            return;
+        }
+
+        try {
+            $service = new \App\Modules\Bridging\Services\SatuSehatService();
+            if (is_numeric($this->searchPracQuery) && strlen($this->searchPracQuery) === 16) {
+                $results = $service->searchPractitionerByNik($this->searchPracQuery);
+            } else {
+                // Search by detail requires Gender and BirthDate
+                if (!$this->jenis_kelamin || !$this->tanggal_lahir) {
+                    $this->dispatch('alert', ['type' => 'warning', 'message' => 'Lengkapi Jenis Kelamin dan Tanggal Lahir untuk pencarian berdasar Nama.']);
+                    return;
+                }
+                $gender = $this->jenis_kelamin === 'Laki-laki' ? 'male' : 'female';
+                $results = $service->searchPractitionerByDetail($this->searchPracQuery, $gender, $this->tanggal_lahir);
+            }
+
+            $this->foundPractitioners = $results ?: [];
+
+            if (empty($this->foundPractitioners)) {
+                $this->dispatch('alert', ['type' => 'warning', 'message' => 'Dokter tidak ditemukan di SatuSehat.']);
+            }
+        } catch (\Exception $e) {
+            $this->dispatch('alert', ['type' => 'error', 'message' => 'Gagal mencari Dokter: ' . $e->getMessage()]);
+        }
+    }
+
+    public function selectPrac($id)
+    {
+        $this->practitioner_id = $id;
+        $this->dispatch('close-search-prac-modal');
+        $this->dispatch('alert', ['type' => 'success', 'message' => 'Practitioner ID dipilih!']);
+    }
+
+    public function searchBpjsPrac()
+    {
+        $this->dispatch('alert', ['type' => 'info', 'message' => 'Fitur integrasi BPJS sedang dalam pengembangan.']);
+    }
+
+
     public function render()
     {
         $this->totalDokter = MstDokter::withTrashed()->count();
@@ -256,7 +319,21 @@ class DokterPage extends Component
         ])->toArray();
 
         return <<<'HTML'
-        <div x-data="{ showModal: false, init(){this.$watch('showModal',v=>{if(v){$nextTick(()=>{this.$refs.firstInput&&this.$refs.firstInput.focus()})}})} }" @open-modal.window="showModal=true" @close-modal.window="showModal=false" x-init="init()">
+        <div x-data="{ 
+                showModal: false, 
+                searchPracModal: false,
+                init(){
+                    this.$watch('showModal', v => {
+                        if(v){ $nextTick(() => { this.$refs.firstInput && this.$refs.firstInput.focus() }) }
+                    })
+                } 
+            }" 
+            @open-modal.window="showModal=true" 
+            @close-modal.window="showModal=false" 
+            @open-search-prac-modal.window="searchPracModal = true" 
+            @close-search-prac-modal.window="searchPracModal = false"
+            x-init="init()">
+
             <style>
                 .glass-header {
                     background: rgba(255, 255, 255, 0.8) !important;
@@ -634,6 +711,36 @@ class DokterPage extends Component
                                 </div>
                             </div>
 
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6">
+                                <div class="space-y-1.5">
+                                    <label class="text-[9px] sm:text-[10px] font-black text-[#405189] uppercase tracking-widest px-1">Practitioner ID (SatuSehat)</label>
+                                    <div class="flex gap-2">
+                                        <div class="relative flex-1">
+                                            <i class="ri-fingerprint-line absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                                            <input type="text" wire:model="practitioner_id" class="w-full pl-10 rounded-xl border-gray-200 text-sm py-2.5 focus:border-[#405189] focus:ring focus:ring-[#405189]/20 transition-all bg-indigo-50/30" placeholder="P0000...">
+                                        </div>
+                                        <button type="button" @click="$dispatch('open-search-prac-modal')" class="bg-[#405189] text-white px-4 rounded-xl text-xs font-bold shadow-sm hover:bg-slate-700 transition-colors">
+                                            <i class="ri-search-line mr-1"></i> Cari
+                                        </button>
+                                    </div>
+                                    @error('practitioner_id') <span class="text-[10px] text-rose-500 font-bold px-1">{{ $message }}</span> @enderror
+                                </div>
+                                <div class="space-y-1.5">
+                                    <label class="text-[9px] sm:text-[10px] font-black text-emerald-600 uppercase tracking-widest px-1">BPJS ID / No. Kartu</label>
+                                    <div class="flex gap-2">
+                                        <div class="relative flex-1">
+                                            <i class="ri-bank-card-line absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                                            <input type="text" wire:model="bpjs_id" class="w-full pl-10 rounded-xl border-gray-200 text-sm py-2.5 focus:border-[#0ab39c] focus:ring focus:ring-[#0ab39c]/20 transition-all bg-emerald-50/30" placeholder="00020...">
+                                        </div>
+                                        <button type="button" wire:click="searchBpjsPrac" class="bg-[#0ab39c] text-white px-4 rounded-xl text-xs font-bold shadow-sm hover:bg-emerald-600 transition-colors">
+                                            <i class="ri-file-search-line"></i>
+                                        </button>
+                                    </div>
+                                    @error('bpjs_id') <span class="text-[10px] text-rose-500 font-bold px-1">{{ $message }}</span> @enderror
+                                </div>
+                            </div>
+
+
                             <div class="space-y-1.5">
                                 <label class="text-[9px] sm:text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Nama Lengkap <span class="text-rose-500">*</span></label>
                                 <input type="text" wire:model="nama_dokter" 
@@ -775,6 +882,76 @@ class DokterPage extends Component
                     </div>
                 </div>
             </div>
+
+            <!-- Search Practitioner Modal -->
+            <div x-show="searchPracModal" class="fixed inset-0 z-[1100] flex items-center justify-center p-4" x-transition.opacity style="display: none;">
+                <div class="absolute inset-0 bg-[#0a192f]/60 backdrop-blur-md" @click="searchPracModal = false"></div>
+                <div x-show="searchPracModal" x-transition.scale.95 class="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden p-8 relative z-10 border border-white/20">
+                    <div class="absolute top-6 right-6">
+                        <button type="button" @click="searchPracModal = false" class="w-10 h-10 rounded-full flex items-center justify-center text-gray-400 hover:bg-rose-50 hover:text-rose-500 transition-all">
+                            <i class="ri-close-circle-fill text-2xl"></i>
+                        </button>
+                    </div>
+
+                    <div class="mb-8">
+                        <div class="flex items-center gap-3 mb-2">
+                            <div class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shadow-inner">
+                                <i class="ri-user-search-line text-xl"></i>
+                            </div>
+                            <h3 class="text-xl font-black text-[#2c3e50] tracking-tight">Cari Practitioner SatuSehat</h3>
+                        </div>
+                        <p class="text-xs text-gray-400 font-bold uppercase tracking-widest">Gunakan NIK atau Nama Lengkap Dokter Terdaftar</p>
+                    </div>
+
+                    <div class="bg-gray-50/50 p-6 rounded-2xl border border-gray-100 mb-8">
+                        <form wire:submit.prevent="searchSatuSehatPrac" class="flex flex-col sm:flex-row gap-3">
+                            <div class="relative flex-1">
+                                <i class="ri-id-card-line absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                                <input type="text" wire:model="searchPracQuery" class="w-full pl-12 rounded-xl border-gray-200 text-sm py-3 px-4 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 placeholder:text-gray-300 font-bold tracking-tight" placeholder="NIK 16 digit atau Nama lengkap...">
+                            </div>
+                            <button type="submit" class="bg-indigo-600 text-white px-8 py-3 rounded-xl text-xs font-black uppercase tracking-widest shadow-lg shadow-indigo-200 hover:bg-indigo-700 hover:-translate-y-0.5 transition-all">
+                                <span wire:loading.remove wire:target="searchSatuSehatPrac">Cari Data</span>
+                                <span wire:loading wire:target="searchSatuSehatPrac"><i class="ri-loader-4-line animate-spin mr-2"></i>Searching...</span>
+                            </button>
+                        </form>
+                        <p class="text-[10px] text-gray-400 mt-3 font-medium flex items-center gap-1.5 px-1">
+                            <i class="ri-information-line text-indigo-500"></i> Pencarian via Nama memerlukan Jenis Kelamin & Tanggal Lahir yang sudah terisi di form.
+                        </p>
+                    </div>
+
+                    @if(!empty($foundPractitioners))
+                    <div class="max-h-96 overflow-y-auto space-y-4 pr-3 scrollbar-custom">
+                        @foreach($foundPractitioners as $prac)
+                            @php
+                                $resource = $prac['resource'];
+                                $pracName = $resource['name'][0]['text'] ?? ($resource['name'][0]['family'] ?? 'Unknown');
+                                $pracNik = collect($resource['identifier'] ?? [])->firstWhere('system', 'https://fhir.kemkes.go.id/id/nik')['value'] ?? '-';
+                            @endphp
+                            <div class="group border border-gray-100 rounded-2xl p-5 flex items-center justify-between hover:border-indigo-300 hover:bg-indigo-50/30 transition-all duration-300 bg-white">
+                                <div class="flex items-center gap-4">
+                                    <div class="w-12 h-12 rounded-full bg-indigo-50 text-indigo-500 flex items-center justify-center font-black text-lg border-2 border-white shadow-sm group-hover:bg-indigo-500 group-hover:text-white transition-all">
+                                        {{ substr($pracName, 0, 1) }}
+                                    </div>
+                                    <div>
+                                        <h4 class="font-black text-[#2c3e50] text-sm group-hover:text-indigo-600 transition-colors uppercase tracking-tight">{{ $pracName }}</h4>
+                                        <div class="flex flex-wrap gap-4 mt-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                                            <span><i class="ri-fingerprint-line mr-1 text-indigo-400"></i> NIK: {{ $pracNik }}</span>
+                                            <span><i class="ri-key-line mr-1 text-emerald-400"></i> ID: <span class="text-indigo-600 font-black">{{ $resource['id'] }}</span></span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <button type="button" 
+                                        wire:click="selectPrac('{{ $resource['id'] }}')" 
+                                        class="btn btn-sm bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white rounded-xl px-6 h-9 font-black text-[10px] uppercase tracking-widest shadow-sm transition-all">
+                                    Pilih
+                                </button>
+                            </div>
+                        @endforeach
+                    </div>
+                    @endif
+                </div>
+            </div>
+
         </div>
         HTML;
     }
