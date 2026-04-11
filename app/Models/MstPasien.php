@@ -13,21 +13,29 @@ class MstPasien extends Model
     protected $table = 'mst_pasien';
 
     protected $fillable = [
+        'satusehat_uuid',
         'no_rm',
         'nama_pasien',
         'jenis_kelamin',
         'tempat_lahir',
         'tanggal_lahir',
         'alamat',
+        'kode_pos',
+        'provinsi_id',
+        'kabupaten_id',
+        'kecamatan_id',
+        'kelurahan_id',
         'no_telepon',
         'agama',
         'pekerjaan',
         'no_penjamin',
         'nik',
+        'marital_status',
         'golongan_darah',
         'alergi',
         'status',
     ];
+
 
     protected $casts = [
         'tanggal_lahir' => 'date',

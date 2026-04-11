@@ -58,12 +58,176 @@ class SatuSehatService
             throw new \Exception('Konfigurasi Browser SatuSehat belum lengkap (Client ID/Secret kosong).');
         }
 
-        // Cache key unik per client_id agar token tidak tertukar antara klinik/dokter
         $cacheKey = 'satusehat_access_token_' . md5($this->clientId);
 
         return Cache::remember($cacheKey, 3500, function () {
             return $this->requestNewToken();
         });
+    }
+
+    /**
+     * Search for a patient in SatuSehat by NIK (and optionally Name/BirthDate)
+     */
+    public function searchPatient(string $nik, ?string $name = null, ?string $birthDate = null)
+    {
+        $url = $this->getBaseUrl() . '/Patient';
+        
+        // Option 1: Name + BirthDate + NIK
+        if ($name && $birthDate) {
+            $params = [
+                'name' => $name,
+                'birthdate' => $birthDate,
+                'identifier' => 'https://fhir.kemkes.go.id/id/nik|' . $nik
+            ];
+            $response = Http::withHeaders($this->getHeaders())->get($url, $params);
+            if ($response->successful() && !empty($response->json()['entry'])) {
+                return $response->json()['entry'][0]['resource'];
+            }
+        }
+
+
+        // Option 2: Name + NIK
+        if ($name) {
+            $params = [
+                'name' => $name,
+                'identifier' => 'https://fhir.kemkes.go.id/id/nik|' . $nik
+            ];
+            $response = Http::withHeaders($this->getHeaders())->get($url, $params);
+            if ($response->successful() && !empty($response->json()['entry'])) {
+                return $response->json()['entry'][0]['resource'];
+            }
+        }
+
+
+        // Option 3: NIK only
+        $params = [
+            'identifier' => 'https://fhir.kemkes.go.id/id/nik|' . $nik
+        ];
+        $response = Http::withHeaders($this->getHeaders())->get($url, $params);
+        if ($response->successful() && !empty($response->json()['entry'])) {
+            return $response->json()['entry'][0]['resource'];
+        }
+
+        return null;
+    }
+
+
+    /**
+     * Create a new Patient in SatuSehat.
+     */
+    public function createPatient(\App\Models\MstPasien $pasien)
+    {
+        $url = $this->getBaseUrl() . '/Patient';
+
+        $body = [
+            "resourceType" => "Patient",
+            "meta" => [
+                "profile" => ["https://fhir.kemkes.go.id/r4/StructureDefinition/Patient"]
+            ],
+            "identifier" => [
+                [
+                    "use" => "official",
+                    "system" => "https://fhir.kemkes.go.id/id/nik",
+                    "value" => $pasien->nik
+                ]
+            ],
+            "active" => true,
+            "name" => [
+                [
+                    "use" => "official",
+                    "text" => strtoupper($pasien->nama_pasien)
+                ]
+            ],
+            "gender" => $pasien->jenis_kelamin === 'Laki-laki' ? 'male' : 'female',
+            "birthDate" => $pasien->tanggal_lahir ? $pasien->tanggal_lahir->format('Y-m-d') : null,
+            "deceasedBoolean" => false,
+            "address" => [
+                [
+                    "use" => "home",
+                    "line" => [$pasien->alamat ?: "-"],
+                    "city" => $pasien->kabupaten_id ? \App\Models\MstWilayahKabupaten::find($pasien->kabupaten_id)?->nama : "-",
+                    "postalCode" => $pasien->kode_pos ?: "-",
+                    "country" => "ID",
+                    "extension" => [
+                        [
+                            "url" => "https://fhir.kemkes.go.id/r4/StructureDefinition/administrativeCode",
+                            "extension" => [
+                                ["url" => "province", "valueCode" => $pasien->provinsi_id ?: ""],
+                                ["url" => "city", "valueCode" => $pasien->kabupaten_id ?: ""],
+                                ["url" => "district", "valueCode" => $pasien->kecamatan_id ?: ""],
+                                ["url" => "village", "valueCode" => $pasien->kelurahan_id ?: ""],
+                                ["url" => "rw", "valueCode" => "0"], // Bawaan default if not available
+                                ["url" => "rt", "valueCode" => "0"]
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            "maritalStatus" => [
+                "coding" => [
+                    [
+                        "system" => "http://terminology.hl7.org/CodeSystem/v3-MaritalStatus",
+                        "code" => $this->mapMaritalStatus($pasien->marital_status),
+                        "display" => $pasien->marital_status ?: "Unmarried"
+                    ]
+                ],
+                "text" => $pasien->marital_status ?: "Unmarried"
+            ],
+            "multipleBirthInteger" => 0,
+            "contact" => [
+                [
+                    "relationship" => [
+                        [
+                            "coding" => [
+                                ["system" => "http://terminology.hl7.org/CodeSystem/v2-0131", "code" => "C"]
+                            ]
+                        ]
+                    ],
+                    "name" => ["use" => "official", "text" => strtoupper($pasien->nama_pasien)], // Default to patient's own info if empty
+                    "telecom" => [
+                        [
+                            "system" => "phone",
+                            "value" => $pasien->no_telepon ?: "-",
+                            "use" => "mobile"
+                        ]
+                    ]
+                ]
+            ],
+            "communication" => [
+                [
+                    "language" => [
+                        "coding" => [
+                            ["system" => "urn:ietf:bcp:47", "code" => "id-ID", "display" => "Indonesian"]
+                        ],
+                        "text" => "Indonesian"
+                    ],
+                    "preferred" => true
+                ]
+            ]
+        ];
+
+        $response = Http::withHeaders($this->getHeaders())->post($url, $body);
+
+        if ($response->successful()) {
+            $data = $response->json();
+            $uuid = $data['id'];
+            $pasien->update(['satusehat_uuid' => $uuid]);
+            return $data;
+        }
+
+        throw new \Exception('Gagal create Patient di SatuSehat: ' . $response->body());
+    }
+
+    protected function mapMaritalStatus($status)
+    {
+        $map = [
+            'Married' => 'M',
+            'Single' => 'U',
+            'Divorced' => 'D',
+            'Widowed' => 'W',
+            'Never Married' => 'S'
+        ];
+        return $map[$status] ?? 'U';
     }
 
     /**

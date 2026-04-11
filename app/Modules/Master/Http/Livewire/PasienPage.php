@@ -15,48 +15,38 @@ class PasienPage extends Component
     use WithPagination, DynamicKodeGenerator;
 
     public $pasienId;
-
     public $no_rm;
-
     public $nama_pasien;
-
     public $nik;
-
     public $jenis_kelamin;
-
     public $tempat_lahir;
-
     public $tanggal_lahir;
-
     public $alamat;
-
     public $no_telepon;
-
     public $agama;
-
     public $pekerjaan;
-
     public $no_penjamin;
-
     public $golongan_darah;
-
     public $alergi;
-
     public $status;
+    
+    public $satusehat_uuid;
+    public $marital_status;
+    public $kode_pos;
+    public $provinsi_id;
+    public $kabupaten_id;
+    public $kecamatan_id;
+    public $kelurahan_id;
 
     public $totalPasien = 0;
-
     public $pasienBaru = 0;
-
     public $takAktif = 0;
-
     public $selectedStatus = 'all';
-
     public $search = '';
-
     public $isEdit = false;
-
     public $kodeReadonly = false;
+
+
 
     protected $queryString = ['search', 'selectedStatus'];
 
@@ -81,6 +71,55 @@ class PasienPage extends Component
         return $query->orderBy('no_rm', 'asc')->paginate(10);
     }
 
+    #[Computed]
+    public function provinsiOptions()
+    {
+        return \App\Models\MstWilayahProvinsi::orderBy('nama')->get();
+    }
+
+    #[Computed]
+    public function kabupatenOptions()
+    {
+        return $this->provinsi_id 
+            ? \App\Models\MstWilayahKabupaten::where('provinsi_kode', $this->provinsi_id)->orderBy('nama')->get() 
+            : collect([]);
+    }
+
+
+    #[Computed]
+    public function kecamatanOptions()
+    {
+        return $this->kabupaten_id 
+            ? \App\Models\MstWilayahKecamatan::where('kabupaten_kode', $this->kabupaten_id)->orderBy('nama')->get() 
+            : collect([]);
+    }
+
+
+    #[Computed]
+    public function kelurahanOptions()
+    {
+        return $this->kecamatan_id 
+            ? \App\Models\MstWilayahKelurahan::where('kecamatan_kode', $this->kecamatan_id)->orderBy('nama')->get() 
+            : collect([]);
+    }
+
+
+    public function updatedProvinsiId()
+    {
+        $this->reset(['kabupaten_id', 'kecamatan_id', 'kelurahan_id']);
+    }
+
+    public function updatedKabupatenId()
+    {
+        $this->reset(['kecamatan_id', 'kelurahan_id']);
+    }
+
+    public function updatedKecamatanId()
+    {
+        $this->reset(['kelurahan_id']);
+    }
+
+
     public function setStatus($status)
     {
         $this->selectedStatus = $status;
@@ -102,19 +141,31 @@ class PasienPage extends Component
             'tempat_lahir' => 'nullable|string',
             'tanggal_lahir' => 'nullable|date',
             'alamat' => 'nullable|string',
+            'kode_pos' => 'nullable|string|max:10',
+            'provinsi_id' => 'nullable|exists:mst_wilayah_provinsi,kode',
+            'kabupaten_id' => 'nullable|exists:mst_wilayah_kabupaten,kode',
+            'kecamatan_id' => 'nullable|exists:mst_wilayah_kecamatan,kode',
+            'kelurahan_id' => 'nullable|exists:mst_wilayah_kelurahan,kode',
             'no_telepon' => 'nullable|string|max:20',
             'agama' => 'nullable|string|max:20',
             'pekerjaan' => 'nullable|string|max:50',
             'no_penjamin' => 'nullable|string|max:50',
+            'marital_status' => 'nullable|string',
             'golongan_darah' => 'nullable|string|max:5',
             'alergi' => 'nullable|string',
         ];
+
     }
 
     public function resetForm()
     {
-        $this->reset(['pasienId', 'no_rm', 'nama_pasien', 'nik', 'jenis_kelamin', 'tempat_lahir', 'tanggal_lahir', 'alamat', 'no_telepon', 'agama', 'pekerjaan', 'no_penjamin', 'golongan_darah', 'alergi', 'isEdit']);
+        $this->reset([
+            'pasienId', 'no_rm', 'nama_pasien', 'nik', 'jenis_kelamin', 'tempat_lahir', 'tanggal_lahir', 
+            'alamat', 'kode_pos', 'provinsi_id', 'kabupaten_id', 'kecamatan_id', 'kelurahan_id', 
+            'no_telepon', 'agama', 'pekerjaan', 'no_penjamin', 'marital_status', 'golongan_darah', 'alergi', 'satusehat_uuid', 'isEdit'
+        ]);
         $this->status = 'Aktif';
+
         $this->resetErrorBag();
     }
 
@@ -153,9 +204,17 @@ class PasienPage extends Component
         $this->agama = $pasien->agama;
         $this->pekerjaan = $pasien->pekerjaan;
         $this->no_penjamin = $pasien->no_penjamin;
+        $this->marital_status = $pasien->marital_status;
         $this->golongan_darah = $pasien->golongan_darah;
         $this->alergi = $pasien->alergi;
         $this->status = $pasien->status;
+        $this->satusehat_uuid = $pasien->satusehat_uuid;
+        $this->kode_pos = $pasien->kode_pos;
+        $this->provinsi_id = $pasien->provinsi_id;
+        $this->kabupaten_id = $pasien->kabupaten_id;
+        $this->kecamatan_id = $pasien->kecamatan_id;
+        $this->kelurahan_id = $pasien->kelurahan_id;
+
 
         $this->isEdit = true;
         $this->dispatch('open-modal');
@@ -182,14 +241,21 @@ class PasienPage extends Component
                 'tempat_lahir' => $this->tempat_lahir,
                 'tanggal_lahir' => $this->tanggal_lahir,
                 'alamat' => $this->alamat,
+                'kode_pos' => $this->kode_pos,
+                'provinsi_id' => $this->provinsi_id,
+                'kabupaten_id' => $this->kabupaten_id,
+                'kecamatan_id' => $this->kecamatan_id,
+                'kelurahan_id' => $this->kelurahan_id,
                 'no_telepon' => $this->no_telepon,
                 'agama' => $this->agama,
                 'pekerjaan' => $this->pekerjaan,
                 'no_penjamin' => $this->no_penjamin,
+                'marital_status' => $this->marital_status,
                 'golongan_darah' => $this->golongan_darah,
                 'alergi' => $this->alergi,
                 'status' => $this->status ?? 'Aktif',
             ]);
+
 
             $pasien->save();
 
@@ -225,6 +291,38 @@ class PasienPage extends Component
 
         $this->dispatch('alert', ['type' => 'success', 'message' => 'Status pasien telah diubah menjadi Tidak Aktif!']);
     }
+
+    public function syncSatuSehat($id)
+    {
+        $pasien = MstPasien::findOrFail($id);
+        
+        if (empty($pasien->nik)) {
+            $this->dispatch('alert', ['type' => 'error', 'message' => 'Gagal Sync: NIK Pasien kosong.']);
+            return;
+        }
+
+        try {
+            $service = new \App\Modules\Bridging\Services\SatuSehatService();
+            
+            // Step 1: Search SS
+            $this->dispatch('alert', ['type' => 'info', 'message' => 'Sedang mencari data pasien di SatuSehat...']);
+            $ssPatient = $service->searchPatient($pasien->nik, $pasien->nama_pasien);
+
+            if ($ssPatient) {
+                $uuid = $ssPatient['id'];
+                $pasien->update(['satusehat_uuid' => $uuid]);
+                $this->dispatch('alert', ['type' => 'success', 'message' => 'Pasien ditemukan di SatuSehat. UUID berhasil sinkron.']);
+            } else {
+                // Step 2: Create if not found
+                $this->dispatch('alert', ['type' => 'info', 'message' => 'Pasien tidak ditemukan, mencoba mendaftarkan ke SatuSehat...']);
+                $service->createPatient($pasien);
+                $this->dispatch('alert', ['type' => 'success', 'message' => 'Pasien berhasil didaftarkan ke SatuSehat!']);
+            }
+        } catch (\Exception $e) {
+            $this->dispatch('alert', ['type' => 'error', 'message' => 'Sync Gagal: ' . $e->getMessage()]);
+        }
+    }
+
 
     public function render()
     {
@@ -496,6 +594,15 @@ class PasienPage extends Component
                                 </td>
                                 <td class="px-6 py-4">
                                     <div class="flex items-center justify-center gap-2">
+                                        @if(empty($pasien->satusehat_uuid))
+                                        <button wire:click="syncSatuSehat({{ $pasien->id }})" class="action-btn-soft bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white shadow-sm" title="Sync SatuSehat">
+                                            <i class="ri-cloud-line text-sm"></i>
+                                        </button>
+                                        @else
+                                        <button class="action-btn-soft bg-emerald-50 text-emerald-600 cursor-default shadow-sm" title="Synced with SatuSehat">
+                                            <i class="ri-checkbox-circle-line text-sm"></i>
+                                        </button>
+                                        @endif
                                         <button wire:click="history({{ $pasien->id }})" class="action-btn-soft bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white shadow-sm" title="Riwayat">
                                             <i class="ri-history-line text-sm"></i>
                                         </button>
@@ -507,6 +614,7 @@ class PasienPage extends Component
                                             <i class="ri-delete-bin-line text-sm"></i>
                                         </button>
                                     </div>
+
                                 </td>
                             </tr>
                             @empty
@@ -637,7 +745,7 @@ class PasienPage extends Component
                                 </div>
                             </div>
 
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6">
+                             <div class="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6">
                                 <div class="space-y-1.5">
                                     <label class="text-[9px] sm:text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">No. Telepon</label>
                                     <input type="text" wire:model="no_telepon" 
@@ -646,24 +754,97 @@ class PasienPage extends Component
                                     @error('no_telepon') <span class="text-[10px] text-rose-500 font-bold px-1">{{ $message }}</span> @enderror
                                 </div>
                                 <div class="space-y-1.5">
-                                    <label class="text-[9px] sm:text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Agama</label>
+                                    <label class="text-[9px] sm:text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Marital Status</label>
                                     <x-custom-dropdown 
-                                        model="agama" 
+                                        model="marital_status" 
                                         :options="[
-                                            ['value' => 'Islam', 'label' => 'Islam'],
-                                            ['value' => 'Kristen', 'label' => 'Kristen'],
-                                            ['value' => 'Katolik', 'label' => 'Katolik'],
-                                            ['value' => 'Hindu', 'label' => 'Hindu'],
-                                            ['value' => 'Budha', 'label' => 'Budha'],
-                                            ['value' => 'Konghucu', 'label' => 'Konghucu'],
-                                            ['value' => 'Lainnya', 'label' => 'Lainnya']
+                                            ['value' => 'Single', 'label' => 'Single (Belum Menikah)'],
+                                            ['value' => 'Married', 'label' => 'Married (Menikah)'],
+                                            ['value' => 'Divorced', 'label' => 'Divorced (Cerai Hidup)'],
+                                            ['value' => 'Widowed', 'label' => 'Widowed (Cerai Mati)'],
+                                            ['value' => 'Never Married', 'label' => 'Never Married']
                                         ]"
-                                        placeholder="Pilih Agama"
-                                        searchable="true"
-                                        icon="ri-service-line"
+                                        placeholder="Pilih Status"
+                                        icon="ri-group-line"
                                     />
                                 </div>
                             </div>
+
+                            <div class="bg-indigo-50/30 p-4 rounded-2xl border border-indigo-100 space-y-4">
+                                <h6 class="text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em] mb-3"><i class="ri-map-pin-line mr-1"></i> Data Alamat Administrasi (BPS)</h6>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div class="space-y-1">
+                                        <label class="text-[9px] font-black text-gray-400 uppercase tracking-widest">Provinsi</label>
+                                        <x-custom-dropdown 
+                                            model="provinsi_id" 
+                                            :options="$this->provinsiOptions->map(fn($v) => ['value' => $v->kode, 'label' => $v->nama])->toArray()"
+                                            placeholder="Pilih Provinsi"
+                                            searchable="true"
+                                            live="true"
+                                        />
+
+                                    </div>
+                                    <div class="space-y-1">
+                                        <label class="text-[9px] font-black text-gray-400 uppercase tracking-widest">Kabupaten/Kota</label>
+                                        <x-custom-dropdown 
+                                            model="kabupaten_id" 
+                                            :options="$this->kabupatenOptions->map(fn($v) => ['value' => $v->kode, 'label' => $v->nama])->toArray()"
+                                            placeholder="Pilih Kabupaten"
+                                            searchable="true"
+                                            live="true"
+                                        />
+
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div class="space-y-1">
+                                        <label class="text-[9px] font-black text-gray-400 uppercase tracking-widest">Kecamatan</label>
+                                        <x-custom-dropdown 
+                                            model="kecamatan_id" 
+                                            :options="$this->kecamatanOptions->map(fn($v) => ['value' => $v->kode, 'label' => $v->nama])->toArray()"
+                                            placeholder="Pilih Kecamatan"
+                                            searchable="true"
+                                            live="true"
+                                        />
+
+                                    </div>
+                                    <div class="space-y-1">
+                                        <label class="text-[9px] font-black text-gray-400 uppercase tracking-widest">Kelurahan/Desa</label>
+                                        <x-custom-dropdown 
+                                            model="kelurahan_id" 
+                                            :options="$this->kelurahanOptions->map(fn($v) => ['value' => $v->kode, 'label' => $v->nama])->toArray()"
+                                            placeholder="Pilih Kelurahan"
+                                            searchable="true"
+                                        />
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div class="space-y-1">
+                                        <label class="text-[9px] font-black text-gray-400 uppercase tracking-widest px-1">Kode Pos</label>
+                                        <input type="text" wire:model="kode_pos" 
+                                               class="w-full bg-white border border-gray-100 rounded-xl py-2 px-4 text-sm font-bold text-[#2c3e50] focus:ring-4 focus:ring-indigo-100 focus:border-[#405189] transition-all outline-none" 
+                                               placeholder="Kode Pos">
+                                    </div>
+                                    <div class="space-y-1">
+                                        <label class="text-[9px] font-black text-gray-400 uppercase tracking-widest">Agama</label>
+                                        <x-custom-dropdown 
+                                            model="agama" 
+                                            :options="[
+                                                ['value' => 'Islam', 'label' => 'Islam'],
+                                                ['value' => 'Kristen', 'label' => 'Kristen'],
+                                                ['value' => 'Katolik', 'label' => 'Katolik'],
+                                                ['value' => 'Hindu', 'label' => 'Hindu'],
+                                                ['value' => 'Budha', 'label' => 'Budha'],
+                                                ['value' => 'Konghucu', 'label' => 'Konghucu'],
+                                                ['value' => 'Lainnya', 'label' => 'Lainnya']
+                                            ]"
+                                            placeholder="Pilih Agama"
+                                            searchable="true"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
 
                             <div class="space-y-1.5">
                                 <label class="text-[9px] sm:text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Alamat</label>
