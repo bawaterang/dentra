@@ -231,7 +231,172 @@ class SatuSehatService
     }
 
     /**
+     * Search for an Organization by Name
+     */
+    public function searchOrganization(string $name)
+    {
+        $url = $this->getBaseUrl() . '/Organization';
+        
+        $params = ['name' => $name];
+        
+        $response = Http::withHeaders($this->getHeaders())->get($url, $params);
+        if ($response->successful() && !empty($response->json()['entry'])) {
+            return $response->json()['entry']; // Returning the array of matching organizations
+        }
+
+        return null;
+    }
+
+    /**
+     * Get a specific Organization by its SatuSehat UUID
+     */
+    public function getOrganization(string $id)
+    {
+        $url = $this->getBaseUrl() . '/Organization/' . $id;
+        
+        $response = Http::withHeaders($this->getHeaders())->get($url);
+        if ($response->successful()) {
+            return $response->json();
+        }
+
+        return null;
+    }
+
+    /**
+     * Formats the Organization JSON payload
+     */
+    protected function formatOrganizationPayload(\App\Models\MstInstansi $instansi, string $id = null)
+    {
+        $payload = [
+            "resourceType" => "Organization",
+            "active" => true,
+            "identifier" => [
+                [
+                    "use" => "official",
+                    "system" => "http://sys-ids.kemkes.go.id/organization/" . $instansi->organization_id,
+                    "value" => $instansi->organization_id
+                ]
+            ],
+            "type" => [
+                [
+                    "coding" => [
+                        [
+                            "system" => "http://terminology.hl7.org/CodeSystem/organization-type",
+                            "code" => "dept",
+                            "display" => "Hospital Department"
+                        ]
+                    ]
+                ]
+            ],
+            "name" => $instansi->nama_instansi,
+            "telecom" => [
+                [
+                    "system" => "phone",
+                    "value" => $instansi->telepon ?: "-",
+                    "use" => "work"
+                ],
+                [
+                    "system" => "email",
+                    "value" => $instansi->email ?: "-",
+                    "use" => "work"
+                ],
+                [
+                    "system" => "url",
+                    "value" => $instansi->website ?: "-",
+                    "use" => "work"
+                ]
+            ],
+            "address" => [
+                [
+                    "use" => "work",
+                    "type" => "both",
+                    "line" => [
+                        $instansi->alamat ?: "-"
+                    ],
+                    "city" => $instansi->kabupaten_id ? \App\Models\MstWilayahKabupaten::find($instansi->kabupaten_id)?->nama : "-",
+                    "postalCode" => $instansi->kode_pos ?: "-",
+                    "country" => "ID",
+                    "extension" => [
+                        [
+                            "url" => "https://fhir.kemkes.go.id/r4/StructureDefinition/administrativeCode",
+                            "extension" => [
+                                [
+                                    "url" => "province",
+                                    "valueCode" => $instansi->provinsi_id ?: ""
+                                ],
+                                [
+                                    "url" => "city",
+                                    "valueCode" => $instansi->kabupaten_id ?: ""
+                                ],
+                                [
+                                    "url" => "district",
+                                    "valueCode" => $instansi->kecamatan_id ?: ""
+                                ],
+                                [
+                                    "url" => "village",
+                                    "valueCode" => $instansi->kelurahan_id ?: ""
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            "partOf" => [
+                "reference" => "Organization/" . $instansi->organization_id
+            ]
+        ];
+
+        if ($id) {
+            $payload['id'] = $id;
+        }
+
+        return $payload;
+    }
+
+    /**
+     * Create a new Organization in SatuSehat.
+     */
+    public function createOrganization(\App\Models\MstInstansi $instansi)
+    {
+        $url = $this->getBaseUrl() . '/Organization';
+        $body = $this->formatOrganizationPayload($instansi);
+
+        $response = Http::withHeaders($this->getHeaders())->post($url, $body);
+
+        if ($response->successful()) {
+            $data = $response->json();
+            $uuid = $data['id'];
+            $instansi->update(['organization_id' => $uuid]);
+            return $data;
+        }
+
+        throw new \Exception('Gagal create Organization di SatuSehat: ' . $response->body());
+    }
+
+    /**
+     * Update an existing Organization in SatuSehat.
+     */
+    public function updateOrganization(\App\Models\MstInstansi $instansi)
+    {
+        if (!$instansi->organization_id) {
+            throw new \Exception('Organization belum disinkronisasi ke SatuSehat (ID kosong).');
+        }
+
+        $url = $this->getBaseUrl() . '/Organization/' . $instansi->organization_id;
+        $body = $this->formatOrganizationPayload($instansi, $instansi->organization_id);
+
+        $response = Http::withHeaders($this->getHeaders())->put($url, $body);
+
+        if ($response->successful()) {
+            return $response->json();
+        }
+
+        throw new \Exception('Gagal update Organization di SatuSehat: ' . $response->body());
+    }
+
+    /**
      * Request a fresh token from SatuSehat OAuth2 endpoint.
+
      */
     public function requestNewToken()
     {

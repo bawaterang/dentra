@@ -12,8 +12,14 @@ class MstInstansi extends Model
     protected $table = 'mst_instansi';
 
     protected $fillable = [
+        'organization_id',
         'nama_instansi',
         'alamat',
+        'kode_pos',
+        'provinsi_id',
+        'kabupaten_id',
+        'kecamatan_id',
+        'kelurahan_id',
         'telepon',
         'email',
         'website',
@@ -21,3 +27,4 @@ class MstInstansi extends Model
         'pimpinan',
     ];
 }
+
