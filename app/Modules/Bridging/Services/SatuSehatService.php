@@ -3,6 +3,7 @@
 namespace App\Modules\Bridging\Services;
 
 use App\Models\MstSettingSatusehat;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -13,6 +14,12 @@ class SatuSehatService
     protected $dokterId;
     protected $clientId;
     protected $clientSecret;
+
+    /**
+     * Tanggal minimum yang diperbolehkan oleh SatuSehat.
+     * Pengiriman data tidak boleh menggunakan tanggal sebelum 03 Juni 2014.
+     */
+    const SATUSEHAT_MIN_DATE = '2014-06-03';
 
     /**
      * @param int|null $dokterId ID dokter untuk pencarian kredensial spesifik (jika mode_bridging = dokter)
@@ -641,6 +648,1612 @@ class SatuSehatService
         }
 
         return $payload;
+    }
+
+    // ==========================================
+    // ENCOUNTER RESOURCE
+    // ==========================================
+
+    /**
+     * Search Encounters by Patient Subject UUID (satusehat_uuid from mst_pasien).
+     * GET {baseUrl}/Encounter?subject={subjectUuid}
+     */
+    public function searchEncounterBySubject(string $subjectUuid)
+    {
+        $url = $this->getBaseUrl() . '/Encounter';
+        $params = ['subject' => $subjectUuid];
+
+        $response = Http::withHeaders($this->getHeaders())->get($url, $params);
+
+        if ($response->successful() && !empty($response->json()['entry'])) {
+            return $response->json()['entry'];
+        }
+
+        return null;
+    }
+
+    /**
+     * Get a specific Encounter by its UUID (path variable).
+     * GET {baseUrl}/Encounter/{id}
+     */
+    public function getEncounterById(string $encounterUuid)
+    {
+        $url = $this->getBaseUrl() . '/Encounter/' . $encounterUuid;
+
+        $response = Http::withHeaders($this->getHeaders())->get($url);
+
+        if ($response->successful()) {
+            return $response->json();
+        }
+
+        return null;
+    }
+
+    /**
+     * Create a new Encounter (status: arrived).
+     * POST {baseUrl}/Encounter
+     *
+     * @param array $data Expecting keys: pasien (MstPasien), dokter (MstDokter), location (MstLocation), nomor_kunjungan, period_start
+     */
+    public function createEncounter(array $data)
+    {
+        $instansi = \App\Models\MstInstansi::first();
+        if (!$instansi) {
+            throw new \Exception('Data profil klinik (mst_instansi) tidak ditemukan.');
+        }
+
+        $pasien   = $data['pasien'];   // MstPasien model
+        $dokter   = $data['dokter'];   // MstDokter model
+        $location = $data['location']; // MstLocation model
+        $nomorKunjungan = $data['nomor_kunjungan'] ?? '';
+        $periodStart    = $this->formatUtcDateTime($data['period_start'] ?? null);
+
+        $body = [
+            "resourceType" => "Encounter",
+            "status" => "arrived",
+            "class" => [
+                "system" => "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code" => "AMB",
+                "display" => "ambulatory"
+            ],
+            "subject" => [
+                "reference" => "Patient/" . $pasien->satusehat_uuid,
+                "display" => $pasien->nama_pasien
+            ],
+            "participant" => [
+                [
+                    "type" => [
+                        [
+                            "coding" => [
+                                [
+                                    "system" => "http://terminology.hl7.org/CodeSystem/v3-ParticipationType",
+                                    "code" => "ATND",
+                                    "display" => "attender"
+                                ]
+                            ]
+                        ]
+                    ],
+                    "individual" => [
+                        "reference" => "Practitioner/" . $dokter->practitioner_id,
+                        "display" => $dokter->nama_dokter
+                    ]
+                ]
+            ],
+            "period" => [
+                "start" => $periodStart
+            ],
+            "location" => [
+                [
+                    "location" => [
+                        "reference" => "Location/" . $location->location_id,
+                        "display" => $location->location_name
+                    ]
+                ]
+            ],
+            "statusHistory" => [
+                [
+                    "status" => "arrived",
+                    "period" => [
+                        "start" => $periodStart
+                    ]
+                ]
+            ],
+            "serviceProvider" => [
+                "reference" => "Organization/" . $instansi->organization_id
+            ],
+            "identifier" => [
+                [
+                    "system" => "http://sys-ids.kemkes.go.id/encounter/" . $instansi->organization_id,
+                    "value" => $nomorKunjungan
+                ]
+            ]
+        ];
+
+        $url = $this->getBaseUrl() . '/Encounter';
+        $response = Http::withHeaders($this->getHeaders())->post($url, $body);
+
+        if ($response->successful()) {
+            $result = $response->json();
+            $this->logSatusehatData($instansi->organization_id, $result['id'] ?? null, $body, 'success');
+            return $result;
+        }
+
+        $this->logSatusehatData($instansi->organization_id, null, $body, 'failed');
+        throw new \Exception('Gagal create Encounter di SatuSehat: ' . $response->body());
+    }
+
+    /**
+     * Update Encounter to in-progress status.
+     * PUT {baseUrl}/Encounter/{id}
+     *
+     * @param string $encounterUuid
+     * @param array  $data Expecting: pasien, dokter, location, nomor_kunjungan, period_start, period_end, arrived_start, arrived_end, inprogress_start, inprogress_end
+     */
+    public function updateEncounterInProgress(string $encounterUuid, array $data)
+    {
+        $instansi = \App\Models\MstInstansi::first();
+        if (!$instansi) {
+            throw new \Exception('Data profil klinik (mst_instansi) tidak ditemukan.');
+        }
+
+        $pasien   = $data['pasien'];
+        $dokter   = $data['dokter'];
+        $location = $data['location'];
+        $nomorKunjungan = $data['nomor_kunjungan'] ?? '';
+
+        $body = [
+            "resourceType" => "Encounter",
+            "id" => $encounterUuid,
+            "identifier" => [
+                [
+                    "system" => "http://sys-ids.kemkes.go.id/encounter/" . $instansi->organization_id,
+                    "value" => $nomorKunjungan
+                ]
+            ],
+            "status" => "in-progress",
+            "class" => [
+                "system" => "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code" => "AMB",
+                "display" => "ambulatory"
+            ],
+            "subject" => [
+                "reference" => "Patient/" . $pasien->satusehat_uuid,
+                "display" => $pasien->nama_pasien
+            ],
+            "participant" => [
+                [
+                    "type" => [
+                        [
+                            "coding" => [
+                                [
+                                    "system" => "http://terminology.hl7.org/CodeSystem/v3-ParticipationType",
+                                    "code" => "ATND",
+                                    "display" => "attender"
+                                ]
+                            ]
+                        ]
+                    ],
+                    "individual" => [
+                        "reference" => "Practitioner/" . $dokter->practitioner_id,
+                        "display" => $dokter->nama_dokter
+                    ]
+                ]
+            ],
+            "period" => [
+                "start" => $this->formatUtcDateTime($data['period_start'] ?? null),
+                "end"   => $this->formatUtcDateTime($data['period_end'] ?? null),
+            ],
+            "location" => [
+                [
+                    "location" => [
+                        "reference" => "Location/" . $location->location_id,
+                        "display" => $location->location_name
+                    ]
+                ]
+            ],
+            "statusHistory" => [
+                [
+                    "status" => "arrived",
+                    "period" => [
+                        "start" => $this->formatUtcDateTime($data['arrived_start'] ?? $data['period_start'] ?? null),
+                        "end"   => $this->formatUtcDateTime($data['arrived_end'] ?? $data['period_start'] ?? null),
+                    ]
+                ],
+                [
+                    "status" => "in-progress",
+                    "period" => [
+                        "start" => $this->formatUtcDateTime($data['inprogress_start'] ?? $data['period_start'] ?? null),
+                        "end"   => $this->formatUtcDateTime($data['inprogress_end'] ?? $data['period_end'] ?? null),
+                    ]
+                ]
+            ],
+            "serviceProvider" => [
+                "reference" => "Organization/" . $instansi->organization_id
+            ]
+        ];
+
+        $url = $this->getBaseUrl() . '/Encounter/' . $encounterUuid;
+        $response = Http::withHeaders($this->getHeaders())->put($url, $body);
+
+        if ($response->successful()) {
+            $this->logSatusehatData($instansi->organization_id, $encounterUuid, $body, 'success');
+            return $response->json();
+        }
+
+        $this->logSatusehatData($instansi->organization_id, $encounterUuid, $body, 'failed');
+        throw new \Exception('Gagal update Encounter (in-progress) di SatuSehat: ' . $response->body());
+    }
+
+    /**
+     * Update Encounter with discharge disposition (status tetap in-progress, tambah hospitalization).
+     * PUT {baseUrl}/Encounter/{id}
+     *
+     * @param string $encounterUuid
+     * @param array  $data Expecting: pasien, dokter, location, nomor_kunjungan, period_start, period_end,
+     *                     arrived_start, arrived_end, inprogress_start, inprogress_end,
+     *                     discharge_code, discharge_display, discharge_text
+     */
+    public function updateEncounterDischargeDisposition(string $encounterUuid, array $data)
+    {
+        $instansi = \App\Models\MstInstansi::first();
+        if (!$instansi) {
+            throw new \Exception('Data profil klinik (mst_instansi) tidak ditemukan.');
+        }
+
+        $pasien   = $data['pasien'];
+        $dokter   = $data['dokter'];
+        $location = $data['location'];
+        $nomorKunjungan = $data['nomor_kunjungan'] ?? '';
+
+        $body = [
+            "resourceType" => "Encounter",
+            "id" => $encounterUuid,
+            "identifier" => [
+                [
+                    "system" => "http://sys-ids.kemkes.go.id/encounter/" . $instansi->organization_id,
+                    "value" => $nomorKunjungan
+                ]
+            ],
+            "status" => "in-progress",
+            "class" => [
+                "system" => "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code" => "AMB",
+                "display" => "ambulatory"
+            ],
+            "subject" => [
+                "reference" => "Patient/" . $pasien->satusehat_uuid,
+                "display" => $pasien->nama_pasien
+            ],
+            "participant" => [
+                [
+                    "type" => [
+                        [
+                            "coding" => [
+                                [
+                                    "system" => "http://terminology.hl7.org/CodeSystem/v3-ParticipationType",
+                                    "code" => "ATND",
+                                    "display" => "attender"
+                                ]
+                            ]
+                        ]
+                    ],
+                    "individual" => [
+                        "reference" => "Practitioner/" . $dokter->practitioner_id,
+                        "display" => $dokter->nama_dokter
+                    ]
+                ]
+            ],
+            "period" => [
+                "start" => $this->formatUtcDateTime($data['period_start'] ?? null),
+                "end"   => $this->formatUtcDateTime($data['period_end'] ?? null),
+            ],
+            "location" => [
+                [
+                    "location" => [
+                        "reference" => "Location/" . $location->location_id,
+                        "display" => $location->location_name
+                    ]
+                ]
+            ],
+            "statusHistory" => [
+                [
+                    "status" => "arrived",
+                    "period" => [
+                        "start" => $this->formatUtcDateTime($data['arrived_start'] ?? $data['period_start'] ?? null),
+                        "end"   => $this->formatUtcDateTime($data['arrived_end'] ?? $data['period_start'] ?? null),
+                    ]
+                ],
+                [
+                    "status" => "in-progress",
+                    "period" => [
+                        "start" => $this->formatUtcDateTime($data['inprogress_start'] ?? $data['period_start'] ?? null),
+                        "end"   => $this->formatUtcDateTime($data['inprogress_end'] ?? $data['period_end'] ?? null),
+                    ]
+                ]
+            ],
+            "hospitalization" => [
+                "dischargeDisposition" => [
+                    "coding" => [
+                        [
+                            "system" => "http://terminology.hl7.org/CodeSystem/discharge-disposition",
+                            "code" => $data['discharge_code'] ?? "home",
+                            "display" => $data['discharge_display'] ?? "Home"
+                        ]
+                    ],
+                    "text" => $data['discharge_text'] ?? ''
+                ]
+            ],
+            "serviceProvider" => [
+                "reference" => "Organization/" . $instansi->organization_id
+            ]
+        ];
+
+        $url = $this->getBaseUrl() . '/Encounter/' . $encounterUuid;
+        $response = Http::withHeaders($this->getHeaders())->put($url, $body);
+
+        if ($response->successful()) {
+            $this->logSatusehatData($instansi->organization_id, $encounterUuid, $body, 'success');
+            return $response->json();
+        }
+
+        $this->logSatusehatData($instansi->organization_id, $encounterUuid, $body, 'failed');
+        throw new \Exception('Gagal update Encounter (discharge disposition) di SatuSehat: ' . $response->body());
+    }
+
+    /**
+     * Update Encounter to finished status (include diagnosis).
+     * PUT {baseUrl}/Encounter/{id}
+     *
+     * @param string $encounterUuid
+     * @param array  $data Expecting: pasien, dokter, location, nomor_kunjungan, period_start, period_end,
+     *                     arrived_start, arrived_end, inprogress_start, inprogress_end, finished_start, finished_end,
+     *                     diagnosis (array of [condition_uuid, condition_display, rank])
+     */
+    public function updateEncounterFinished(string $encounterUuid, array $data)
+    {
+        $instansi = \App\Models\MstInstansi::first();
+        if (!$instansi) {
+            throw new \Exception('Data profil klinik (mst_instansi) tidak ditemukan.');
+        }
+
+        $pasien   = $data['pasien'];
+        $dokter   = $data['dokter'];
+        $location = $data['location'];
+        $nomorKunjungan = $data['nomor_kunjungan'] ?? '';
+
+        // Build diagnosis array
+        $diagnosisArray = [];
+        if (!empty($data['diagnosis'])) {
+            foreach ($data['diagnosis'] as $idx => $diag) {
+                $diagnosisArray[] = [
+                    "condition" => [
+                        "reference" => "Condition/" . ($diag['condition_uuid'] ?? ''),
+                        "display" => $diag['condition_display'] ?? ''
+                    ],
+                    "use" => [
+                        "coding" => [
+                            [
+                                "system" => "http://terminology.hl7.org/CodeSystem/diagnosis-role",
+                                "code" => "DD",
+                                "display" => "Discharge diagnosis"
+                            ]
+                        ]
+                    ],
+                    "rank" => $diag['rank'] ?? ($idx + 1)
+                ];
+            }
+        }
+
+        $body = [
+            "resourceType" => "Encounter",
+            "id" => $encounterUuid,
+            "identifier" => [
+                [
+                    "system" => "http://sys-ids.kemkes.go.id/encounter/" . $instansi->organization_id,
+                    "value" => $nomorKunjungan
+                ]
+            ],
+            "status" => "finished",
+            "class" => [
+                "system" => "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code" => "AMB",
+                "display" => "ambulatory"
+            ],
+            "subject" => [
+                "reference" => "Patient/" . $pasien->satusehat_uuid,
+                "display" => $pasien->nama_pasien
+            ],
+            "participant" => [
+                [
+                    "type" => [
+                        [
+                            "coding" => [
+                                [
+                                    "system" => "http://terminology.hl7.org/CodeSystem/v3-ParticipationType",
+                                    "code" => "ATND",
+                                    "display" => "attender"
+                                ]
+                            ]
+                        ]
+                    ],
+                    "individual" => [
+                        "reference" => "Practitioner/" . $dokter->practitioner_id,
+                        "display" => $dokter->nama_dokter
+                    ]
+                ]
+            ],
+            "period" => [
+                "start" => $this->formatUtcDateTime($data['period_start'] ?? null),
+                "end"   => $this->formatUtcDateTime($data['period_end'] ?? null),
+            ],
+            "location" => [
+                [
+                    "location" => [
+                        "reference" => "Location/" . $location->location_id,
+                        "display" => $location->location_name
+                    ]
+                ]
+            ],
+            "statusHistory" => [
+                [
+                    "status" => "arrived",
+                    "period" => [
+                        "start" => $this->formatUtcDateTime($data['arrived_start'] ?? $data['period_start'] ?? null),
+                        "end"   => $this->formatUtcDateTime($data['arrived_end'] ?? $data['period_start'] ?? null),
+                    ]
+                ],
+                [
+                    "status" => "in-progress",
+                    "period" => [
+                        "start" => $this->formatUtcDateTime($data['inprogress_start'] ?? $data['period_start'] ?? null),
+                        "end"   => $this->formatUtcDateTime($data['inprogress_end'] ?? $data['period_end'] ?? null),
+                    ]
+                ],
+                [
+                    "status" => "finished",
+                    "period" => [
+                        "start" => $this->formatUtcDateTime($data['finished_start'] ?? $data['period_end'] ?? null),
+                        "end"   => $this->formatUtcDateTime($data['finished_end'] ?? $data['period_end'] ?? null),
+                    ]
+                ]
+            ],
+            "serviceProvider" => [
+                "reference" => "Organization/" . $instansi->organization_id
+            ]
+        ];
+
+        // Tambahkan diagnosis jika ada
+        if (!empty($diagnosisArray)) {
+            $body['diagnosis'] = $diagnosisArray;
+        }
+
+        $url = $this->getBaseUrl() . '/Encounter/' . $encounterUuid;
+        $response = Http::withHeaders($this->getHeaders())->put($url, $body);
+
+        if ($response->successful()) {
+            $this->logSatusehatData($instansi->organization_id, $encounterUuid, $body, 'success');
+            return $response->json();
+        }
+
+        $this->logSatusehatData($instansi->organization_id, $encounterUuid, $body, 'failed');
+        throw new \Exception('Gagal update Encounter (finished) di SatuSehat: ' . $response->body());
+    }
+
+    // ==========================================
+    // CONDITION RESOURCE
+    // ==========================================
+
+    /**
+     * Search Conditions by Patient Subject UUID.
+     * GET {baseUrl}/Condition?subject={subjectUuid}
+     *
+     * @param string $subjectUuid SatuSehat UUID pasien (dari mst_pasien.satusehat_uuid)
+     */
+    public function searchConditionBySubject(string $subjectUuid)
+    {
+        $url = $this->getBaseUrl() . '/Condition';
+        $params = ['subject' => $subjectUuid];
+
+        $response = Http::withHeaders($this->getHeaders())->get($url, $params);
+
+        if ($response->successful() && !empty($response->json()['entry'])) {
+            return $response->json()['entry'];
+        }
+
+        return null;
+    }
+
+    /**
+     * Search Conditions by Patient Subject UUID and Encounter UUID.
+     * GET {baseUrl}/Condition?subject={subjectUuid}&encounter={encounterUuid}
+     *
+     * @param string $subjectUuid   SatuSehat UUID pasien (dari mst_pasien.satusehat_uuid)
+     * @param string $encounterUuid UUID Encounter
+     */
+    public function searchConditionBySubjectAndEncounter(string $subjectUuid, string $encounterUuid)
+    {
+        $url = $this->getBaseUrl() . '/Condition';
+        $params = [
+            'subject'   => $subjectUuid,
+            'encounter' => $encounterUuid,
+        ];
+
+        $response = Http::withHeaders($this->getHeaders())->get($url, $params);
+
+        if ($response->successful() && !empty($response->json()['entry'])) {
+            return $response->json()['entry'];
+        }
+
+        return null;
+    }
+
+    /**
+     * Search Conditions by Encounter UUID.
+     * GET {baseUrl}/Condition?encounter={encounterUuid}
+     *
+     * @param string $encounterUuid UUID Encounter
+     */
+    public function searchConditionByEncounter(string $encounterUuid)
+    {
+        $url = $this->getBaseUrl() . '/Condition';
+        $params = ['encounter' => $encounterUuid];
+
+        $response = Http::withHeaders($this->getHeaders())->get($url, $params);
+
+        if ($response->successful() && !empty($response->json()['entry'])) {
+            return $response->json()['entry'];
+        }
+
+        return null;
+    }
+
+    /**
+     * Get a specific Condition by its UUID (path variable).
+     * GET {baseUrl}/Condition/{id}
+     *
+     * @param string $conditionUuid UUID Condition
+     */
+    public function getConditionById(string $conditionUuid)
+    {
+        $url = $this->getBaseUrl() . '/Condition/' . $conditionUuid;
+
+        $response = Http::withHeaders($this->getHeaders())->get($url);
+
+        if ($response->successful()) {
+            return $response->json();
+        }
+
+        return null;
+    }
+
+    /**
+     * Create a new Condition (Diagnosis) for a patient who was examined.
+     * POST {baseUrl}/Condition
+     *
+     * Uses ICD-10 coding system for the diagnosis code.
+     *
+     * @param array $data Expecting keys:
+     *   - pasien (MstPasien model)
+     *   - encounter_uuid (string)
+     *   - encounter_display (string, e.g. "Kunjungan ... di hari ...")
+     *   - diagnosis_code (string, ICD-10 code, e.g. "K35.8")
+     *   - diagnosis_display (string, e.g. "Acute appendicitis, other and unspecified")
+     *   - clinical_status (string, default "active") — active, recurrence, relapse, etc.
+     *   - clinical_display (string, default "Active")
+     */
+    public function createCondition(array $data)
+    {
+        $pasien = $data['pasien']; // MstPasien model
+
+        $clinicalCode    = $data['clinical_status'] ?? 'active';
+        $clinicalDisplay = $data['clinical_display'] ?? 'Active';
+
+        $body = [
+            "resourceType" => "Condition",
+            "clinicalStatus" => [
+                "coding" => [
+                    [
+                        "system" => "http://terminology.hl7.org/CodeSystem/condition-clinical",
+                        "code" => $clinicalCode,
+                        "display" => $clinicalDisplay,
+                    ]
+                ]
+            ],
+            "category" => [
+                [
+                    "coding" => [
+                        [
+                            "system" => "http://terminology.hl7.org/CodeSystem/condition-category",
+                            "code" => "encounter-diagnosis",
+                            "display" => "Encounter Diagnosis",
+                        ]
+                    ]
+                ]
+            ],
+            "code" => [
+                "coding" => [
+                    [
+                        "system" => "http://hl7.org/fhir/sid/icd-10",
+                        "code" => $data['diagnosis_code'],
+                        "display" => $data['diagnosis_display'],
+                    ]
+                ]
+            ],
+            "subject" => [
+                "reference" => "Patient/" . $pasien->satusehat_uuid,
+                "display" => $pasien->nama_pasien,
+            ],
+            "encounter" => [
+                "reference" => "Encounter/" . $data['encounter_uuid'],
+                "display" => $data['encounter_display'] ?? '',
+            ],
+        ];
+
+        $url = $this->getBaseUrl() . '/Condition';
+        $response = Http::withHeaders($this->getHeaders())->post($url, $body);
+
+        if ($response->successful()) {
+            $result = $response->json();
+            $this->logSatusehatData(null, $result['id'] ?? null, $body, 'success');
+            return $result;
+        }
+
+        $this->logSatusehatData(null, null, $body, 'failed');
+        throw new \Exception('Gagal create Condition di SatuSehat: ' . $response->body());
+    }
+
+    /**
+     * Create a Condition for a patient who came but left the clinic healthy (Patient's condition stable).
+     * POST {baseUrl}/Condition
+     *
+     * Uses SNOMED CT coding system with code "359746009" (Patient's condition stable).
+     *
+     * @param array $data Expecting keys:
+     *   - pasien (MstPasien model)
+     *   - encounter_uuid (string)
+     *   - encounter_display (string)
+     */
+    public function createConditionStable(array $data)
+    {
+        $pasien = $data['pasien']; // MstPasien model
+
+        $body = [
+            "resourceType" => "Condition",
+            "clinicalStatus" => [
+                "coding" => [
+                    [
+                        "system" => "http://terminology.hl7.org/CodeSystem/condition-clinical",
+                        "code" => "active",
+                        "display" => "Active",
+                    ]
+                ]
+            ],
+            "category" => [
+                [
+                    "coding" => [
+                        [
+                            "system" => "http://terminology.hl7.org/CodeSystem/condition-category",
+                            "code" => "encounter-diagnosis",
+                            "display" => "Encounter Diagnosis",
+                        ]
+                    ]
+                ]
+            ],
+            "code" => [
+                "coding" => [
+                    [
+                        "system" => "http://snomed.info/sct",
+                        "code" => "359746009",
+                        "display" => "Patient's condition stable",
+                    ]
+                ]
+            ],
+            "subject" => [
+                "reference" => "Patient/" . $pasien->satusehat_uuid,
+                "display" => $pasien->nama_pasien,
+            ],
+            "encounter" => [
+                "reference" => "Encounter/" . $data['encounter_uuid'],
+                "display" => $data['encounter_display'] ?? '',
+            ],
+        ];
+
+        $url = $this->getBaseUrl() . '/Condition';
+        $response = Http::withHeaders($this->getHeaders())->post($url, $body);
+
+        if ($response->successful()) {
+            $result = $response->json();
+            $this->logSatusehatData(null, $result['id'] ?? null, $body, 'success');
+            return $result;
+        }
+
+        $this->logSatusehatData(null, null, $body, 'failed');
+        throw new \Exception('Gagal create Condition (stable) di SatuSehat: ' . $response->body());
+    }
+
+    /**
+     * Update an existing Condition in SatuSehat.
+     * PUT {baseUrl}/Condition/{id}
+     *
+     * @param string $conditionUuid UUID Condition yang akan di-update
+     * @param array  $data Expecting keys:
+     *   - pasien (MstPasien model)
+     *   - encounter_uuid (string)
+     *   - encounter_display (string)
+     *   - diagnosis_code (string, ICD-10 code)
+     *   - diagnosis_display (string)
+     *   - clinical_status (string, e.g. "remission", "active", "resolved")
+     *   - clinical_display (string, e.g. "Remission", "Active", "Resolved")
+     */
+    public function updateCondition(string $conditionUuid, array $data)
+    {
+        $pasien = $data['pasien']; // MstPasien model
+
+        $clinicalCode    = $data['clinical_status'] ?? 'active';
+        $clinicalDisplay = $data['clinical_display'] ?? 'Active';
+
+        $body = [
+            "resourceType" => "Condition",
+            "id" => $conditionUuid,
+            "clinicalStatus" => [
+                "coding" => [
+                    [
+                        "system" => "http://terminology.hl7.org/CodeSystem/condition-clinical",
+                        "code" => $clinicalCode,
+                        "display" => $clinicalDisplay,
+                    ]
+                ]
+            ],
+            "category" => [
+                [
+                    "coding" => [
+                        [
+                            "system" => "http://terminology.hl7.org/CodeSystem/condition-category",
+                            "code" => "encounter-diagnosis",
+                            "display" => "Encounter Diagnosis",
+                        ]
+                    ]
+                ]
+            ],
+            "code" => [
+                "coding" => [
+                    [
+                        "system" => "http://hl7.org/fhir/sid/icd-10",
+                        "code" => $data['diagnosis_code'],
+                        "display" => $data['diagnosis_display'],
+                    ]
+                ]
+            ],
+            "subject" => [
+                "reference" => "Patient/" . $pasien->satusehat_uuid,
+                "display" => $pasien->nama_pasien,
+            ],
+            "encounter" => [
+                "reference" => "Encounter/" . $data['encounter_uuid'],
+                "display" => $data['encounter_display'] ?? '',
+            ],
+        ];
+
+        $url = $this->getBaseUrl() . '/Condition/' . $conditionUuid;
+        $response = Http::withHeaders($this->getHeaders())->put($url, $body);
+
+        if ($response->successful()) {
+            $this->logSatusehatData(null, $conditionUuid, $body, 'success');
+            return $response->json();
+        }
+
+        $this->logSatusehatData(null, $conditionUuid, $body, 'failed');
+        throw new \Exception('Gagal update Condition di SatuSehat: ' . $response->body());
+    }
+
+    // ==========================================
+    // OBSERVATION RESOURCE
+    // ==========================================
+
+    /**
+     * Mapping tipe vital sign ke LOINC code, display, unit, dan UCUM code.
+     * Dipakai oleh createObservation dan createObservationAllVitalSigns.
+     *
+     * Key = identifier internal aplikasi
+     * Setiap entry memiliki: loinc_code, display, unit, ucum_code
+     *
+     * Catatan: blood_pressure memiliki 2 komponen (systolic & diastolic),
+     * sehingga ditangani secara khusus di createObservationBloodPressure().
+     */
+    const VITAL_SIGN_MAP = [
+        'heart_rate' => [
+            'loinc_code' => '8867-4',
+            'display'    => 'Heart rate',
+            'unit'       => 'beats/minute',
+            'ucum_code'  => '/min',
+        ],
+        'respiratory_rate' => [
+            'loinc_code' => '9279-1',
+            'display'    => 'Respiratory rate',
+            'unit'       => 'breaths/minute',
+            'ucum_code'  => '/min',
+        ],
+        'body_temperature' => [
+            'loinc_code' => '8310-5',
+            'display'    => 'Body temperature',
+            'unit'       => 'C',
+            'ucum_code'  => 'Cel',
+        ],
+        'body_weight' => [
+            'loinc_code' => '29463-7',
+            'display'    => 'Body weight',
+            'unit'       => 'kg',
+            'ucum_code'  => 'kg',
+        ],
+        'body_height' => [
+            'loinc_code' => '8302-2',
+            'display'    => 'Body height',
+            'unit'       => 'cm',
+            'ucum_code'  => 'cm',
+        ],
+        'body_mass_index' => [
+            'loinc_code' => '39156-5',
+            'display'    => 'Body mass index (BMI)',
+            'unit'       => 'kg/m2',
+            'ucum_code'  => 'kg/m2',
+        ],
+        'head_circumference' => [
+            'loinc_code' => '9843-4',
+            'display'    => 'Head Occipital-frontal circumference',
+            'unit'       => 'cm',
+            'ucum_code'  => 'cm',
+        ],
+        'pulse_oximetry' => [
+            'loinc_code' => '2708-6',
+            'display'    => 'Oxygen saturation in Arterial blood',
+            'unit'       => '%',
+            'ucum_code'  => '%',
+        ],
+        // Blood pressure ditangani khusus (component systolic + diastolic)
+        'blood_pressure' => [
+            'loinc_code' => '85354-9',
+            'display'    => 'Blood pressure panel with all children optional',
+            'systolic'   => [
+                'loinc_code' => '8480-6',
+                'display'    => 'Systolic blood pressure',
+                'unit'       => 'mm[Hg]',
+                'ucum_code'  => 'mm[Hg]',
+            ],
+            'diastolic'  => [
+                'loinc_code' => '8462-4',
+                'display'    => 'Diastolic blood pressure',
+                'unit'       => 'mm[Hg]',
+                'ucum_code'  => 'mm[Hg]',
+            ],
+        ],
+    ];
+
+    /**
+     * Search Observations by Patient Subject UUID.
+     * GET {baseUrl}/Observation?subject={subjectUuid}
+     *
+     * @param string $subjectUuid SatuSehat UUID pasien (dari mst_pasien.satusehat_uuid)
+     */
+    public function searchObservationBySubject(string $subjectUuid)
+    {
+        $url = $this->getBaseUrl() . '/Observation';
+        $params = ['subject' => $subjectUuid];
+
+        $response = Http::withHeaders($this->getHeaders())->get($url, $params);
+
+        if ($response->successful() && !empty($response->json()['entry'])) {
+            return $response->json()['entry'];
+        }
+
+        return null;
+    }
+
+    /**
+     * Search Observations by Patient Subject UUID and Encounter UUID.
+     * GET {baseUrl}/Observation?subject={subjectUuid}&encounter={encounterUuid}
+     *
+     * @param string $subjectUuid   SatuSehat UUID pasien (dari mst_pasien.satusehat_uuid)
+     * @param string $encounterUuid UUID Encounter
+     */
+    public function searchObservationBySubjectAndEncounter(string $subjectUuid, string $encounterUuid)
+    {
+        $url = $this->getBaseUrl() . '/Observation';
+        $params = [
+            'subject'   => $subjectUuid,
+            'encounter' => $encounterUuid,
+        ];
+
+        $response = Http::withHeaders($this->getHeaders())->get($url, $params);
+
+        if ($response->successful() && !empty($response->json()['entry'])) {
+            return $response->json()['entry'];
+        }
+
+        return null;
+    }
+
+    /**
+     * Search Observations by Encounter UUID.
+     * GET {baseUrl}/Observation?encounter={encounterUuid}
+     *
+     * @param string $encounterUuid UUID Encounter
+     */
+    public function searchObservationByEncounter(string $encounterUuid)
+    {
+        $url = $this->getBaseUrl() . '/Observation';
+        $params = ['encounter' => $encounterUuid];
+
+        $response = Http::withHeaders($this->getHeaders())->get($url, $params);
+
+        if ($response->successful() && !empty($response->json()['entry'])) {
+            return $response->json()['entry'];
+        }
+
+        return null;
+    }
+
+    /**
+     * Get a specific Observation by its UUID (path variable).
+     * GET {baseUrl}/Observation/{id}
+     *
+     * @param string $observationUuid UUID Observation
+     */
+    public function getObservationById(string $observationUuid)
+    {
+        $url = $this->getBaseUrl() . '/Observation/' . $observationUuid;
+
+        $response = Http::withHeaders($this->getHeaders())->get($url);
+
+        if ($response->successful()) {
+            return $response->json();
+        }
+
+        return null;
+    }
+
+    /**
+     * Create a single Observation (vital signs) resource in SatuSehat.
+     * POST {baseUrl}/Observation
+     *
+     * Untuk vital sign biasa (non blood pressure) yang menggunakan valueQuantity.
+     *
+     * @param array $data Expecting keys:
+     *   - pasien (MstPasien model)
+     *   - dokter (MstDokter model) — used as performer
+     *   - encounter_uuid (string)
+     *   - encounter_display (string)
+     *   - vital_type (string) — key dari VITAL_SIGN_MAP (e.g. 'heart_rate', 'body_temperature')
+     *   - value (numeric) — nilai pengukuran
+     *   - effective_date (string, Y-m-d, opsional, default now)
+     *   - issued (string, ISO8601, opsional, default now)
+     *
+     * Atau parameter manual (jika vital_type tidak diisi):
+     *   - observation_code, observation_display, unit, unit_code
+     */
+    public function createObservation(array $data)
+    {
+        $pasien = $data['pasien']; // MstPasien model
+        $dokter = $data['dokter']; // MstDokter model
+
+        // Resolve dari VITAL_SIGN_MAP jika vital_type diberikan
+        if (!empty($data['vital_type']) && isset(self::VITAL_SIGN_MAP[$data['vital_type']])) {
+            $map = self::VITAL_SIGN_MAP[$data['vital_type']];
+            $observationCode    = $map['loinc_code'];
+            $observationDisplay = $map['display'];
+            $unit               = $map['unit'];
+            $unitCode           = $map['ucum_code'];
+        } else {
+            // Fallback: manual parameter
+            $observationCode    = $data['observation_code'];
+            $observationDisplay = $data['observation_display'];
+            $unit               = $data['unit'];
+            $unitCode           = $data['unit_code'];
+        }
+
+        $body = [
+            "resourceType" => "Observation",
+            "status" => "final",
+            "category" => [
+                [
+                    "coding" => [
+                        [
+                            "system" => "http://terminology.hl7.org/CodeSystem/observation-category",
+                            "code" => "vital-signs",
+                            "display" => "Vital Signs",
+                        ]
+                    ]
+                ]
+            ],
+            "code" => [
+                "coding" => [
+                    [
+                        "system" => "http://loinc.org",
+                        "code" => $observationCode,
+                        "display" => $observationDisplay,
+                    ]
+                ]
+            ],
+            "subject" => [
+                "reference" => "Patient/" . $pasien->satusehat_uuid,
+            ],
+            "performer" => [
+                [
+                    "reference" => "Practitioner/" . $dokter->practitioner_id,
+                ]
+            ],
+            "encounter" => [
+                "reference" => "Encounter/" . $data['encounter_uuid'],
+                "display" => $data['encounter_display'] ?? '',
+            ],
+            "effectiveDateTime" => $this->formatUtcDateTime($data['effective_date'] ?? null),
+            "issued" => $this->formatUtcDateTime($data['issued'] ?? null),
+            "valueQuantity" => [
+                "value" => (float) $data['value'],
+                "unit" => $unit,
+                "system" => "http://unitsofmeasure.org",
+                "code" => $unitCode,
+            ],
+        ];
+
+        $url = $this->getBaseUrl() . '/Observation';
+        $response = Http::withHeaders($this->getHeaders())->post($url, $body);
+
+        if ($response->successful()) {
+            $result = $response->json();
+            $this->logSatusehatData(null, $result['id'] ?? null, $body, 'success');
+            return $result;
+        }
+
+        $this->logSatusehatData(null, null, $body, 'failed');
+        throw new \Exception('Gagal create Observation di SatuSehat: ' . $response->body());
+    }
+
+    /**
+     * Create an Observation for Blood Pressure (FHIR component structure).
+     * POST {baseUrl}/Observation
+     *
+     * Blood Pressure menggunakan "component" (systolic + diastolic),
+     * bukan "valueQuantity" tunggal.
+     *
+     * @param array $data Expecting keys:
+     *   - pasien (MstPasien model)
+     *   - dokter (MstDokter model)
+     *   - encounter_uuid (string)
+     *   - encounter_display (string)
+     *   - systolic (numeric) — tekanan sistolik (mmHg)
+     *   - diastolic (numeric) — tekanan diastolik (mmHg)
+     *   - effective_date (string, Y-m-d, opsional)
+     *   - issued (string, ISO8601, opsional)
+     */
+    public function createObservationBloodPressure(array $data)
+    {
+        $pasien = $data['pasien'];
+        $dokter = $data['dokter'];
+        $bp     = self::VITAL_SIGN_MAP['blood_pressure'];
+
+        $body = [
+            "resourceType" => "Observation",
+            "status" => "final",
+            "category" => [
+                [
+                    "coding" => [
+                        [
+                            "system" => "http://terminology.hl7.org/CodeSystem/observation-category",
+                            "code" => "vital-signs",
+                            "display" => "Vital Signs",
+                        ]
+                    ]
+                ]
+            ],
+            "code" => [
+                "coding" => [
+                    [
+                        "system" => "http://loinc.org",
+                        "code" => $bp['loinc_code'],
+                        "display" => $bp['display'],
+                    ]
+                ]
+            ],
+            "subject" => [
+                "reference" => "Patient/" . $pasien->satusehat_uuid,
+            ],
+            "performer" => [
+                [
+                    "reference" => "Practitioner/" . $dokter->practitioner_id,
+                ]
+            ],
+            "encounter" => [
+                "reference" => "Encounter/" . $data['encounter_uuid'],
+                "display" => $data['encounter_display'] ?? '',
+            ],
+            "effectiveDateTime" => $this->formatUtcDateTime($data['effective_date'] ?? null),
+            "issued" => $this->formatUtcDateTime($data['issued'] ?? null),
+            "component" => [
+                [
+                    "code" => [
+                        "coding" => [
+                            [
+                                "system" => "http://loinc.org",
+                                "code" => $bp['systolic']['loinc_code'],
+                                "display" => $bp['systolic']['display'],
+                            ]
+                        ]
+                    ],
+                    "valueQuantity" => [
+                        "value" => (float) $data['systolic'],
+                        "unit" => $bp['systolic']['unit'],
+                        "system" => "http://unitsofmeasure.org",
+                        "code" => $bp['systolic']['ucum_code'],
+                    ],
+                ],
+                [
+                    "code" => [
+                        "coding" => [
+                            [
+                                "system" => "http://loinc.org",
+                                "code" => $bp['diastolic']['loinc_code'],
+                                "display" => $bp['diastolic']['display'],
+                            ]
+                        ]
+                    ],
+                    "valueQuantity" => [
+                        "value" => (float) $data['diastolic'],
+                        "unit" => $bp['diastolic']['unit'],
+                        "system" => "http://unitsofmeasure.org",
+                        "code" => $bp['diastolic']['ucum_code'],
+                    ],
+                ],
+            ],
+        ];
+
+        $url = $this->getBaseUrl() . '/Observation';
+        $response = Http::withHeaders($this->getHeaders())->post($url, $body);
+
+        if ($response->successful()) {
+            $result = $response->json();
+            $this->logSatusehatData(null, $result['id'] ?? null, $body, 'success');
+            return $result;
+        }
+
+        $this->logSatusehatData(null, null, $body, 'failed');
+        throw new \Exception('Gagal create Observation (Blood Pressure) di SatuSehat: ' . $response->body());
+    }
+
+    /**
+     * Kirim semua Observation vital signs dari data pendaftaran pasien.
+     *
+     * Method ini membaca field vital sign dari TrxPendaftaran
+     * dan mengirim setiap tanda vital yang terisi sebagai Observation terpisah.
+     *
+     * Mapping field TrxPendaftaran ke tipe vital sign:
+     *   - tekanan_darah (format "120/80") → Blood Pressure (systolic + diastolic)
+     *   - nadi                            → Heart Rate
+     *   - suhu                            → Body Temperature
+     *   - berat_badan                     → Body Weight
+     *   - tinggi_badan                    → Body Height
+     *   - Auto-hitung BMI jika BB dan TB terisi
+     *
+     * @param array $data Expecting keys:
+     *   - pendaftaran (TrxPendaftaran model, sudah di-load beserta relasi pasien & dokter)
+     *   - encounter_uuid (string)
+     *   - encounter_display_prefix (string, opsional, e.g. "Pemeriksaan Fisik")
+     *   - effective_date (string, Y-m-d, opsional)
+     *   - issued (string, ISO8601, opsional)
+     *
+     * @return array Hasil dari setiap Observation yang berhasil dibuat
+     */
+    public function createObservationAllVitalSigns(array $data): array
+    {
+        $pendaftaran  = $data['pendaftaran']; // TrxPendaftaran model
+        $pasien       = $pendaftaran->pasien; // MstPasien model via relasi
+        $dokter       = $pendaftaran->dokter; // MstDokter model via relasi
+
+        if (!$pasien || !$pasien->satusehat_uuid) {
+            throw new \Exception('Pasien belum memiliki SatuSehat UUID.');
+        }
+        if (!$dokter || !$dokter->practitioner_id) {
+            throw new \Exception('Dokter belum memiliki Practitioner ID SatuSehat.');
+        }
+
+        $encounterUuid   = $data['encounter_uuid'];
+        $displayPrefix   = $data['encounter_display_prefix'] ?? 'Pemeriksaan Fisik';
+        $effectiveDate   = $this->formatUtcDateTime($data['effective_date'] ?? $pendaftaran->created_at ?? null);
+        $issued          = $this->formatUtcDateTime($data['issued'] ?? $pendaftaran->created_at ?? null);
+
+        $results = [];
+        $baseData = [
+            'pasien'         => $pasien,
+            'dokter'         => $dokter,
+            'encounter_uuid' => $encounterUuid,
+            'effective_date'  => $effectiveDate,
+            'issued'          => $issued,
+        ];
+
+        // 1. Blood Pressure (tekanan_darah format: "120/80")
+        if (!empty($pendaftaran->tekanan_darah)) {
+            $parts = explode('/', $pendaftaran->tekanan_darah);
+            if (count($parts) === 2 && is_numeric(trim($parts[0])) && is_numeric(trim($parts[1]))) {
+                try {
+                    $results['blood_pressure'] = $this->createObservationBloodPressure(array_merge($baseData, [
+                        'encounter_display' => "{$displayPrefix} Tekanan Darah {$pasien->nama_pasien}",
+                        'systolic'  => (float) trim($parts[0]),
+                        'diastolic' => (float) trim($parts[1]),
+                    ]));
+                } catch (\Exception $e) {
+                    Log::warning("Observation Blood Pressure gagal: " . $e->getMessage());
+                    $results['blood_pressure'] = ['error' => $e->getMessage()];
+                }
+            }
+        }
+
+        // 2. Heart Rate (nadi)
+        if (!empty($pendaftaran->nadi) && is_numeric($pendaftaran->nadi)) {
+            try {
+                $results['heart_rate'] = $this->createObservation(array_merge($baseData, [
+                    'vital_type'        => 'heart_rate',
+                    'value'             => (float) $pendaftaran->nadi,
+                    'encounter_display' => "{$displayPrefix} Nadi {$pasien->nama_pasien}",
+                ]));
+            } catch (\Exception $e) {
+                Log::warning("Observation Heart Rate gagal: " . $e->getMessage());
+                $results['heart_rate'] = ['error' => $e->getMessage()];
+            }
+        }
+
+        // 3. Body Temperature (suhu)
+        if (!empty($pendaftaran->suhu) && is_numeric($pendaftaran->suhu)) {
+            try {
+                $results['body_temperature'] = $this->createObservation(array_merge($baseData, [
+                    'vital_type'        => 'body_temperature',
+                    'value'             => (float) $pendaftaran->suhu,
+                    'encounter_display' => "{$displayPrefix} Suhu Tubuh {$pasien->nama_pasien}",
+                ]));
+            } catch (\Exception $e) {
+                Log::warning("Observation Body Temperature gagal: " . $e->getMessage());
+                $results['body_temperature'] = ['error' => $e->getMessage()];
+            }
+        }
+
+        // 4. Body Weight (berat_badan)
+        if (!empty($pendaftaran->berat_badan) && is_numeric($pendaftaran->berat_badan)) {
+            try {
+                $results['body_weight'] = $this->createObservation(array_merge($baseData, [
+                    'vital_type'        => 'body_weight',
+                    'value'             => (float) $pendaftaran->berat_badan,
+                    'encounter_display' => "{$displayPrefix} Berat Badan {$pasien->nama_pasien}",
+                ]));
+            } catch (\Exception $e) {
+                Log::warning("Observation Body Weight gagal: " . $e->getMessage());
+                $results['body_weight'] = ['error' => $e->getMessage()];
+            }
+        }
+
+        // 5. Body Height (tinggi_badan)
+        if (!empty($pendaftaran->tinggi_badan) && is_numeric($pendaftaran->tinggi_badan)) {
+            try {
+                $results['body_height'] = $this->createObservation(array_merge($baseData, [
+                    'vital_type'        => 'body_height',
+                    'value'             => (float) $pendaftaran->tinggi_badan,
+                    'encounter_display' => "{$displayPrefix} Tinggi Badan {$pasien->nama_pasien}",
+                ]));
+            } catch (\Exception $e) {
+                Log::warning("Observation Body Height gagal: " . $e->getMessage());
+                $results['body_height'] = ['error' => $e->getMessage()];
+            }
+        }
+
+        // 6. BMI (auto-hitung dari berat_badan & tinggi_badan)
+        if (!empty($pendaftaran->berat_badan) && !empty($pendaftaran->tinggi_badan)
+            && is_numeric($pendaftaran->berat_badan) && is_numeric($pendaftaran->tinggi_badan)
+            && (float) $pendaftaran->tinggi_badan > 0
+        ) {
+            $heightM = (float) $pendaftaran->tinggi_badan / 100;
+            $bmi = round((float) $pendaftaran->berat_badan / ($heightM * $heightM), 1);
+
+            try {
+                $results['body_mass_index'] = $this->createObservation(array_merge($baseData, [
+                    'vital_type'        => 'body_mass_index',
+                    'value'             => $bmi,
+                    'encounter_display' => "{$displayPrefix} BMI {$pasien->nama_pasien}",
+                ]));
+            } catch (\Exception $e) {
+                Log::warning("Observation BMI gagal: " . $e->getMessage());
+                $results['body_mass_index'] = ['error' => $e->getMessage()];
+            }
+        }
+
+        return $results;
+    }
+
+    /**
+     * Update an existing Observation in SatuSehat.
+     * PUT {baseUrl}/Observation/{id}
+     *
+     * @param string $observationUuid UUID Observation yang akan di-update
+     * @param array  $data Expecting keys:
+     *   - pasien (MstPasien model)
+     *   - encounter_uuid (string)
+     *   - encounter_display (string)
+     *   - vital_type (string, opsional) — key dari VITAL_SIGN_MAP
+     *   - value (numeric)
+     *   - effective_date (string, Y-m-d, opsional)
+     *   - issued (string, ISO8601, opsional)
+     *
+     * Atau parameter manual (jika vital_type tidak diisi):
+     *   - observation_code, observation_display, unit, unit_code
+     */
+    public function updateObservation(string $observationUuid, array $data)
+    {
+        $pasien = $data['pasien']; // MstPasien model
+
+        // Resolve dari VITAL_SIGN_MAP jika vital_type diberikan
+        if (!empty($data['vital_type']) && isset(self::VITAL_SIGN_MAP[$data['vital_type']])) {
+            $map = self::VITAL_SIGN_MAP[$data['vital_type']];
+            $observationCode    = $map['loinc_code'];
+            $observationDisplay = $map['display'];
+            $unit               = $map['unit'];
+            $unitCode           = $map['ucum_code'];
+        } else {
+            $observationCode    = $data['observation_code'];
+            $observationDisplay = $data['observation_display'];
+            $unit               = $data['unit'];
+            $unitCode           = $data['unit_code'];
+        }
+
+        $body = [
+            "resourceType" => "Observation",
+            "id" => $observationUuid,
+            "status" => "final",
+            "category" => [
+                [
+                    "coding" => [
+                        [
+                            "system" => "http://terminology.hl7.org/CodeSystem/observation-category",
+                            "code" => "vital-signs",
+                            "display" => "Vital Signs",
+                        ]
+                    ]
+                ]
+            ],
+            "code" => [
+                "coding" => [
+                    [
+                        "system" => "http://loinc.org",
+                        "code" => $observationCode,
+                        "display" => $observationDisplay,
+                    ]
+                ]
+            ],
+            "subject" => [
+                "reference" => "Patient/" . $pasien->satusehat_uuid,
+            ],
+            "encounter" => [
+                "reference" => "Encounter/" . $data['encounter_uuid'],
+                "display" => $data['encounter_display'] ?? '',
+            ],
+            "effectiveDateTime" => $this->formatUtcDateTime($data['effective_date'] ?? null),
+            "issued" => $this->formatUtcDateTime($data['issued'] ?? null),
+            "valueQuantity" => [
+                "value" => (float) $data['value'],
+                "unit" => $unit,
+                "system" => "http://unitsofmeasure.org",
+                "code" => $unitCode,
+            ],
+        ];
+
+        $url = $this->getBaseUrl() . '/Observation/' . $observationUuid;
+        $response = Http::withHeaders($this->getHeaders())->put($url, $body);
+
+        if ($response->successful()) {
+            $this->logSatusehatData(null, $observationUuid, $body, 'success');
+            return $response->json();
+        }
+
+        $this->logSatusehatData(null, $observationUuid, $body, 'failed');
+        throw new \Exception('Gagal update Observation di SatuSehat: ' . $response->body());
+    }
+
+    /**
+     * Update Observation Blood Pressure (FHIR component structure).
+     * PUT {baseUrl}/Observation/{id}
+     *
+     * @param string $observationUuid UUID Observation Blood Pressure
+     * @param array  $data Expecting keys:
+     *   - pasien (MstPasien model)
+     *   - encounter_uuid (string)
+     *   - encounter_display (string)
+     *   - systolic (numeric)
+     *   - diastolic (numeric)
+     *   - effective_date (string, opsional)
+     *   - issued (string, opsional)
+     */
+    public function updateObservationBloodPressure(string $observationUuid, array $data)
+    {
+        $pasien = $data['pasien'];
+        $bp     = self::VITAL_SIGN_MAP['blood_pressure'];
+
+        $body = [
+            "resourceType" => "Observation",
+            "id" => $observationUuid,
+            "status" => "final",
+            "category" => [
+                [
+                    "coding" => [
+                        [
+                            "system" => "http://terminology.hl7.org/CodeSystem/observation-category",
+                            "code" => "vital-signs",
+                            "display" => "Vital Signs",
+                        ]
+                    ]
+                ]
+            ],
+            "code" => [
+                "coding" => [
+                    [
+                        "system" => "http://loinc.org",
+                        "code" => $bp['loinc_code'],
+                        "display" => $bp['display'],
+                    ]
+                ]
+            ],
+            "subject" => [
+                "reference" => "Patient/" . $pasien->satusehat_uuid,
+            ],
+            "encounter" => [
+                "reference" => "Encounter/" . $data['encounter_uuid'],
+                "display" => $data['encounter_display'] ?? '',
+            ],
+            "effectiveDateTime" => $this->formatUtcDateTime($data['effective_date'] ?? null),
+            "issued" => $this->formatUtcDateTime($data['issued'] ?? null),
+            "component" => [
+                [
+                    "code" => [
+                        "coding" => [
+                            [
+                                "system" => "http://loinc.org",
+                                "code" => $bp['systolic']['loinc_code'],
+                                "display" => $bp['systolic']['display'],
+                            ]
+                        ]
+                    ],
+                    "valueQuantity" => [
+                        "value" => (float) $data['systolic'],
+                        "unit" => $bp['systolic']['unit'],
+                        "system" => "http://unitsofmeasure.org",
+                        "code" => $bp['systolic']['ucum_code'],
+                    ],
+                ],
+                [
+                    "code" => [
+                        "coding" => [
+                            [
+                                "system" => "http://loinc.org",
+                                "code" => $bp['diastolic']['loinc_code'],
+                                "display" => $bp['diastolic']['display'],
+                            ]
+                        ]
+                    ],
+                    "valueQuantity" => [
+                        "value" => (float) $data['diastolic'],
+                        "unit" => $bp['diastolic']['unit'],
+                        "system" => "http://unitsofmeasure.org",
+                        "code" => $bp['diastolic']['ucum_code'],
+                    ],
+                ],
+            ],
+        ];
+
+        $url = $this->getBaseUrl() . '/Observation/' . $observationUuid;
+        $response = Http::withHeaders($this->getHeaders())->put($url, $body);
+
+        if ($response->successful()) {
+            $this->logSatusehatData(null, $observationUuid, $body, 'success');
+            return $response->json();
+        }
+
+        $this->logSatusehatData(null, $observationUuid, $body, 'failed');
+        throw new \Exception('Gagal update Observation (Blood Pressure) di SatuSehat: ' . $response->body());
+    }
+
+    // ==========================================
+    // UTILITY: FORMAT WAKTU & VALIDASI TANGGAL
+    // ==========================================
+
+    /**
+     * Konversi datetime ke format UTC+00 sesuai standar SatuSehat.
+     *
+     * SatuSehat mengharuskan semua waktu dikirim dalam UTC+00.
+     * Contoh: 17:35 WIB (UTC+7) → 10:35 UTC → "2023-08-23T10:35:00+00:00"
+     *
+     * @param  string|Carbon|\DateTimeInterface|null $datetime  Waktu input (lokal/any timezone)
+     * @return string Format: "Y-m-d\TH:i:s+00:00"
+     */
+    protected function formatUtcDateTime($datetime = null): string
+    {
+        if ($datetime instanceof Carbon || $datetime instanceof \DateTimeInterface) {
+            $carbon = Carbon::parse($datetime);
+        } elseif (is_string($datetime) && !empty($datetime)) {
+            $carbon = Carbon::parse($datetime);
+        } else {
+            // Default: waktu sekarang
+            $carbon = Carbon::now();
+        }
+
+        // Validasi tanggal minimum
+        $this->validateDateNotBeforeMinimum($carbon);
+
+        // Convert ke UTC+00
+        return $carbon->setTimezone('UTC')->format('Y-m-d\TH:i:s+00:00');
+    }
+
+    /**
+     * Konversi date ke format UTC date (Y-m-d) sesuai standar SatuSehat.
+     *
+     * Digunakan untuk field yang hanya butuh tanggal saja (misal: birthDate).
+     *
+     * @param  string|Carbon|\DateTimeInterface|null $date  Tanggal input
+     * @return string Format: "Y-m-d"
+     */
+    protected function formatUtcDate($date = null): string
+    {
+        if ($date instanceof Carbon || $date instanceof \DateTimeInterface) {
+            $carbon = Carbon::parse($date);
+        } elseif (is_string($date) && !empty($date)) {
+            $carbon = Carbon::parse($date);
+        } else {
+            $carbon = Carbon::now();
+        }
+
+        // Validasi tanggal minimum
+        $this->validateDateNotBeforeMinimum($carbon);
+
+        return $carbon->format('Y-m-d');
+    }
+
+    /**
+     * Validasi bahwa tanggal tidak kurang dari tanggal minimum SatuSehat (03 Juni 2014).
+     *
+     * @param  Carbon $date
+     * @throws \Exception jika tanggal sebelum minimum
+     */
+    protected function validateDateNotBeforeMinimum(Carbon $date): void
+    {
+        $minDate = Carbon::parse(self::SATUSEHAT_MIN_DATE);
+
+        if ($date->lt($minDate)) {
+            throw new \Exception(
+                'Tanggal pengiriman SatuSehat tidak boleh kurang dari ' 
+                . $minDate->format('d F Y') . '. '
+                . 'Tanggal yang dikirim: ' . $date->format('d F Y')
+            );
+        }
+    }
+
+    /**
+     * Mendapatkan waktu sekarang dalam format UTC+00 untuk SatuSehat.
+     *
+     * @return string Format: "Y-m-d\TH:i:s+00:00"
+     */
+    protected function nowUtc(): string
+    {
+        return Carbon::now()->setTimezone('UTC')->format('Y-m-d\TH:i:s+00:00');
+    }
+
+    /**
+     * Log payload yang dikirim ke SatuSehat ke tabel trx_satusehat_data.
+     */
+    protected function logSatusehatData(?string $organizationId, ?string $resourceUuid, array $payload, string $status = 'pending')
+    {
+        try {
+            \App\Models\TrxSatusehatData::create([
+                'organization_id' => $organizationId,
+                'resource_uuid'   => $resourceUuid,
+                'isi_json'        => json_encode($payload),
+                'status'          => $status,
+            ]);
+        } catch (\Exception $e) {
+            Log::warning('Gagal menyimpan log SatuSehat data: ' . $e->getMessage());
+        }
     }
 
     /**
