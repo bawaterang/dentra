@@ -73,6 +73,16 @@ class TrxPendaftaran extends Model
         return $this->hasOne(TrxBilling::class, 'nomor_kunjungan', 'nomor_kunjungan');
     }
 
+    public function diagnoses()
+    {
+        return $this->hasMany(TrxDiagnosis::class, 'nomor_kunjungan', 'nomor_kunjungan');
+    }
+
+    public function satusehatStatuses()
+    {
+        return $this->hasMany(TrxSatusehatStatus::class, 'nomor_kunjungan', 'nomor_kunjungan');
+    }
+
     /**
      * Generate nomor kunjungan otomatis format: YYYYMMDDXXXX
      */

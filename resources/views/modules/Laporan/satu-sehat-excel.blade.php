@@ -24,7 +24,13 @@
             <td>{{ $item->pasien ? $item->pasien->nama_pasien : '-' }}</td>
             <td>{{ $item->pasien ? $item->pasien->no_rm : '-' }}</td>
             <td>{{ $item->pasien && $item->pasien->nik ? $item->pasien->nik : '-' }}</td>
-            <td>{{ $item->status_bundle ?: 'Pending' }}</td>
+            @php
+                $statuses = \App\Models\TrxSatusehatStatus::where('nomor_kunjungan', $item->nomor_kunjungan)->get();
+                $successCount = $statuses->where('resource_status', 'Success')->count();
+                $failedCount = $statuses->where('resource_status', 'Failed')->count();
+                $bundleStatus = $statuses->isEmpty() ? 'Pending' : ($failedCount === 0 ? 'Success' : ($successCount === 0 ? 'Failed' : 'Partial'));
+            @endphp
+            <td>{{ $bundleStatus }}</td>
             <td>{{ $item->created_at ? $item->created_at->format('Y-m-d H:i:s') : '-' }}</td>
         </tr>
         @endforeach

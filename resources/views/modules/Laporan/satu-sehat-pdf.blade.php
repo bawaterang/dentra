@@ -58,7 +58,13 @@
                     <div class="font-bold">{{ $item->pasien && $item->pasien->nik ? $item->pasien->nik : '-' }}</div>
                 </td>
                 <td>
-                    <div class="font-bold">{{ $item->status_bundle ?: 'Pending' }}</div>
+                    @php
+                        $statuses = \App\Models\TrxSatusehatStatus::where('nomor_kunjungan', $item->nomor_kunjungan)->get();
+                        $successCount = $statuses->where('resource_status', 'Success')->count();
+                        $failedCount = $statuses->where('resource_status', 'Failed')->count();
+                        $bundleStatus = $statuses->isEmpty() ? 'Pending' : ($failedCount === 0 ? 'Success' : ($successCount === 0 ? 'Failed' : 'Partial'));
+                    @endphp
+                    <div class="font-bold">{{ $bundleStatus }}</div>
                 </td>
                 <td>
                     {{ $item->created_at ? $item->created_at->format('d/m/Y H:i') : '-' }}

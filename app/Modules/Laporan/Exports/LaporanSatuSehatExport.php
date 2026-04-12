@@ -29,8 +29,6 @@ class LaporanSatuSehatExport implements FromView, ShouldAutoSize, WithStyles
     public function view(): View
     {
         $query = TrxPendaftaran::with(['pasien', 'poli', 'asuransi'])
-            ->leftJoin('trx_satusehat_status', 'trx_pendaftaran.nomor_kunjungan', '=', 'trx_satusehat_status.nomor_kunjungan')
-            ->select('trx_pendaftaran.*', 'trx_satusehat_status.status_bundle')
             ->whereNotNull('trx_pendaftaran.created_at');
 
         if ($this->periodType === 'DAILY') {

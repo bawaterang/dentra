@@ -14,8 +14,6 @@ class LaporanSatuSehatExportController extends Controller
     public function getData($periodType, $selectedDate, $selectedBulan, $selectedTahun, $search = '')
     {
         $query = TrxPendaftaran::with(['pasien', 'poli', 'asuransi'])
-            ->leftJoin('trx_satusehat_status', 'trx_pendaftaran.nomor_kunjungan', '=', 'trx_satusehat_status.nomor_kunjungan')
-            ->select('trx_pendaftaran.*', 'trx_satusehat_status.status_bundle')
             ->whereNotNull('trx_pendaftaran.created_at');
 
         if ($periodType === 'DAILY') {

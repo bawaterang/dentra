@@ -2241,18 +2241,414 @@ class SatuSehatService
 
     /**
      * Log payload yang dikirim ke SatuSehat ke tabel trx_satusehat_data.
+     *
+     * @param string|null $organizationId
+     * @param string|null $resourceUuid
+     * @param array       $payload
+     * @param string      $status
+     * @param string|null $nomorKunjungan
+     * @param string|null $resourceType   Encounter, Condition, Observation
      */
-    protected function logSatusehatData(?string $organizationId, ?string $resourceUuid, array $payload, string $status = 'pending')
-    {
+    protected function logSatusehatData(
+        ?string $organizationId,
+        ?string $resourceUuid,
+        array $payload,
+        string $status = 'pending',
+        ?string $nomorKunjungan = null,
+        ?string $resourceType = null
+    ) {
         try {
             \App\Models\TrxSatusehatData::create([
+                'nomor_kunjungan' => $nomorKunjungan,
                 'organization_id' => $organizationId,
+                'resource_type'   => $resourceType,
                 'resource_uuid'   => $resourceUuid,
                 'isi_json'        => json_encode($payload),
                 'status'          => $status,
             ]);
         } catch (\Exception $e) {
             Log::warning('Gagal menyimpan log SatuSehat data: ' . $e->getMessage());
+        }
+    }
+
+    // ==========================================
+    // RESUME MEDIS ORCHESTRATOR
+    // ==========================================
+
+    /**
+     * Kirim Resume Medis lengkap ke SatuSehat untuk satu kunjungan.
+     *
+     * Flow: Encounter (create→in-progress→discharge→finished) → Condition → Observation
+     *
+     * Setiap resource yang berhasil/gagal disimpan per-baris di trx_satusehat_status.
+     * Data payload dikirim ke trx_satusehat_data.
+     *
+     * @param string      $nomorKunjungan
+     * @param string|null $createdBy User yang memicu pengiriman
+     * @return array Ringkasan hasil pengiriman
+     */
+    public function sendResumeMedis(string $nomorKunjungan, ?string $createdBy = null): array
+    {
+        $results = [
+            'nomor_kunjungan' => $nomorKunjungan,
+            'encounter'       => null,
+            'conditions'      => [],
+            'observations'    => [],
+            'errors'          => [],
+        ];
+
+        // ── Load data pendaftaran ──
+        $pendaftaran = \App\Models\TrxPendaftaran::with(['pasien', 'dokter', 'poli', 'diagnoses.masterDiagnosis'])
+            ->where('nomor_kunjungan', $nomorKunjungan)
+            ->first();
+
+        if (!$pendaftaran) {
+            throw new \Exception("Data pendaftaran dengan nomor kunjungan {$nomorKunjungan} tidak ditemukan.");
+        }
+
+        $pasien = $pendaftaran->pasien;
+        $dokter = $pendaftaran->dokter;
+
+        if (!$pasien || !$pasien->satusehat_uuid) {
+            throw new \Exception("Pasien belum memiliki SatuSehat UUID. Silakan sinkronisasi pasien terlebih dahulu.");
+        }
+        if (!$dokter || !$dokter->practitioner_id) {
+            throw new \Exception("Dokter belum memiliki Practitioner ID SatuSehat. Silakan sinkronisasi dokter terlebih dahulu.");
+        }
+
+        // ── Ambil Location & Instansi ──
+        $location = \App\Models\MstLocation::where('status', 'active')->first()
+                 ?? \App\Models\MstLocation::first();
+
+        if (!$location || !$location->location_id) {
+            throw new \Exception("Location SatuSehat belum tersedia. Silakan setup Location terlebih dahulu.");
+        }
+
+        $instansi = \App\Models\MstInstansi::first();
+        if (!$instansi || !$instansi->organization_id) {
+            throw new \Exception("Data instansi/Organization SatuSehat belum tersedia.");
+        }
+
+        $periodStart = $pendaftaran->created_at;
+        $periodEnd   = $pendaftaran->updated_at ?? $pendaftaran->created_at;
+
+        // ================================================================
+        // STEP 1: ENCOUNTER
+        // ================================================================
+        $encounterUuid = null;
+        try {
+            // 1a. Create Encounter (arrived)
+            $encounterData = [
+                'pasien'          => $pasien,
+                'dokter'          => $dokter,
+                'location'        => $location,
+                'nomor_kunjungan' => $nomorKunjungan,
+                'period_start'    => $periodStart,
+            ];
+
+            $encounterResult = $this->createEncounter($encounterData);
+            $encounterUuid   = $encounterResult['id'] ?? null;
+
+            if (!$encounterUuid) {
+                throw new \Exception('Encounter UUID tidak ditemukan dalam response.');
+            }
+
+            // 1b. Update to in-progress
+            $inProgressData = array_merge($encounterData, [
+                'period_end'       => $periodEnd,
+                'arrived_start'    => $periodStart,
+                'arrived_end'      => $periodStart,
+                'inprogress_start' => $periodStart,
+                'inprogress_end'   => $periodEnd,
+            ]);
+            $this->updateEncounterInProgress($encounterUuid, $inProgressData);
+
+            // Simpan status Encounter berhasil
+            $this->saveResourceStatus($nomorKunjungan, $pasien->satusehat_uuid, 'Encounter', $encounterUuid, 'Success', $createdBy);
+            $results['encounter'] = ['uuid' => $encounterUuid, 'status' => 'Success'];
+
+        } catch (\Exception $e) {
+            Log::error("SendResumeMedis Encounter gagal [{$nomorKunjungan}]: " . $e->getMessage());
+            $this->saveResourceStatus($nomorKunjungan, $pasien->satusehat_uuid, 'Encounter', null, 'Failed', $createdBy);
+            $results['encounter'] = ['uuid' => null, 'status' => 'Failed', 'error' => $e->getMessage()];
+            $results['errors'][] = 'Encounter: ' . $e->getMessage();
+            // Encounter gagal → tidak bisa lanjut
+            return $results;
+        }
+
+        // ================================================================
+        // STEP 2: CONDITION (Diagnosis)
+        // ================================================================
+        $conditionUuids = [];
+        $diagnoses = $pendaftaran->diagnoses;
+
+        if ($diagnoses->isNotEmpty()) {
+            foreach ($diagnoses as $idx => $trxDiag) {
+                try {
+                    $diagCode    = $trxDiag->kode_diagnosa;
+                    $diagDisplay = $trxDiag->masterDiagnosis ? $trxDiag->masterDiagnosis->nama_diagnosa : $diagCode;
+
+                    $conditionResult = $this->createCondition([
+                        'pasien'            => $pasien,
+                        'encounter_uuid'    => $encounterUuid,
+                        'encounter_display' => "Kunjungan {$pasien->nama_pasien} tanggal " . ($pendaftaran->created_at ? $pendaftaran->created_at->format('d/m/Y') : '-'),
+                        'diagnosis_code'    => $diagCode,
+                        'diagnosis_display' => $diagDisplay,
+                    ]);
+
+                    $condUuid = $conditionResult['id'] ?? null;
+                    $conditionUuids[] = [
+                        'condition_uuid'    => $condUuid,
+                        'condition_display' => $diagDisplay,
+                        'rank'              => $idx + 1,
+                    ];
+
+                    $this->saveResourceStatus($nomorKunjungan, $pasien->satusehat_uuid, 'Condition', $condUuid, 'Success', $createdBy);
+                    $results['conditions'][] = ['uuid' => $condUuid, 'code' => $diagCode, 'status' => 'Success'];
+
+                } catch (\Exception $e) {
+                    Log::error("SendResumeMedis Condition gagal [{$nomorKunjungan}] {$diagCode}: " . $e->getMessage());
+                    $this->saveResourceStatus($nomorKunjungan, $pasien->satusehat_uuid, 'Condition', null, 'Failed', $createdBy);
+                    $results['conditions'][] = ['uuid' => null, 'code' => $diagCode ?? '-', 'status' => 'Failed', 'error' => $e->getMessage()];
+                    $results['errors'][] = "Condition ({$diagCode}): " . $e->getMessage();
+                }
+            }
+        } else {
+            // Tidak ada diagnosis → kirim Condition Stable
+            try {
+                $conditionResult = $this->createConditionStable([
+                    'pasien'            => $pasien,
+                    'encounter_uuid'    => $encounterUuid,
+                    'encounter_display' => "Kunjungan {$pasien->nama_pasien} tanggal " . ($pendaftaran->created_at ? $pendaftaran->created_at->format('d/m/Y') : '-'),
+                ]);
+
+                $condUuid = $conditionResult['id'] ?? null;
+                $conditionUuids[] = [
+                    'condition_uuid'    => $condUuid,
+                    'condition_display' => "Patient's condition stable",
+                    'rank'              => 1,
+                ];
+
+                $this->saveResourceStatus($nomorKunjungan, $pasien->satusehat_uuid, 'Condition', $condUuid, 'Success', $createdBy);
+                $results['conditions'][] = ['uuid' => $condUuid, 'code' => 'Stable', 'status' => 'Success'];
+
+            } catch (\Exception $e) {
+                Log::error("SendResumeMedis ConditionStable gagal [{$nomorKunjungan}]: " . $e->getMessage());
+                $this->saveResourceStatus($nomorKunjungan, $pasien->satusehat_uuid, 'Condition', null, 'Failed', $createdBy);
+                $results['conditions'][] = ['uuid' => null, 'code' => 'Stable', 'status' => 'Failed', 'error' => $e->getMessage()];
+                $results['errors'][] = 'Condition (Stable): ' . $e->getMessage();
+            }
+        }
+
+        // ── Update Encounter discharge + finished ──
+        try {
+            $dischargeData = array_merge($encounterData, [
+                'period_end'       => $periodEnd,
+                'arrived_start'    => $periodStart,
+                'arrived_end'      => $periodStart,
+                'inprogress_start' => $periodStart,
+                'inprogress_end'   => $periodEnd,
+                'discharge_code'   => 'home',
+                'discharge_display' => 'Home',
+                'discharge_text'   => 'Pulang dalam keadaan sehat',
+            ]);
+            $this->updateEncounterDischargeDisposition($encounterUuid, $dischargeData);
+
+            $finishedData = array_merge($encounterData, [
+                'period_end'       => $periodEnd,
+                'arrived_start'    => $periodStart,
+                'arrived_end'      => $periodStart,
+                'inprogress_start' => $periodStart,
+                'inprogress_end'   => $periodEnd,
+                'finished_start'   => $periodEnd,
+                'finished_end'     => $periodEnd,
+                'diagnosis'        => $conditionUuids,
+            ]);
+            $this->updateEncounterFinished($encounterUuid, $finishedData);
+
+        } catch (\Exception $e) {
+            Log::error("SendResumeMedis Encounter finalize gagal [{$nomorKunjungan}]: " . $e->getMessage());
+            $results['errors'][] = 'Encounter Finalize: ' . $e->getMessage();
+        }
+
+        // ================================================================
+        // STEP 3: OBSERVATION (Vital Signs)
+        // ================================================================
+        try {
+            $obsResults = $this->createObservationAllVitalSigns([
+                'pendaftaran'    => $pendaftaran,
+                'encounter_uuid' => $encounterUuid,
+            ]);
+
+            foreach ($obsResults as $vitalType => $obsResult) {
+                if (isset($obsResult['error'])) {
+                    $this->saveResourceStatus($nomorKunjungan, $pasien->satusehat_uuid, 'Observation', null, 'Failed', $createdBy);
+                    $results['observations'][] = ['type' => $vitalType, 'status' => 'Failed', 'error' => $obsResult['error']];
+                    $results['errors'][] = "Observation ({$vitalType}): " . $obsResult['error'];
+                } else {
+                    $obsUuid = $obsResult['id'] ?? null;
+                    $this->saveResourceStatus($nomorKunjungan, $pasien->satusehat_uuid, 'Observation', $obsUuid, 'Success', $createdBy);
+                    $results['observations'][] = ['type' => $vitalType, 'uuid' => $obsUuid, 'status' => 'Success'];
+                }
+            }
+        } catch (\Exception $e) {
+            Log::error("SendResumeMedis Observation gagal [{$nomorKunjungan}]: " . $e->getMessage());
+            $this->saveResourceStatus($nomorKunjungan, $pasien->satusehat_uuid, 'Observation', null, 'Failed', $createdBy);
+            $results['observations'][] = ['type' => 'all', 'status' => 'Failed', 'error' => $e->getMessage()];
+            $results['errors'][] = 'Observation: ' . $e->getMessage();
+        }
+
+        return $results;
+    }
+
+    /**
+     * Kirim ulang (retry) resource yang gagal untuk satu kunjungan.
+     *
+     * @param string $nomorKunjungan
+     * @param string $resourceType   'Encounter', 'Condition', atau 'Observation'
+     * @param string|null $createdBy
+     * @return array Hasil pengiriman ulang
+     */
+    public function retrySendResource(string $nomorKunjungan, string $resourceType, ?string $createdBy = null): array
+    {
+        // Hapus status lama yang gagal untuk resource type ini
+        \App\Models\TrxSatusehatStatus::where('nomor_kunjungan', $nomorKunjungan)
+            ->where('resource_type', $resourceType)
+            ->where('resource_status', 'Failed')
+            ->delete();
+
+        $pendaftaran = \App\Models\TrxPendaftaran::with(['pasien', 'dokter', 'poli', 'diagnoses.masterDiagnosis'])
+            ->where('nomor_kunjungan', $nomorKunjungan)
+            ->first();
+
+        if (!$pendaftaran) {
+            throw new \Exception("Data pendaftaran tidak ditemukan.");
+        }
+
+        $pasien   = $pendaftaran->pasien;
+        $dokter   = $pendaftaran->dokter;
+        $location = \App\Models\MstLocation::where('status', 'active')->first() ?? \App\Models\MstLocation::first();
+        $instansi = \App\Models\MstInstansi::first();
+
+        if (!$pasien?->satusehat_uuid || !$dokter?->practitioner_id || !$location?->location_id || !$instansi?->organization_id) {
+            throw new \Exception("Pre-requisite data belum lengkap untuk retry.");
+        }
+
+        // Cari Encounter UUID yang sudah berhasil (jika ada)
+        $existingEncounter = \App\Models\TrxSatusehatStatus::where('nomor_kunjungan', $nomorKunjungan)
+            ->where('resource_type', 'Encounter')
+            ->where('resource_status', 'Success')
+            ->first();
+
+        $encounterUuid = $existingEncounter?->resource_uuid;
+
+        $periodStart = $pendaftaran->created_at;
+        $periodEnd   = $pendaftaran->updated_at ?? $pendaftaran->created_at;
+        $results     = ['resource_type' => $resourceType, 'items' => [], 'errors' => []];
+
+        if ($resourceType === 'Encounter') {
+            // Retry seluruh flow karena Encounter adalah fondasi
+            return $this->sendResumeMedis($nomorKunjungan, $createdBy);
+        }
+
+        if (!$encounterUuid) {
+            throw new \Exception("Encounter UUID belum tersedia. Kirim ulang Encounter terlebih dahulu.");
+        }
+
+        if ($resourceType === 'Condition') {
+            $diagnoses = $pendaftaran->diagnoses;
+
+            if ($diagnoses->isNotEmpty()) {
+                foreach ($diagnoses as $idx => $trxDiag) {
+                    try {
+                        $diagCode    = $trxDiag->kode_diagnosa;
+                        $diagDisplay = $trxDiag->masterDiagnosis ? $trxDiag->masterDiagnosis->nama_diagnosa : $diagCode;
+
+                        $condResult = $this->createCondition([
+                            'pasien'            => $pasien,
+                            'encounter_uuid'    => $encounterUuid,
+                            'encounter_display' => "Kunjungan {$pasien->nama_pasien}",
+                            'diagnosis_code'    => $diagCode,
+                            'diagnosis_display' => $diagDisplay,
+                        ]);
+
+                        $condUuid = $condResult['id'] ?? null;
+                        $this->saveResourceStatus($nomorKunjungan, $pasien->satusehat_uuid, 'Condition', $condUuid, 'Success', $createdBy);
+                        $results['items'][] = ['uuid' => $condUuid, 'code' => $diagCode, 'status' => 'Success'];
+                    } catch (\Exception $e) {
+                        $this->saveResourceStatus($nomorKunjungan, $pasien->satusehat_uuid, 'Condition', null, 'Failed', $createdBy);
+                        $results['items'][] = ['code' => $diagCode ?? '-', 'status' => 'Failed', 'error' => $e->getMessage()];
+                        $results['errors'][] = $e->getMessage();
+                    }
+                }
+            } else {
+                try {
+                    $condResult = $this->createConditionStable([
+                        'pasien'            => $pasien,
+                        'encounter_uuid'    => $encounterUuid,
+                        'encounter_display' => "Kunjungan {$pasien->nama_pasien}",
+                    ]);
+                    $condUuid = $condResult['id'] ?? null;
+                    $this->saveResourceStatus($nomorKunjungan, $pasien->satusehat_uuid, 'Condition', $condUuid, 'Success', $createdBy);
+                    $results['items'][] = ['uuid' => $condUuid, 'code' => 'Stable', 'status' => 'Success'];
+                } catch (\Exception $e) {
+                    $this->saveResourceStatus($nomorKunjungan, $pasien->satusehat_uuid, 'Condition', null, 'Failed', $createdBy);
+                    $results['items'][] = ['code' => 'Stable', 'status' => 'Failed', 'error' => $e->getMessage()];
+                    $results['errors'][] = $e->getMessage();
+                }
+            }
+        }
+
+        if ($resourceType === 'Observation') {
+            try {
+                $obsResults = $this->createObservationAllVitalSigns([
+                    'pendaftaran'     => $pendaftaran,
+                    'encounter_uuid'  => $encounterUuid,
+                ]);
+
+                foreach ($obsResults as $vitalType => $obsResult) {
+                    if (isset($obsResult['error'])) {
+                        $this->saveResourceStatus($nomorKunjungan, $pasien->satusehat_uuid, 'Observation', null, 'Failed', $createdBy);
+                        $results['items'][] = ['type' => $vitalType, 'status' => 'Failed', 'error' => $obsResult['error']];
+                        $results['errors'][] = $obsResult['error'];
+                    } else {
+                        $obsUuid = $obsResult['id'] ?? null;
+                        $this->saveResourceStatus($nomorKunjungan, $pasien->satusehat_uuid, 'Observation', $obsUuid, 'Success', $createdBy);
+                        $results['items'][] = ['type' => $vitalType, 'uuid' => $obsUuid, 'status' => 'Success'];
+                    }
+                }
+            } catch (\Exception $e) {
+                $this->saveResourceStatus($nomorKunjungan, $pasien->satusehat_uuid, 'Observation', null, 'Failed', $createdBy);
+                $results['items'][] = ['type' => 'all', 'status' => 'Failed', 'error' => $e->getMessage()];
+                $results['errors'][] = $e->getMessage();
+            }
+        }
+
+        return $results;
+    }
+
+    /**
+     * Simpan status per-resource ke trx_satusehat_status.
+     */
+    protected function saveResourceStatus(
+        string $nomorKunjungan,
+        ?string $patientId,
+        string $resourceType,
+        ?string $resourceUuid,
+        string $resourceStatus,
+        ?string $createdBy = null
+    ): void {
+        try {
+            \App\Models\TrxSatusehatStatus::create([
+                'nomor_kunjungan'  => $nomorKunjungan,
+                'patient_id'       => $patientId,
+                'resource_type'    => $resourceType,
+                'resource_uuid'    => $resourceUuid,
+                'resource_status'  => $resourceStatus,
+                'created_by'       => $createdBy,
+            ]);
+        } catch (\Exception $e) {
+            Log::warning("Gagal menyimpan status resource [{$resourceType}]: " . $e->getMessage());
         }
     }
 
