@@ -26,6 +26,7 @@ class TransaksiPage extends Component
     public $obyektif = '';
     public $assessment = '';
     public $planning = '';
+    public $rekomendasi_diet = '';
 
     // Transaction Lists (Simulated for UI)
     public $diagnoses = [];
@@ -113,11 +114,13 @@ class TransaksiPage extends Component
             $this->obyektif = $pemeriksaan->objective ?? '';
             $this->assessment = $pemeriksaan->assessment ?? '';
             $this->planning = $pemeriksaan->planning ?? '';
+            $this->rekomendasi_diet = $pemeriksaan->rekomendasi_diet ?? '';
         } else {
             $this->subyektif = '';
             $this->obyektif = '';
             $this->assessment = '';
             $this->planning = '';
+            $this->rekomendasi_diet = '';
         }
         
         // Vitals / Pemeriksaan Awal (From Pendaftaran)
@@ -214,6 +217,7 @@ class TransaksiPage extends Component
                 'objective' => $this->obyektif,
                 'assessment' => $this->assessment,
                 'planning' => $this->planning,
+                'rekomendasi_diet' => $this->rekomendasi_diet,
                 'created_by' => auth()->user()->username ?? 'System',
                 'updated_at' => now(),
             ]
@@ -1014,6 +1018,13 @@ class TransaksiPage extends Component
                                                     <span class="text-[9px] font-bold text-gray-400">Rencana Terapi</span>
                                                 </div>
                                                 <textarea wire:model.defer="planning" rows="5" class="w-full rounded-2xl border border-gray-200 text-sm focus:border-[#405189] focus:ring-4 focus:ring-[#405189]/10 transition-all p-5 bg-gray-50/30 font-medium" placeholder="Tuliskan rencana tindakan..."></textarea>
+                                            </div>
+                                            <div class="form-group lg:col-span-2">
+                                                <div class="flex justify-between items-center mb-2">
+                                                    <label class="block text-[11px] font-black text-emerald-600 uppercase tracking-widest m-0">Rekomendasi Diet</label>
+                                                    <span class="text-[9px] font-bold text-gray-400">Nutrisi & Edukasi</span>
+                                                </div>
+                                                <textarea wire:model.defer="rekomendasi_diet" rows="3" class="w-full rounded-2xl border border-emerald-100 text-sm focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all p-5 bg-emerald-50/30 font-medium text-emerald-900 placeholder:text-emerald-300" placeholder="Tuliskan rekomendasi diet atau anjuran nutrisi untuk pasien..."></textarea>
                                             </div>
                                         </div>
                                         <div class="flex justify-end pt-4 mt-6 border-t border-gray-100">
