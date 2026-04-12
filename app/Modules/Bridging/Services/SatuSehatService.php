@@ -2597,6 +2597,61 @@ class SatuSehatService
                     $results['errors'][] = $e->getMessage();
                 }
             }
+
+            // --- PASTIKAN UPDATE ENCOUNTER IKUT DIKIRIM ---
+            // Laporan pengiriman ini dilakukan di akhir, pastikan Encounter mendapatkan info discharge & up-to-date diagnosis
+            try {
+                $successConditions = \App\Models\TrxSatusehatStatus::where('nomor_kunjungan', $nomorKunjungan)
+                    ->where('resource_type', 'Condition')
+                    ->where('resource_status', 'Success')
+                    ->get();
+                    
+                $conditionUuidsForEncounter = [];
+                $rank = 1;
+                foreach ($successConditions as $stat) {
+                    $conditionUuidsForEncounter[] = [
+                        'condition_uuid'    => $stat->resource_uuid,
+                        'condition_display' => "Diagnosis $rank",
+                        'rank'              => $rank++
+                    ];
+                }
+
+                $encounterData = [
+                    'pasien'          => $pasien,
+                    'dokter'          => $dokter,
+                    'location'        => $location,
+                    'nomor_kunjungan' => $nomorKunjungan,
+                    'period_start'    => $periodStart,
+                ];
+
+                $dischargeData = array_merge($encounterData, [
+                    'period_end'       => $periodEnd,
+                    'arrived_start'    => $periodStart,
+                    'arrived_end'      => $periodStart,
+                    'inprogress_start' => $periodStart,
+                    'inprogress_end'   => $periodEnd,
+                    'discharge_code'   => 'home',
+                    'discharge_display' => 'Home',
+                    'discharge_text'   => 'Pulang dalam keadaan sehat',
+                ]);
+                $this->updateEncounterDischargeDisposition($encounterUuid, $dischargeData);
+
+                $finishedData = array_merge($encounterData, [
+                    'period_end'       => $periodEnd,
+                    'arrived_start'    => $periodStart,
+                    'arrived_end'      => $periodStart,
+                    'inprogress_start' => $periodStart,
+                    'inprogress_end'   => $periodEnd,
+                    'finished_start'   => $periodEnd,
+                    'finished_end'     => $periodEnd,
+                    'diagnosis'        => $conditionUuidsForEncounter,
+                ]);
+                $this->updateEncounterFinished($encounterUuid, $finishedData);
+
+            } catch (\Exception $e) {
+                Log::error("Retry Condition: Encounter finalize gagal [{$nomorKunjungan}]: " . $e->getMessage());
+                $results['errors'][] = 'Encounter Finalize Update: ' . $e->getMessage();
+            }
         }
 
         if ($resourceType === 'Observation') {

@@ -227,7 +227,30 @@ class LaporanSatuSehatPage extends Component
             $service  = new SatuSehatService($dokterId);
             $createdBy = Auth::user()?->name ?? 'System';
 
-            $result = $service->sendResumeMedis($nomor_kunjungan, $createdBy);
+            // Cari status saat ini untuk melihat bagian mana yang belum sukses
+            $statuses = TrxSatusehatStatus::where('nomor_kunjungan', $nomor_kunjungan)->get();
+            $statusGroup = $statuses->groupBy('resource_type');
+
+            $hasEncounterSuccess = $statusGroup->get('Encounter', collect())->where('resource_status', 'Success')->count() > 0;
+            $hasConditionSuccess = $statusGroup->get('Condition', collect())->where('resource_status', 'Success')->count() > 0;
+            $hasObservationSuccess = $statusGroup->get('Observation', collect())->where('resource_status', 'Success')->count() > 0;
+
+            if ($statuses->isEmpty() || !$hasEncounterSuccess) {
+                // Jika Encounter belum pernah sukses, jalankan ulang seluruh flow
+                $result = $service->sendResumeMedis($nomor_kunjungan, $createdBy);
+            } else {
+                // Smart Retry: kirim hanya resource yang masih gagal atau belum terkirim
+                $errors = [];
+                if (!$hasConditionSuccess) {
+                    $res = $service->retrySendResource($nomor_kunjungan, 'Condition', $createdBy);
+                    if (!empty($res['errors'])) $errors = array_merge($errors, $res['errors']);
+                }
+                if (!$hasObservationSuccess) {
+                    $res = $service->retrySendResource($nomor_kunjungan, 'Observation', $createdBy);
+                    if (!empty($res['errors'])) $errors = array_merge($errors, $res['errors']);
+                }
+                $result = ['errors' => $errors];
+            }
 
             if (empty($result['errors'])) {
                 session()->flash('success', "Resume medis kunjungan {$nomor_kunjungan} berhasil dikirim ke SatuSehat.");
@@ -270,9 +293,31 @@ class LaporanSatuSehatPage extends Component
                 $service  = new SatuSehatService($dokterId);
                 $createdBy = Auth::user()?->name ?? 'System';
 
-                $result = $service->sendResumeMedis($nomorKunjungan, $createdBy);
+                // Smart Retry / Kirim Logic per Kunjungan
+                $statuses = TrxSatusehatStatus::where('nomor_kunjungan', $nomorKunjungan)->get();
+                $statusGroup = $statuses->groupBy('resource_type');
 
-                if (empty($result['errors'])) {
+                $hasEncounterSuccess = $statusGroup->get('Encounter', collect())->where('resource_status', 'Success')->count() > 0;
+                $hasConditionSuccess = $statusGroup->get('Condition', collect())->where('resource_status', 'Success')->count() > 0;
+                $hasObservationSuccess = $statusGroup->get('Observation', collect())->where('resource_status', 'Success')->count() > 0;
+
+                $hasError = false;
+
+                if ($statuses->isEmpty() || !$hasEncounterSuccess) {
+                    $result = $service->sendResumeMedis($nomorKunjungan, $createdBy);
+                    if (!empty($result['errors'])) $hasError = true;
+                } else {
+                    if (!$hasConditionSuccess) {
+                        $res = $service->retrySendResource($nomorKunjungan, 'Condition', $createdBy);
+                        if (!empty($res['errors'])) $hasError = true;
+                    }
+                    if (!$hasObservationSuccess) {
+                        $res = $service->retrySendResource($nomorKunjungan, 'Observation', $createdBy);
+                        if (!empty($res['errors'])) $hasError = true;
+                    }
+                }
+
+                if (!$hasError) {
                     $success++;
                 } else {
                     $partial++;
@@ -503,7 +548,7 @@ class LaporanSatuSehatPage extends Component
                     inset: 0;
                     background: rgba(0,0,0,0.5);
                     backdrop-filter: blur(4px);
-                    z-index: 50;
+                    z-index: 9999;
                     display: flex;
                     align-items: center;
                     justify-content: center;
@@ -580,10 +625,17 @@ class LaporanSatuSehatPage extends Component
 
                 {{-- Sending Overlay --}}
                 @if($isSending)
-                <div class="absolute inset-0 bg-white/70 backdrop-blur-sm z-30 rounded-3xl flex items-center justify-center">
-                    <div class="flex flex-col items-center gap-3 sending-pulse">
-                        <div class="w-16 h-16 border-4 border-emerald-200 border-t-emerald-500 rounded-full animate-spin"></div>
-                        <span class="text-sm font-bold text-emerald-600">Mengirim ke SatuSehat...</span>
+                <div class="fixed inset-0 bg-white/80 backdrop-blur-md flex flex-col items-center justify-center" style="z-index: 9999;">
+                    <div class="bg-white p-8 rounded-3xl shadow-2xl flex flex-col items-center gap-4 sending-pulse max-w-sm w-full text-center border border-emerald-100">
+                        <div class="relative w-20 h-20 flex items-center justify-center">
+                            <div class="absolute inset-0 border-4 border-emerald-100 rounded-full"></div>
+                            <div class="absolute inset-0 border-4 border-emerald-500 rounded-full border-t-transparent animate-spin"></div>
+                            <i class="ri-heart-pulse-fill text-3xl text-emerald-500"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-black text-[#2c3e50] mb-1">Memproses Pengiriman...</h3>
+                            <p class="text-[11px] font-bold text-gray-400 uppercase tracking-widest px-4">Mohon tunggu, jangan tutup atau refresh halaman ini</p>
+                        </div>
                     </div>
                 </div>
                 @endif
