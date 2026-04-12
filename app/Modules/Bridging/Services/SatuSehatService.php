@@ -446,7 +446,206 @@ class SatuSehatService
     }
 
     /**
+     * Search for a Location
+     */
+    /**
+     * Search for a Location by Name
+     */
+    public function searchLocationByName(string $name)
+    {
+        $url = $this->getBaseUrl() . '/Location';
+        $params = ['name' => $name];
+        
+        $response = Http::withHeaders($this->getHeaders())->get($url, $params);
+        if ($response->successful() && !empty($response->json()['entry'])) {
+            return $response->json()['entry'];
+        }
+
+        return null;
+    }
+
+    /**
+     * Search for a Location by Organization ID
+     */
+    public function searchLocationByOrganization(string $organizationId)
+    {
+        $url = $this->getBaseUrl() . '/Location';
+        $orgRef = str_contains($organizationId, 'Organization/') ? $organizationId : 'Organization/' . $organizationId;
+        $params = ['organization' => $orgRef];
+        
+        $response = Http::withHeaders($this->getHeaders())->get($url, $params);
+        if ($response->successful() && !empty($response->json()['entry'])) {
+            return $response->json()['entry'];
+        }
+
+        return null;
+    }
+
+    /**
+     * Search for a Location by its specific ID
+     */
+    public function searchLocationByIDLocation(string $id)
+    {
+        // Fetch single resource and wrap it in FHIR search format
+        $url = $this->getBaseUrl() . '/Location/' . $id;
+        $response = Http::withHeaders($this->getHeaders())->get($url);
+        
+        if ($response->successful()) {
+            return [
+                ['resource' => $response->json()]
+            ];
+        }
+
+        return null;
+    }
+
+
+    /**
+     * Get a specific Location by ID
+     */
+    public function getLocation(string $id)
+    {
+        $url = $this->getBaseUrl() . '/Location/' . $id;
+        $response = Http::withHeaders($this->getHeaders())->get($url);
+        if ($response->successful()) {
+            return $response->json();
+        }
+
+        return null;
+    }
+
+    /**
+     * Create a Location in SatuSehat
+     */
+    public function createLocation(\App\Models\MstLocation $location)
+    {
+        $url = $this->getBaseUrl() . '/Location';
+        $payload = $this->formatLocationPayload($location);
+        
+        $response = Http::withHeaders($this->getHeaders())->post($url, $payload);
+        
+        if ($response->successful()) {
+            $data = $response->json();
+            $location->update(['location_id' => $data['id']]);
+            return $data;
+        }
+
+        throw new \Exception('SatuSehat Create Location Error: ' . $response->body());
+    }
+
+    /**
+     * Update a Location in SatuSehat
+     */
+    public function updateLocation(\App\Models\MstLocation $location)
+    {
+        if (!$location->location_id) {
+            throw new \Exception('Location ID SatuSehat tidak ditemukan.');
+        }
+
+        $url = $this->getBaseUrl() . '/Location/' . $location->location_id;
+        $payload = $this->formatLocationPayload($location, $location->location_id);
+        
+        $response = Http::withHeaders($this->getHeaders())->put($url, $payload);
+        
+        if ($response->successful()) {
+            return $response->json();
+        }
+
+        throw new \Exception('SatuSehat Update Location Error: ' . $response->body());
+    }
+
+    /**
+     * Format Location payload for FHIR R4
+     */
+    private function formatLocationPayload(\App\Models\MstLocation $location, $id = null)
+    {
+        $instansi = \App\Models\MstInstansi::first();
+        if (!$instansi) {
+            throw new \Exception('Data profil klinik (mst_instansi) tidak ditemukan.');
+        }
+
+        $payload = [
+            "resourceType" => "Location",
+            "identifier" => [
+                [
+                    "system" => "http://sys-ids.kemkes.go.id/location/" . $instansi->organization_id,
+                    "value" => $instansi->organization_name
+                ]
+            ],
+
+
+            "status" => $location->status ?: "active",
+            "name" => $location->location_name,
+            "description" => $location->description,
+            "mode" => "instance",
+            "telecom" => [
+                [
+                    "system" => "phone",
+                    "value" => $instansi->telepon,
+                    "use" => "work"
+                ],
+                [
+                    "system" => "email",
+                    "value" => $instansi->email
+                ],
+                [
+                    "system" => "url",
+                    "value" => $instansi->website,
+                    "use" => "work"
+                ]
+            ],
+            "address" => [
+                "use" => "work",
+                "line" => [$instansi->alamat],
+                "city" => $instansi->kabupaten_id ? \App\Models\MstWilayahKabupaten::where('kode', $instansi->kabupaten_id)->value('nama') : '-',
+                "postalCode" => $instansi->kode_pos,
+                "country" => "ID",
+                "extension" => [
+                    [
+                        "url" => "https://fhir.kemkes.go.id/r4/StructureDefinition/administrativeCode",
+                        "extension" => [
+                            ["url" => "province", "valueCode" => $instansi->provinsi_id],
+                            ["url" => "city", "valueCode" => $instansi->kabupaten_id],
+                            ["url" => "district", "valueCode" => $instansi->kecamatan_id],
+                            ["url" => "village", "valueCode" => $instansi->kelurahan_id],
+                            ["url" => "rt", "valueCode" => "1"],
+                            ["url" => "rw", "valueCode" => "1"]
+                        ]
+                    ]
+                ]
+            ],
+            "physicalType" => [
+                "coding" => [
+                    [
+                        "system" => "http://terminology.hl7.org/CodeSystem/location-physical-type",
+                        "code" => "ro",
+                        "display" => "Room"
+                    ]
+                ]
+            ],
+            "managingOrganization" => [
+                "reference" => "Organization/" . $instansi->organization_id
+            ]
+        ];
+
+        if ($id) {
+            $payload['id'] = $id;
+        }
+
+        if ($location->longitude && $location->latitude) {
+            $payload['position'] = [
+                "longitude" => (double)$location->longitude,
+                "latitude" => (double)$location->latitude,
+                "altitude" => 0
+            ];
+        }
+
+        return $payload;
+    }
+
+    /**
      * Request a fresh token from SatuSehat OAuth2 endpoint.
+
 
 
      */
