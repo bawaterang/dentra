@@ -54,12 +54,17 @@ class ObatPage extends Component
 
     public $kodeReadonly = false;
 
+    // KFA Properties
+    public $searchKfaKeyword = '';
+    public $kfaResults = [];
+    public $mappingObatId = null;
+
     protected $queryString = ['search', 'selectedStatus'];
 
     #[Computed]
     public function obats()
     {
-        $query = MstObat::withTrashed();
+        $query = MstObat::with(['kfaMapping.kfaObat'])->withTrashed();
 
         if ($this->selectedStatus !== 'all') {
             $query->where('status', $this->selectedStatus);
@@ -201,6 +206,65 @@ class ObatPage extends Component
         $this->dispatch('alert', ['type' => 'success', 'message' => 'Status obat telah diubah menjadi Tidak Aktif!']);
     }
 
+    public function openKfaModal($obatId)
+    {
+        $this->mappingObatId = $obatId;
+        $this->searchKfaKeyword = '';
+        $this->kfaResults = [];
+        $this->dispatch('open-modal', 'kfa-modal');
+    }
+
+    public function searchKfaObat()
+    {
+        if (empty($this->searchKfaKeyword)) {
+            $this->dispatch('alert', ['type' => 'warning', 'message' => 'Masukkan kata kunci pencarian!']);
+            return;
+        }
+
+        try {
+            $service = new \App\Modules\Bridging\Services\SatuSehatService();
+            $result = $service->searchKfaProduct($this->searchKfaKeyword, 1, 100);
+            
+            $this->kfaResults = $result['items']['data'] ?? $result['data'] ?? [];
+            if (empty($this->kfaResults)) {
+                $this->dispatch('alert', ['type' => 'warning', 'message' => 'Obat tidak ditemukan di KFA.']);
+            }
+        } catch (\Exception $e) {
+            $this->dispatch('alert', ['type' => 'error', 'message' => 'Gagal mencari obat KFA: ' . $e->getMessage()]);
+        }
+    }
+
+    public function selectKfaMapping($kfaData)
+    {
+        if (!$this->mappingObatId) return;
+
+        try {
+            $service = new \App\Modules\Bridging\Services\SatuSehatService();
+            // Simpan master KFA terlebih dahulu
+            $kfaObat = $service->syncKfaProduct($kfaData);
+
+            // Simpan relasinya
+            \App\Models\MstMapObatKfa::updateOrCreate(
+                ['obat_id' => $this->mappingObatId],
+                ['kfa_code' => $kfaObat->kfa_code, 'is_active' => true]
+            );
+
+            $this->dispatch('close-modal', 'kfa-modal');
+            $this->dispatch('alert', ['type' => 'success', 'message' => 'Mapping obat KFA berhasil disimpan!']);
+            
+            $this->mappingObatId = null;
+            $this->resetPage(); // Trigger re-render
+        } catch (\Exception $e) {
+            $this->dispatch('alert', ['type' => 'error', 'message' => 'Gagal menyimpan mapping KFA: ' . $e->getMessage()]);
+        }
+    }
+
+    public function removeKfaMapping($obatId)
+    {
+        \App\Models\MstMapObatKfa::where('obat_id', $obatId)->delete();
+        $this->dispatch('alert', ['type' => 'success', 'message' => 'Mapping obat KFA berhasil dihapus!']);
+    }
+
     public function render()
     {
         $this->totalObat = MstObat::withTrashed()->count();
@@ -209,7 +273,18 @@ class ObatPage extends Component
         $this->stokHabis = MstObat::withTrashed()->where('status', 'Stok Habis')->count();
 
         return <<<'HTML'
-        <div x-data="{ showModal: false, init(){this.$watch('showModal',v=>{if(v){$nextTick(()=>{this.$refs.firstInput&&this.$refs.firstInput.focus()})}})} }" @open-modal.window="showModal=true" @close-modal.window="showModal=false" x-init="init()">
+        <div x-data="{ showModal: false, kfaModal: false, init(){this.$watch('showModal',v=>{if(v){$nextTick(()=>{this.$refs.firstInput&&this.$refs.firstInput.focus()})}})} }" 
+             @open-modal.window="
+                let modalId = Array.isArray($event.detail) ? $event.detail[0] : (typeof $event.detail === 'string' ? $event.detail : $event.detail.name);
+                if(modalId === 'kfa-modal') kfaModal = true;
+                else showModal = true;
+             " 
+             @close-modal.window="
+                let modalId = Array.isArray($event.detail) ? $event.detail[0] : (typeof $event.detail === 'string' ? $event.detail : $event.detail.name);
+                if(modalId === 'kfa-modal') kfaModal = false;
+                else showModal = false;
+             " 
+             x-init="init()">
             <style>
                 .glass-header {
                     background: rgba(255, 255, 255, 0.8) !important;
@@ -451,6 +526,7 @@ class ObatPage extends Component
                                 <th class="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-50">Satuan</th>
                                 <th class="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-50">Stok</th>
                                 <th class="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-50">Harga Jual</th>
+                                <th class="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-50 text-center">KFA Sync</th>
                                 <th class="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-50">Status</th>
                                 <th class="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-50 text-center">Actions</th>
                             </tr>
@@ -489,6 +565,20 @@ class ObatPage extends Component
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <span class="font-bold text-[#2c3e50]">Rp {{ number_format($item->harga_jual, 0, ',', '.') }}</span>
                                 </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-center">
+                                    @if($item->kfaMapping && $item->kfaMapping->kfaObat)
+                                        <div class="flex flex-col items-center gap-1">
+                                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-indigo-50 text-[#405189] text-[10px] font-bold border border-indigo-100">
+                                                <i class="ri-check-double-line"></i> Mapped
+                                            </span>
+                                            <span class="text-[9px] text-gray-500 font-medium">{{ $item->kfaMapping->kfaObat->kfa_code }}</span>
+                                        </div>
+                                    @else
+                                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gray-50 text-gray-400 text-[10px] font-bold border border-gray-200">
+                                            <i class="ri-link-unlink"></i> Unmapped
+                                        </span>
+                                    @endif
+                                </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     @if($item->status == 'Aktif')
                                     <span class="status-badge-modern bg-emerald-50 text-emerald-600 border border-emerald-100">
@@ -509,6 +599,16 @@ class ObatPage extends Component
                                 </td>
                                 <td class="px-6 py-4">
                                     <div class="flex items-center justify-center gap-2">
+                                        @if($item->kfaMapping)
+                                            <button @click="Swal.fire({title:'Hapus Mapping',text:'Apakah Anda yakin ingin menghapus mapping KFA ini?',icon:'warning',showCancelButton:true,confirmButtonColor:'#f06548',confirmButtonText:'Ya',cancelButtonText:'Batal'}).then((r)=>{if(r.isConfirmed){$wire.removeKfaMapping({{ $item->id }})}})" 
+                                                    class="action-btn-soft bg-orange-50 text-orange-500 hover:bg-orange-500 hover:text-white shadow-sm" title="Hapus Mapping KFA">
+                                                <i class="ri-link-unlink-m text-sm"></i>
+                                            </button>
+                                        @else
+                                            <button wire:click="openKfaModal({{ $item->id }})" class="action-btn-soft bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white shadow-sm" title="Map KFA">
+                                                <i class="ri-link-m text-sm"></i>
+                                            </button>
+                                        @endif
                                         <button wire:click="edit({{ $item->id }})" class="action-btn-soft bg-indigo-50 text-[#405189] hover:bg-[#405189] hover:text-white shadow-sm" title="Edit Data">
                                             <i class="ri-pencil-fill text-sm"></i>
                                         </button>
@@ -702,6 +802,64 @@ class ObatPage extends Component
                     </div>
                 </div>
             </div>
+
+            <!-- Search KFA Modal -->
+            <div x-show="kfaModal" class="fixed inset-0 z-[1040] flex items-center justify-center p-4" x-transition.opacity style="display: none;">
+                <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="kfaModal = false"></div>
+                <div x-show="kfaModal" x-transition.scale.95 class="bg-white rounded-2xl shadow-xl w-full max-w-3xl overflow-hidden p-6 relative z-10">
+                    <div class="absolute top-4 right-4">
+                        <button type="button" @click="kfaModal = false" class="text-gray-400 hover:text-rose-500 transition-colors">
+                            <i class="ri-close-circle-fill text-2xl"></i>
+                        </button>
+                    </div>
+
+                    <div class="mb-6">
+                        <h3 class="text-xl font-bold text-[#405189] mb-1">Pencarian Obat KFA Kemenkes</h3>
+                        <p class="text-sm text-gray-500">Cari berdasarkan kata kunci (contoh: Panadol) untuk integrasi SatuSehat.</p>
+                    </div>
+
+                    <form wire:submit.prevent="searchKfaObat" class="flex flex-col sm:flex-row gap-2 mb-6">
+                        <input type="text" wire:model="searchKfaKeyword" 
+                               class="flex-1 rounded-xl border-gray-200 text-sm py-2 px-4 focus:border-[#405189] focus:ring-4 focus:ring-indigo-100 placeholder:text-gray-400 font-medium" 
+                               placeholder="Masukkan keyword pencarian...">
+                        <button type="submit" class="bg-[#405189] text-white px-5 rounded-xl text-sm font-bold shadow-sm hover:bg-indigo-600 transition-colors">
+                            <span wire:loading.remove wire:target="searchKfaObat">Cari</span>
+                            <span wire:loading wire:target="searchKfaObat"><i class="ri-loader-4-line animate-spin"></i></span>
+                        </button>
+                    </form>
+
+                    @if(!empty($kfaResults))
+                    <div class="max-h-96 overflow-y-auto space-y-3 pr-2 scrollbar-thin scrollbar-thumb-gray-200">
+                        @foreach($kfaResults as $index => $kfaData)
+                            <div wire:key="kfa-{{ $kfaData['kfa_code'] ?? $kfaData['product_template_code'] ?? $index }}" class="border border-gray-200 rounded-xl p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center hover:border-indigo-300 hover:bg-indigo-50/50 transition-colors group gap-4">
+                                <div class="flex-1">
+                                    <h4 class="font-bold text-gray-800 text-sm group-hover:text-[#405189] transition-colors uppercase tracking-tight">{{ $kfaData['name'] ?? $kfaData['nama_produk'] ?? 'No Name' }}</h4>
+                                    <div class="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                                        <span><i class="ri-key-line mr-1 text-indigo-400"></i> KFA: <span class="text-indigo-600">{{ $kfaData['kfa_code'] ?? $kfaData['product_template_code'] ?? '-' }}</span></span>
+                                        <span><i class="ri-building-line mr-1 text-emerald-400"></i> Pabrik: {{ $kfaData['manufacturer'] ?? '-' }}</span>
+                                        <span><i class="ri-capsule-line mr-1 text-amber-400"></i> Sediaan: {{ $kfaData['dosage_form']['name'] ?? '-' }}</span>
+                                    </div>
+                                    @if(isset($kfaData['active_ingredients']) && is_array($kfaData['active_ingredients']))
+                                        <div class="mt-2 text-[10px] text-gray-500 bg-gray-50 p-2 rounded-lg inline-block border border-gray-100">
+                                            <span class="font-bold">Komposisi:</span>
+                                            @foreach($kfaData['active_ingredients'] as $i => $ing)
+                                                {{ $ing['zat_aktif'] ?? $ing['name'] ?? $ing['kfa_poa']['name'] ?? '' }} ({{ $ing['strength'] ?? $ing['kekuatan'] ?? '-' }}){{ $i < count($kfaData['active_ingredients']) - 1 ? ', ' : '' }}
+                                            @endforeach
+                                        </div>
+                                    @endif
+                                </div>
+                                <button type="button" 
+                                        wire:click="selectKfaMapping({{ json_encode($kfaData) }})" 
+                                        class="btn btn-sm bg-emerald-50 text-emerald-600 hover:bg-emerald-500 hover:text-white rounded-lg shrink-0 shadow-sm transition-colors font-bold">
+                                    <i class="ri-links-line mr-1"></i> Pilih
+                                </button>
+                            </div>
+                        @endforeach
+                    </div>
+                    @endif
+                </div>
+            </div>
+
         </div>
         HTML;
     }

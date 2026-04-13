@@ -30,4 +30,14 @@ class MstObat extends Model
         'tanggal_beli' => 'date',
         'tanggal_expired' => 'date',
     ];
+
+    public function kfaMapping()
+    {
+        return $this->hasOne(MstMapObatKfa::class, 'obat_id');
+    }
+
+    public function kfaObat()
+    {
+        return $this->hasOneThrough(MstKfaObat::class, MstMapObatKfa::class, 'obat_id', 'kfa_code', 'id', 'kfa_code');
+    }
 }

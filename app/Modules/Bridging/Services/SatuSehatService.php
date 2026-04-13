@@ -36,7 +36,8 @@ class SatuSehatService
      */
     protected function resolveCredentials()
     {
-        if (!$this->settings) return;
+        if (!$this->settings)
+            return;
 
         $this->clientId = $this->settings->client_id;
         $this->clientSecret = $this->settings->client_secret;
@@ -44,7 +45,7 @@ class SatuSehatService
         // Jika mode bridging adalah 'dokter' dan ada dokterId yang dikirimkan
         if (($this->settings->mode_bridging ?? 'klinik') === 'dokter' && $this->dokterId) {
             $doctorCredentials = $this->settings->doctor_credentials ?? [];
-            
+
             if (isset($doctorCredentials[$this->dokterId])) {
                 $creds = $doctorCredentials[$this->dokterId];
                 if (!empty($creds['client_id']) && !empty($creds['client_secret'])) {
@@ -78,7 +79,7 @@ class SatuSehatService
     public function searchPatient(string $nik, ?string $name = null, ?string $birthDate = null)
     {
         $url = $this->getBaseUrl() . '/Patient';
-        
+
         // Option 1: Name + BirthDate + NIK
         if ($name && $birthDate) {
             $params = [
@@ -243,9 +244,9 @@ class SatuSehatService
     public function searchOrganization(string $name)
     {
         $url = $this->getBaseUrl() . '/Organization';
-        
+
         $params = ['name' => $name];
-        
+
         $response = Http::withHeaders($this->getHeaders())->get($url, $params);
         if ($response->successful() && !empty($response->json()['entry'])) {
             return $response->json()['entry']; // Returning the array of matching organizations
@@ -260,7 +261,7 @@ class SatuSehatService
     public function getOrganization(string $id)
     {
         $url = $this->getBaseUrl() . '/Organization/' . $id;
-        
+
         $response = Http::withHeaders($this->getHeaders())->get($url);
         if ($response->successful()) {
             return $response->json();
@@ -408,7 +409,7 @@ class SatuSehatService
     {
         $url = $this->getBaseUrl() . '/Practitioner';
         $params = ['identifier' => 'https://fhir.kemkes.go.id/id/nik|' . $nik];
-        
+
         $response = Http::withHeaders($this->getHeaders())->get($url, $params);
         if ($response->successful() && !empty($response->json()['entry'])) {
             return $response->json()['entry'];
@@ -428,7 +429,7 @@ class SatuSehatService
             'gender' => $gender,
             'birthdate' => $birthDate
         ];
-        
+
         $response = Http::withHeaders($this->getHeaders())->get($url, $params);
         if ($response->successful() && !empty($response->json()['entry'])) {
             return $response->json()['entry'];
@@ -443,7 +444,7 @@ class SatuSehatService
     public function getPractitioner(string $id)
     {
         $url = $this->getBaseUrl() . '/Practitioner/' . $id;
-        
+
         $response = Http::withHeaders($this->getHeaders())->get($url);
         if ($response->successful()) {
             return $response->json();
@@ -462,7 +463,7 @@ class SatuSehatService
     {
         $url = $this->getBaseUrl() . '/Location';
         $params = ['name' => $name];
-        
+
         $response = Http::withHeaders($this->getHeaders())->get($url, $params);
         if ($response->successful() && !empty($response->json()['entry'])) {
             return $response->json()['entry'];
@@ -479,7 +480,7 @@ class SatuSehatService
         $url = $this->getBaseUrl() . '/Location';
         $orgRef = str_contains($organizationId, 'Organization/') ? $organizationId : 'Organization/' . $organizationId;
         $params = ['organization' => $orgRef];
-        
+
         $response = Http::withHeaders($this->getHeaders())->get($url, $params);
         if ($response->successful() && !empty($response->json()['entry'])) {
             return $response->json()['entry'];
@@ -496,7 +497,7 @@ class SatuSehatService
         // Fetch single resource and wrap it in FHIR search format
         $url = $this->getBaseUrl() . '/Location/' . $id;
         $response = Http::withHeaders($this->getHeaders())->get($url);
-        
+
         if ($response->successful()) {
             return [
                 ['resource' => $response->json()]
@@ -528,9 +529,9 @@ class SatuSehatService
     {
         $url = $this->getBaseUrl() . '/Location';
         $payload = $this->formatLocationPayload($location);
-        
+
         $response = Http::withHeaders($this->getHeaders())->post($url, $payload);
-        
+
         if ($response->successful()) {
             $data = $response->json();
             $location->update(['location_id' => $data['id']]);
@@ -551,9 +552,9 @@ class SatuSehatService
 
         $url = $this->getBaseUrl() . '/Location/' . $location->location_id;
         $payload = $this->formatLocationPayload($location, $location->location_id);
-        
+
         $response = Http::withHeaders($this->getHeaders())->put($url, $payload);
-        
+
         if ($response->successful()) {
             return $response->json();
         }
@@ -641,8 +642,8 @@ class SatuSehatService
 
         if ($location->longitude && $location->latitude) {
             $payload['position'] = [
-                "longitude" => (double)$location->longitude,
-                "latitude" => (double)$location->latitude,
+                "longitude" => (double) $location->longitude,
+                "latitude" => (double) $location->latitude,
                 "altitude" => 0
             ];
         }
@@ -702,11 +703,11 @@ class SatuSehatService
             throw new \Exception('Data profil klinik (mst_instansi) tidak ditemukan.');
         }
 
-        $pasien   = $data['pasien'];   // MstPasien model
-        $dokter   = $data['dokter'];   // MstDokter model
+        $pasien = $data['pasien'];   // MstPasien model
+        $dokter = $data['dokter'];   // MstDokter model
         $location = $data['location']; // MstLocation model
         $nomorKunjungan = $data['nomor_kunjungan'] ?? '';
-        $periodStart    = $this->formatUtcDateTime($data['period_start'] ?? null);
+        $periodStart = $this->formatUtcDateTime($data['period_start'] ?? null);
 
         $body = [
             "resourceType" => "Encounter",
@@ -796,8 +797,8 @@ class SatuSehatService
             throw new \Exception('Data profil klinik (mst_instansi) tidak ditemukan.');
         }
 
-        $pasien   = $data['pasien'];
-        $dokter   = $data['dokter'];
+        $pasien = $data['pasien'];
+        $dokter = $data['dokter'];
         $location = $data['location'];
         $nomorKunjungan = $data['nomor_kunjungan'] ?? '';
 
@@ -841,7 +842,7 @@ class SatuSehatService
             ],
             "period" => [
                 "start" => $this->formatUtcDateTime($data['period_start'] ?? null),
-                "end"   => $this->formatUtcDateTime($data['period_end'] ?? null),
+                "end" => $this->formatUtcDateTime($data['period_end'] ?? null),
             ],
             "location" => [
                 [
@@ -856,14 +857,14 @@ class SatuSehatService
                     "status" => "arrived",
                     "period" => [
                         "start" => $this->formatUtcDateTime($data['arrived_start'] ?? $data['period_start'] ?? null),
-                        "end"   => $this->formatUtcDateTime($data['arrived_end'] ?? $data['period_start'] ?? null),
+                        "end" => $this->formatUtcDateTime($data['arrived_end'] ?? $data['period_start'] ?? null),
                     ]
                 ],
                 [
                     "status" => "in-progress",
                     "period" => [
                         "start" => $this->formatUtcDateTime($data['inprogress_start'] ?? $data['period_start'] ?? null),
-                        "end"   => $this->formatUtcDateTime($data['inprogress_end'] ?? $data['period_end'] ?? null),
+                        "end" => $this->formatUtcDateTime($data['inprogress_end'] ?? $data['period_end'] ?? null),
                     ]
                 ]
             ],
@@ -900,8 +901,8 @@ class SatuSehatService
             throw new \Exception('Data profil klinik (mst_instansi) tidak ditemukan.');
         }
 
-        $pasien   = $data['pasien'];
-        $dokter   = $data['dokter'];
+        $pasien = $data['pasien'];
+        $dokter = $data['dokter'];
         $location = $data['location'];
         $nomorKunjungan = $data['nomor_kunjungan'] ?? '';
 
@@ -945,7 +946,7 @@ class SatuSehatService
             ],
             "period" => [
                 "start" => $this->formatUtcDateTime($data['period_start'] ?? null),
-                "end"   => $this->formatUtcDateTime($data['period_end'] ?? null),
+                "end" => $this->formatUtcDateTime($data['period_end'] ?? null),
             ],
             "location" => [
                 [
@@ -960,14 +961,14 @@ class SatuSehatService
                     "status" => "arrived",
                     "period" => [
                         "start" => $this->formatUtcDateTime($data['arrived_start'] ?? $data['period_start'] ?? null),
-                        "end"   => $this->formatUtcDateTime($data['arrived_end'] ?? $data['period_start'] ?? null),
+                        "end" => $this->formatUtcDateTime($data['arrived_end'] ?? $data['period_start'] ?? null),
                     ]
                 ],
                 [
                     "status" => "in-progress",
                     "period" => [
                         "start" => $this->formatUtcDateTime($data['inprogress_start'] ?? $data['period_start'] ?? null),
-                        "end"   => $this->formatUtcDateTime($data['inprogress_end'] ?? $data['period_end'] ?? null),
+                        "end" => $this->formatUtcDateTime($data['inprogress_end'] ?? $data['period_end'] ?? null),
                     ]
                 ]
             ],
@@ -1016,8 +1017,8 @@ class SatuSehatService
             throw new \Exception('Data profil klinik (mst_instansi) tidak ditemukan.');
         }
 
-        $pasien   = $data['pasien'];
-        $dokter   = $data['dokter'];
+        $pasien = $data['pasien'];
+        $dokter = $data['dokter'];
         $location = $data['location'];
         $nomorKunjungan = $data['nomor_kunjungan'] ?? '';
 
@@ -1084,7 +1085,7 @@ class SatuSehatService
             ],
             "period" => [
                 "start" => $this->formatUtcDateTime($data['period_start'] ?? null),
-                "end"   => $this->formatUtcDateTime($data['period_end'] ?? null),
+                "end" => $this->formatUtcDateTime($data['period_end'] ?? null),
             ],
             "location" => [
                 [
@@ -1099,21 +1100,21 @@ class SatuSehatService
                     "status" => "arrived",
                     "period" => [
                         "start" => $this->formatUtcDateTime($data['arrived_start'] ?? $data['period_start'] ?? null),
-                        "end"   => $this->formatUtcDateTime($data['arrived_end'] ?? $data['period_start'] ?? null),
+                        "end" => $this->formatUtcDateTime($data['arrived_end'] ?? $data['period_start'] ?? null),
                     ]
                 ],
                 [
                     "status" => "in-progress",
                     "period" => [
                         "start" => $this->formatUtcDateTime($data['inprogress_start'] ?? $data['period_start'] ?? null),
-                        "end"   => $this->formatUtcDateTime($data['inprogress_end'] ?? $data['period_end'] ?? null),
+                        "end" => $this->formatUtcDateTime($data['inprogress_end'] ?? $data['period_end'] ?? null),
                     ]
                 ],
                 [
                     "status" => "finished",
                     "period" => [
                         "start" => $this->formatUtcDateTime($data['finished_start'] ?? $data['period_end'] ?? null),
-                        "end"   => $this->formatUtcDateTime($data['finished_end'] ?? $data['period_end'] ?? null),
+                        "end" => $this->formatUtcDateTime($data['finished_end'] ?? $data['period_end'] ?? null),
                     ]
                 ]
             ],
@@ -1174,7 +1175,7 @@ class SatuSehatService
     {
         $url = $this->getBaseUrl() . '/Condition';
         $params = [
-            'subject'   => $subjectUuid,
+            'subject' => $subjectUuid,
             'encounter' => $encounterUuid,
         ];
 
@@ -1245,7 +1246,7 @@ class SatuSehatService
     {
         $pasien = $data['pasien']; // MstPasien model
 
-        $clinicalCode    = $data['clinical_status'] ?? 'active';
+        $clinicalCode = $data['clinical_status'] ?? 'active';
         $clinicalDisplay = $data['clinical_display'] ?? 'Active';
 
         $body = [
@@ -1389,7 +1390,7 @@ class SatuSehatService
     {
         $pasien = $data['pasien']; // MstPasien model
 
-        $clinicalCode    = $data['clinical_status'] ?? 'active';
+        $clinicalCode = $data['clinical_status'] ?? 'active';
         $clinicalDisplay = $data['clinical_display'] ?? 'Active';
 
         $body = [
@@ -1463,67 +1464,67 @@ class SatuSehatService
     const VITAL_SIGN_MAP = [
         'heart_rate' => [
             'loinc_code' => '8867-4',
-            'display'    => 'Heart rate',
-            'unit'       => 'beats/minute',
-            'ucum_code'  => '/min',
+            'display' => 'Heart rate',
+            'unit' => 'beats/minute',
+            'ucum_code' => '/min',
         ],
         'respiratory_rate' => [
             'loinc_code' => '9279-1',
-            'display'    => 'Respiratory rate',
-            'unit'       => 'breaths/minute',
-            'ucum_code'  => '/min',
+            'display' => 'Respiratory rate',
+            'unit' => 'breaths/minute',
+            'ucum_code' => '/min',
         ],
         'body_temperature' => [
             'loinc_code' => '8310-5',
-            'display'    => 'Body temperature',
-            'unit'       => 'C',
-            'ucum_code'  => 'Cel',
+            'display' => 'Body temperature',
+            'unit' => 'C',
+            'ucum_code' => 'Cel',
         ],
         'body_weight' => [
             'loinc_code' => '29463-7',
-            'display'    => 'Body weight',
-            'unit'       => 'kg',
-            'ucum_code'  => 'kg',
+            'display' => 'Body weight',
+            'unit' => 'kg',
+            'ucum_code' => 'kg',
         ],
         'body_height' => [
             'loinc_code' => '8302-2',
-            'display'    => 'Body height',
-            'unit'       => 'cm',
-            'ucum_code'  => 'cm',
+            'display' => 'Body height',
+            'unit' => 'cm',
+            'ucum_code' => 'cm',
         ],
         'body_mass_index' => [
             'loinc_code' => '39156-5',
-            'display'    => 'Body mass index (BMI)',
-            'unit'       => 'kg/m2',
-            'ucum_code'  => 'kg/m2',
+            'display' => 'Body mass index (BMI)',
+            'unit' => 'kg/m2',
+            'ucum_code' => 'kg/m2',
         ],
         'head_circumference' => [
             'loinc_code' => '9843-4',
-            'display'    => 'Head Occipital-frontal circumference',
-            'unit'       => 'cm',
-            'ucum_code'  => 'cm',
+            'display' => 'Head Occipital-frontal circumference',
+            'unit' => 'cm',
+            'ucum_code' => 'cm',
         ],
         'pulse_oximetry' => [
             'loinc_code' => '2708-6',
-            'display'    => 'Oxygen saturation in Arterial blood',
-            'unit'       => '%',
-            'ucum_code'  => '%',
+            'display' => 'Oxygen saturation in Arterial blood',
+            'unit' => '%',
+            'ucum_code' => '%',
         ],
         // Blood pressure ditangani khusus (component systolic + diastolic)
         'blood_pressure' => [
             'loinc_code' => '85354-9',
-            'display'    => 'Blood pressure panel with all children optional',
-            'systolic'   => [
+            'display' => 'Blood pressure panel with all children optional',
+            'systolic' => [
                 'loinc_code' => '8480-6',
-                'display'    => 'Systolic blood pressure',
-                'unit'       => 'mm[Hg]',
-                'ucum_code'  => 'mm[Hg]',
+                'display' => 'Systolic blood pressure',
+                'unit' => 'mm[Hg]',
+                'ucum_code' => 'mm[Hg]',
             ],
-            'diastolic'  => [
+            'diastolic' => [
                 'loinc_code' => '8462-4',
-                'display'    => 'Diastolic blood pressure',
-                'unit'       => 'mm[Hg]',
-                'ucum_code'  => 'mm[Hg]',
+                'display' => 'Diastolic blood pressure',
+                'unit' => 'mm[Hg]',
+                'ucum_code' => 'mm[Hg]',
             ],
         ],
     ];
@@ -1559,7 +1560,7 @@ class SatuSehatService
     {
         $url = $this->getBaseUrl() . '/Observation';
         $params = [
-            'subject'   => $subjectUuid,
+            'subject' => $subjectUuid,
             'encounter' => $encounterUuid,
         ];
 
@@ -1638,16 +1639,16 @@ class SatuSehatService
         // Resolve dari VITAL_SIGN_MAP jika vital_type diberikan
         if (!empty($data['vital_type']) && isset(self::VITAL_SIGN_MAP[$data['vital_type']])) {
             $map = self::VITAL_SIGN_MAP[$data['vital_type']];
-            $observationCode    = $map['loinc_code'];
+            $observationCode = $map['loinc_code'];
             $observationDisplay = $map['display'];
-            $unit               = $map['unit'];
-            $unitCode           = $map['ucum_code'];
+            $unit = $map['unit'];
+            $unitCode = $map['ucum_code'];
         } else {
             // Fallback: manual parameter
-            $observationCode    = $data['observation_code'];
+            $observationCode = $data['observation_code'];
             $observationDisplay = $data['observation_display'];
-            $unit               = $data['unit'];
-            $unitCode           = $data['unit_code'];
+            $unit = $data['unit'];
+            $unitCode = $data['unit_code'];
         }
 
         $body = [
@@ -1729,7 +1730,7 @@ class SatuSehatService
     {
         $pasien = $data['pasien'];
         $dokter = $data['dokter'];
-        $bp     = self::VITAL_SIGN_MAP['blood_pressure'];
+        $bp = self::VITAL_SIGN_MAP['blood_pressure'];
 
         $body = [
             "resourceType" => "Observation",
@@ -1844,9 +1845,9 @@ class SatuSehatService
      */
     public function createObservationAllVitalSigns(array $data): array
     {
-        $pendaftaran  = $data['pendaftaran']; // TrxPendaftaran model
-        $pasien       = $pendaftaran->pasien; // MstPasien model via relasi
-        $dokter       = $pendaftaran->dokter; // MstDokter model via relasi
+        $pendaftaran = $data['pendaftaran']; // TrxPendaftaran model
+        $pasien = $pendaftaran->pasien; // MstPasien model via relasi
+        $dokter = $pendaftaran->dokter; // MstDokter model via relasi
 
         if (!$pasien || !$pasien->satusehat_uuid) {
             throw new \Exception('Pasien belum memiliki SatuSehat UUID.');
@@ -1855,18 +1856,18 @@ class SatuSehatService
             throw new \Exception('Dokter belum memiliki Practitioner ID SatuSehat.');
         }
 
-        $encounterUuid   = $data['encounter_uuid'];
-        $displayPrefix   = $data['encounter_display_prefix'] ?? 'Pemeriksaan Fisik';
-        $effectiveDate   = $this->formatUtcDateTime($data['effective_date'] ?? $pendaftaran->created_at ?? null);
-        $issued          = $this->formatUtcDateTime($data['issued'] ?? $pendaftaran->created_at ?? null);
+        $encounterUuid = $data['encounter_uuid'];
+        $displayPrefix = $data['encounter_display_prefix'] ?? 'Pemeriksaan Fisik';
+        $effectiveDate = $this->formatUtcDateTime($data['effective_date'] ?? $pendaftaran->created_at ?? null);
+        $issued = $this->formatUtcDateTime($data['issued'] ?? $pendaftaran->created_at ?? null);
 
         $results = [];
         $baseData = [
-            'pasien'         => $pasien,
-            'dokter'         => $dokter,
+            'pasien' => $pasien,
+            'dokter' => $dokter,
             'encounter_uuid' => $encounterUuid,
-            'effective_date'  => $effectiveDate,
-            'issued'          => $issued,
+            'effective_date' => $effectiveDate,
+            'issued' => $issued,
         ];
 
         // 1. Blood Pressure (tekanan_darah format: "120/80")
@@ -1876,7 +1877,7 @@ class SatuSehatService
                 try {
                     $results['blood_pressure'] = $this->createObservationBloodPressure(array_merge($baseData, [
                         'encounter_display' => "{$displayPrefix} Tekanan Darah {$pasien->nama_pasien}",
-                        'systolic'  => (float) trim($parts[0]),
+                        'systolic' => (float) trim($parts[0]),
                         'diastolic' => (float) trim($parts[1]),
                     ]));
                 } catch (\Exception $e) {
@@ -1890,8 +1891,8 @@ class SatuSehatService
         if (!empty($pendaftaran->nadi) && is_numeric($pendaftaran->nadi)) {
             try {
                 $results['heart_rate'] = $this->createObservation(array_merge($baseData, [
-                    'vital_type'        => 'heart_rate',
-                    'value'             => (float) $pendaftaran->nadi,
+                    'vital_type' => 'heart_rate',
+                    'value' => (float) $pendaftaran->nadi,
                     'encounter_display' => "{$displayPrefix} Nadi {$pasien->nama_pasien}",
                 ]));
             } catch (\Exception $e) {
@@ -1904,8 +1905,8 @@ class SatuSehatService
         if (!empty($pendaftaran->suhu) && is_numeric($pendaftaran->suhu)) {
             try {
                 $results['body_temperature'] = $this->createObservation(array_merge($baseData, [
-                    'vital_type'        => 'body_temperature',
-                    'value'             => (float) $pendaftaran->suhu,
+                    'vital_type' => 'body_temperature',
+                    'value' => (float) $pendaftaran->suhu,
                     'encounter_display' => "{$displayPrefix} Suhu Tubuh {$pasien->nama_pasien}",
                 ]));
             } catch (\Exception $e) {
@@ -1918,8 +1919,8 @@ class SatuSehatService
         if (!empty($pendaftaran->berat_badan) && is_numeric($pendaftaran->berat_badan)) {
             try {
                 $results['body_weight'] = $this->createObservation(array_merge($baseData, [
-                    'vital_type'        => 'body_weight',
-                    'value'             => (float) $pendaftaran->berat_badan,
+                    'vital_type' => 'body_weight',
+                    'value' => (float) $pendaftaran->berat_badan,
                     'encounter_display' => "{$displayPrefix} Berat Badan {$pasien->nama_pasien}",
                 ]));
             } catch (\Exception $e) {
@@ -1932,8 +1933,8 @@ class SatuSehatService
         if (!empty($pendaftaran->tinggi_badan) && is_numeric($pendaftaran->tinggi_badan)) {
             try {
                 $results['body_height'] = $this->createObservation(array_merge($baseData, [
-                    'vital_type'        => 'body_height',
-                    'value'             => (float) $pendaftaran->tinggi_badan,
+                    'vital_type' => 'body_height',
+                    'value' => (float) $pendaftaran->tinggi_badan,
                     'encounter_display' => "{$displayPrefix} Tinggi Badan {$pasien->nama_pasien}",
                 ]));
             } catch (\Exception $e) {
@@ -1943,7 +1944,8 @@ class SatuSehatService
         }
 
         // 6. BMI (auto-hitung dari berat_badan & tinggi_badan)
-        if (!empty($pendaftaran->berat_badan) && !empty($pendaftaran->tinggi_badan)
+        if (
+            !empty($pendaftaran->berat_badan) && !empty($pendaftaran->tinggi_badan)
             && is_numeric($pendaftaran->berat_badan) && is_numeric($pendaftaran->tinggi_badan)
             && (float) $pendaftaran->tinggi_badan > 0
         ) {
@@ -1952,8 +1954,8 @@ class SatuSehatService
 
             try {
                 $results['body_mass_index'] = $this->createObservation(array_merge($baseData, [
-                    'vital_type'        => 'body_mass_index',
-                    'value'             => $bmi,
+                    'vital_type' => 'body_mass_index',
+                    'value' => $bmi,
                     'encounter_display' => "{$displayPrefix} BMI {$pasien->nama_pasien}",
                 ]));
             } catch (\Exception $e) {
@@ -1989,15 +1991,15 @@ class SatuSehatService
         // Resolve dari VITAL_SIGN_MAP jika vital_type diberikan
         if (!empty($data['vital_type']) && isset(self::VITAL_SIGN_MAP[$data['vital_type']])) {
             $map = self::VITAL_SIGN_MAP[$data['vital_type']];
-            $observationCode    = $map['loinc_code'];
+            $observationCode = $map['loinc_code'];
             $observationDisplay = $map['display'];
-            $unit               = $map['unit'];
-            $unitCode           = $map['ucum_code'];
+            $unit = $map['unit'];
+            $unitCode = $map['ucum_code'];
         } else {
-            $observationCode    = $data['observation_code'];
+            $observationCode = $data['observation_code'];
             $observationDisplay = $data['observation_display'];
-            $unit               = $data['unit'];
-            $unitCode           = $data['unit_code'];
+            $unit = $data['unit'];
+            $unitCode = $data['unit_code'];
         }
 
         $body = [
@@ -2070,7 +2072,7 @@ class SatuSehatService
     public function updateObservationBloodPressure(string $observationUuid, array $data)
     {
         $pasien = $data['pasien'];
-        $bp     = self::VITAL_SIGN_MAP['blood_pressure'];
+        $bp = self::VITAL_SIGN_MAP['blood_pressure'];
 
         $body = [
             "resourceType" => "Observation",
@@ -2222,7 +2224,7 @@ class SatuSehatService
 
         if ($date->lt($minDate)) {
             throw new \Exception(
-                'Tanggal pengiriman SatuSehat tidak boleh kurang dari ' 
+                'Tanggal pengiriman SatuSehat tidak boleh kurang dari '
                 . $minDate->format('d F Y') . '. '
                 . 'Tanggal yang dikirim: ' . $date->format('d F Y')
             );
@@ -2261,10 +2263,10 @@ class SatuSehatService
             \App\Models\TrxSatusehatData::create([
                 'nomor_kunjungan' => $nomorKunjungan,
                 'organization_id' => $organizationId,
-                'resource_type'   => $resourceType,
-                'resource_uuid'   => $resourceUuid,
-                'isi_json'        => json_encode($payload),
-                'status'          => $status,
+                'resource_type' => $resourceType,
+                'resource_uuid' => $resourceUuid,
+                'isi_json' => json_encode($payload),
+                'status' => $status,
             ]);
         } catch (\Exception $e) {
             Log::warning('Gagal menyimpan log SatuSehat data: ' . $e->getMessage());
@@ -2306,7 +2308,7 @@ class SatuSehatService
     {
         $url = $this->getBaseUrl() . '/Procedure';
         $params = [
-            'subject'   => $subjectUuid,
+            'subject' => $subjectUuid,
             'encounter' => $encounterUuid,
         ];
 
@@ -2639,16 +2641,16 @@ class SatuSehatService
                 }
 
                 $result = $this->createProcedure([
-                    'pasien'            => $pasien,
-                    'dokter'            => $dokter,
-                    'encounter_uuid'    => $encounterUuid,
+                    'pasien' => $pasien,
+                    'dokter' => $dokter,
+                    'encounter_uuid' => $encounterUuid,
                     'encounter_display' => "Tindakan {$masterTindakan->nama_tindakan} {$pasien->nama_pasien} tanggal " . ($pendaftaran->created_at ? $pendaftaran->created_at->format('d/m/Y') : '-'),
-                    'tindakan'          => $trxTindakan,
-                    'performed_start'   => $pendaftaran->created_at,
-                    'performed_end'     => $pendaftaran->updated_at ?? $pendaftaran->created_at,
-                    'reason_code'       => $reasonCode,
-                    'reason_display'    => $reasonDisplay,
-                    'note'              => $masterTindakan->deskripsi,
+                    'tindakan' => $trxTindakan,
+                    'performed_start' => $pendaftaran->created_at,
+                    'performed_end' => $pendaftaran->updated_at ?? $pendaftaran->created_at,
+                    'reason_code' => $reasonCode,
+                    'reason_display' => $reasonDisplay,
+                    'note' => $masterTindakan->deskripsi,
                 ]);
 
                 $results[$trxTindakan->kode_tindakan] = $result;
@@ -2683,11 +2685,11 @@ class SatuSehatService
     {
         $results = [
             'nomor_kunjungan' => $nomorKunjungan,
-            'encounter'       => null,
-            'conditions'      => [],
-            'observations'    => [],
-            'procedures'      => [],
-            'errors'          => [],
+            'encounter' => null,
+            'conditions' => [],
+            'observations' => [],
+            'procedures' => [],
+            'errors' => [],
         ];
 
         // ── Load data pendaftaran ──
@@ -2711,7 +2713,7 @@ class SatuSehatService
 
         // ── Ambil Location & Instansi ──
         $location = \App\Models\MstLocation::where('status', 'active')->first()
-                 ?? \App\Models\MstLocation::first();
+            ?? \App\Models\MstLocation::first();
 
         if (!$location || !$location->location_id) {
             throw new \Exception("Location SatuSehat belum tersedia. Silakan setup Location terlebih dahulu.");
@@ -2723,7 +2725,7 @@ class SatuSehatService
         }
 
         $periodStart = $pendaftaran->created_at;
-        $periodEnd   = $pendaftaran->updated_at ?? $pendaftaran->created_at;
+        $periodEnd = $pendaftaran->updated_at ?? $pendaftaran->created_at;
 
         // ================================================================
         // STEP 1: ENCOUNTER
@@ -2732,15 +2734,15 @@ class SatuSehatService
         try {
             // 1a. Create Encounter (arrived)
             $encounterData = [
-                'pasien'          => $pasien,
-                'dokter'          => $dokter,
-                'location'        => $location,
+                'pasien' => $pasien,
+                'dokter' => $dokter,
+                'location' => $location,
                 'nomor_kunjungan' => $nomorKunjungan,
-                'period_start'    => $periodStart,
+                'period_start' => $periodStart,
             ];
 
             $encounterResult = $this->createEncounter($encounterData);
-            $encounterUuid   = $encounterResult['id'] ?? null;
+            $encounterUuid = $encounterResult['id'] ?? null;
 
             if (!$encounterUuid) {
                 throw new \Exception('Encounter UUID tidak ditemukan dalam response.');
@@ -2748,11 +2750,11 @@ class SatuSehatService
 
             // 1b. Update to in-progress
             $inProgressData = array_merge($encounterData, [
-                'period_end'       => $periodEnd,
-                'arrived_start'    => $periodStart,
-                'arrived_end'      => $periodStart,
+                'period_end' => $periodEnd,
+                'arrived_start' => $periodStart,
+                'arrived_end' => $periodStart,
                 'inprogress_start' => $periodStart,
-                'inprogress_end'   => $periodEnd,
+                'inprogress_end' => $periodEnd,
             ]);
             $this->updateEncounterInProgress($encounterUuid, $inProgressData);
 
@@ -2778,22 +2780,22 @@ class SatuSehatService
         if ($diagnoses->isNotEmpty()) {
             foreach ($diagnoses as $idx => $trxDiag) {
                 try {
-                    $diagCode    = $trxDiag->kode_diagnosa;
+                    $diagCode = $trxDiag->kode_diagnosa;
                     $diagDisplay = $trxDiag->masterDiagnosis ? $trxDiag->masterDiagnosis->nama_diagnosa : $diagCode;
 
                     $conditionResult = $this->createCondition([
-                        'pasien'            => $pasien,
-                        'encounter_uuid'    => $encounterUuid,
+                        'pasien' => $pasien,
+                        'encounter_uuid' => $encounterUuid,
                         'encounter_display' => "Kunjungan {$pasien->nama_pasien} tanggal " . ($pendaftaran->created_at ? $pendaftaran->created_at->format('d/m/Y') : '-'),
-                        'diagnosis_code'    => $diagCode,
+                        'diagnosis_code' => $diagCode,
                         'diagnosis_display' => $diagDisplay,
                     ]);
 
                     $condUuid = $conditionResult['id'] ?? null;
                     $conditionUuids[] = [
-                        'condition_uuid'    => $condUuid,
+                        'condition_uuid' => $condUuid,
                         'condition_display' => $diagDisplay,
-                        'rank'              => $idx + 1,
+                        'rank' => $idx + 1,
                     ];
 
                     $this->saveResourceStatus($nomorKunjungan, $pasien->satusehat_uuid, 'Condition', $condUuid, 'Success', $createdBy);
@@ -2810,16 +2812,16 @@ class SatuSehatService
             // Tidak ada diagnosis → kirim Condition Stable
             try {
                 $conditionResult = $this->createConditionStable([
-                    'pasien'            => $pasien,
-                    'encounter_uuid'    => $encounterUuid,
+                    'pasien' => $pasien,
+                    'encounter_uuid' => $encounterUuid,
                     'encounter_display' => "Kunjungan {$pasien->nama_pasien} tanggal " . ($pendaftaran->created_at ? $pendaftaran->created_at->format('d/m/Y') : '-'),
                 ]);
 
                 $condUuid = $conditionResult['id'] ?? null;
                 $conditionUuids[] = [
-                    'condition_uuid'    => $condUuid,
+                    'condition_uuid' => $condUuid,
                     'condition_display' => "Patient's condition stable",
-                    'rank'              => 1,
+                    'rank' => 1,
                 ];
 
                 $this->saveResourceStatus($nomorKunjungan, $pasien->satusehat_uuid, 'Condition', $condUuid, 'Success', $createdBy);
@@ -2836,26 +2838,26 @@ class SatuSehatService
         // ── Update Encounter discharge + finished ──
         try {
             $dischargeData = array_merge($encounterData, [
-                'period_end'       => $periodEnd,
-                'arrived_start'    => $periodStart,
-                'arrived_end'      => $periodStart,
+                'period_end' => $periodEnd,
+                'arrived_start' => $periodStart,
+                'arrived_end' => $periodStart,
                 'inprogress_start' => $periodStart,
-                'inprogress_end'   => $periodEnd,
-                'discharge_code'   => 'home',
+                'inprogress_end' => $periodEnd,
+                'discharge_code' => 'home',
                 'discharge_display' => 'Home',
-                'discharge_text'   => 'Pulang dalam keadaan sehat',
+                'discharge_text' => 'Pulang dalam keadaan sehat',
             ]);
             $this->updateEncounterDischargeDisposition($encounterUuid, $dischargeData);
 
             $finishedData = array_merge($encounterData, [
-                'period_end'       => $periodEnd,
-                'arrived_start'    => $periodStart,
-                'arrived_end'      => $periodStart,
+                'period_end' => $periodEnd,
+                'arrived_start' => $periodStart,
+                'arrived_end' => $periodStart,
                 'inprogress_start' => $periodStart,
-                'inprogress_end'   => $periodEnd,
-                'finished_start'   => $periodEnd,
-                'finished_end'     => $periodEnd,
-                'diagnosis'        => $conditionUuids,
+                'inprogress_end' => $periodEnd,
+                'finished_start' => $periodEnd,
+                'finished_end' => $periodEnd,
+                'diagnosis' => $conditionUuids,
             ]);
             $this->updateEncounterFinished($encounterUuid, $finishedData);
 
@@ -2869,7 +2871,7 @@ class SatuSehatService
         // ================================================================
         try {
             $obsResults = $this->createObservationAllVitalSigns([
-                'pendaftaran'    => $pendaftaran,
+                'pendaftaran' => $pendaftaran,
                 'encounter_uuid' => $encounterUuid,
             ]);
 
@@ -2896,7 +2898,7 @@ class SatuSehatService
         // ================================================================
         try {
             $procResults = $this->createProcedureAllTindakan([
-                'pendaftaran'    => $pendaftaran,
+                'pendaftaran' => $pendaftaran,
                 'encounter_uuid' => $encounterUuid,
             ]);
 
@@ -2923,12 +2925,12 @@ class SatuSehatService
         // ================================================================
         try {
             $compositionData = [
-                'pasien'            => $pasien,
-                'dokter'            => $dokter,
-                'encounter_uuid'    => $encounterUuid,
+                'pasien' => $pasien,
+                'dokter' => $dokter,
+                'encounter_uuid' => $encounterUuid,
                 'encounter_display' => "Kunjungan {$pasien->nama_pasien} tanggal " . ($pendaftaran->created_at ? $pendaftaran->created_at->format('d/m/Y') : '-'),
-                'date'              => $pendaftaran->created_at ? $pendaftaran->created_at->format('Y-m-d') : now()->format('Y-m-d'),
-                'nomor_kunjungan'   => $nomorKunjungan,
+                'date' => $pendaftaran->created_at ? $pendaftaran->created_at->format('Y-m-d') : now()->format('Y-m-d'),
+                'nomor_kunjungan' => $nomorKunjungan,
             ];
 
             $compositionResult = $this->createComposition($compositionData);
@@ -2971,8 +2973,8 @@ class SatuSehatService
             throw new \Exception("Data pendaftaran tidak ditemukan.");
         }
 
-        $pasien   = $pendaftaran->pasien;
-        $dokter   = $pendaftaran->dokter;
+        $pasien = $pendaftaran->pasien;
+        $dokter = $pendaftaran->dokter;
         $location = \App\Models\MstLocation::where('status', 'active')->first() ?? \App\Models\MstLocation::first();
         $instansi = \App\Models\MstInstansi::first();
 
@@ -2989,8 +2991,8 @@ class SatuSehatService
         $encounterUuid = $existingEncounter?->resource_uuid;
 
         $periodStart = $pendaftaran->created_at;
-        $periodEnd   = $pendaftaran->updated_at ?? $pendaftaran->created_at;
-        $results     = ['resource_type' => $resourceType, 'items' => [], 'errors' => []];
+        $periodEnd = $pendaftaran->updated_at ?? $pendaftaran->created_at;
+        $results = ['resource_type' => $resourceType, 'items' => [], 'errors' => []];
 
         if ($resourceType === 'Encounter') {
             // Retry seluruh flow karena Encounter adalah fondasi
@@ -3007,14 +3009,14 @@ class SatuSehatService
             if ($diagnoses->isNotEmpty()) {
                 foreach ($diagnoses as $idx => $trxDiag) {
                     try {
-                        $diagCode    = $trxDiag->kode_diagnosa;
+                        $diagCode = $trxDiag->kode_diagnosa;
                         $diagDisplay = $trxDiag->masterDiagnosis ? $trxDiag->masterDiagnosis->nama_diagnosa : $diagCode;
 
                         $condResult = $this->createCondition([
-                            'pasien'            => $pasien,
-                            'encounter_uuid'    => $encounterUuid,
+                            'pasien' => $pasien,
+                            'encounter_uuid' => $encounterUuid,
                             'encounter_display' => "Kunjungan {$pasien->nama_pasien}",
-                            'diagnosis_code'    => $diagCode,
+                            'diagnosis_code' => $diagCode,
                             'diagnosis_display' => $diagDisplay,
                         ]);
 
@@ -3030,8 +3032,8 @@ class SatuSehatService
             } else {
                 try {
                     $condResult = $this->createConditionStable([
-                        'pasien'            => $pasien,
-                        'encounter_uuid'    => $encounterUuid,
+                        'pasien' => $pasien,
+                        'encounter_uuid' => $encounterUuid,
                         'encounter_display' => "Kunjungan {$pasien->nama_pasien}",
                     ]);
                     $condUuid = $condResult['id'] ?? null;
@@ -3051,46 +3053,46 @@ class SatuSehatService
                     ->where('resource_type', 'Condition')
                     ->where('resource_status', 'Success')
                     ->get();
-                    
+
                 $conditionUuidsForEncounter = [];
                 $rank = 1;
                 foreach ($successConditions as $stat) {
                     $conditionUuidsForEncounter[] = [
-                        'condition_uuid'    => $stat->resource_uuid,
+                        'condition_uuid' => $stat->resource_uuid,
                         'condition_display' => "Diagnosis $rank",
-                        'rank'              => $rank++
+                        'rank' => $rank++
                     ];
                 }
 
                 $encounterData = [
-                    'pasien'          => $pasien,
-                    'dokter'          => $dokter,
-                    'location'        => $location,
+                    'pasien' => $pasien,
+                    'dokter' => $dokter,
+                    'location' => $location,
                     'nomor_kunjungan' => $nomorKunjungan,
-                    'period_start'    => $periodStart,
+                    'period_start' => $periodStart,
                 ];
 
                 $dischargeData = array_merge($encounterData, [
-                    'period_end'       => $periodEnd,
-                    'arrived_start'    => $periodStart,
-                    'arrived_end'      => $periodStart,
+                    'period_end' => $periodEnd,
+                    'arrived_start' => $periodStart,
+                    'arrived_end' => $periodStart,
                     'inprogress_start' => $periodStart,
-                    'inprogress_end'   => $periodEnd,
-                    'discharge_code'   => 'home',
+                    'inprogress_end' => $periodEnd,
+                    'discharge_code' => 'home',
                     'discharge_display' => 'Home',
-                    'discharge_text'   => 'Pulang dalam keadaan sehat',
+                    'discharge_text' => 'Pulang dalam keadaan sehat',
                 ]);
                 $this->updateEncounterDischargeDisposition($encounterUuid, $dischargeData);
 
                 $finishedData = array_merge($encounterData, [
-                    'period_end'       => $periodEnd,
-                    'arrived_start'    => $periodStart,
-                    'arrived_end'      => $periodStart,
+                    'period_end' => $periodEnd,
+                    'arrived_start' => $periodStart,
+                    'arrived_end' => $periodStart,
                     'inprogress_start' => $periodStart,
-                    'inprogress_end'   => $periodEnd,
-                    'finished_start'   => $periodEnd,
-                    'finished_end'     => $periodEnd,
-                    'diagnosis'        => $conditionUuidsForEncounter,
+                    'inprogress_end' => $periodEnd,
+                    'finished_start' => $periodEnd,
+                    'finished_end' => $periodEnd,
+                    'diagnosis' => $conditionUuidsForEncounter,
                 ]);
                 $this->updateEncounterFinished($encounterUuid, $finishedData);
 
@@ -3103,8 +3105,8 @@ class SatuSehatService
         if ($resourceType === 'Observation') {
             try {
                 $obsResults = $this->createObservationAllVitalSigns([
-                    'pendaftaran'     => $pendaftaran,
-                    'encounter_uuid'  => $encounterUuid,
+                    'pendaftaran' => $pendaftaran,
+                    'encounter_uuid' => $encounterUuid,
                 ]);
 
                 foreach ($obsResults as $vitalType => $obsResult) {
@@ -3128,8 +3130,8 @@ class SatuSehatService
         if ($resourceType === 'Procedure') {
             try {
                 $procResults = $this->createProcedureAllTindakan([
-                    'pendaftaran'     => $pendaftaran,
-                    'encounter_uuid'  => $encounterUuid,
+                    'pendaftaran' => $pendaftaran,
+                    'encounter_uuid' => $encounterUuid,
                 ]);
 
                 foreach ($procResults as $tindakanCode => $procResult) {
@@ -3153,12 +3155,12 @@ class SatuSehatService
         if ($resourceType === 'Composition') {
             try {
                 $compositionData = [
-                    'pasien'            => $pasien,
-                    'dokter'            => $dokter,
-                    'encounter_uuid'    => $encounterUuid,
+                    'pasien' => $pasien,
+                    'dokter' => $dokter,
+                    'encounter_uuid' => $encounterUuid,
                     'encounter_display' => "Kunjungan {$pasien->nama_pasien} tanggal " . ($pendaftaran->created_at ? $pendaftaran->created_at->format('d/m/Y') : '-'),
-                    'date'              => $pendaftaran->created_at ? $pendaftaran->created_at->format('Y-m-d') : now()->format('Y-m-d'),
-                    'nomor_kunjungan'   => $nomorKunjungan,
+                    'date' => $pendaftaran->created_at ? $pendaftaran->created_at->format('Y-m-d') : now()->format('Y-m-d'),
+                    'nomor_kunjungan' => $nomorKunjungan,
                 ];
 
                 $compositionResult = $this->createComposition($compositionData);
@@ -3190,13 +3192,13 @@ class SatuSehatService
     ): void {
         try {
             \App\Models\TrxSatusehatStatus::create([
-                'nomor_kunjungan'  => $nomorKunjungan,
-                'patient_id'       => $patientId,
-                'resource_type'    => $resourceType,
-                'resource_uuid'    => $resourceUuid,
-                'resource_status'  => $resourceStatus,
-                'error_message'    => $errorMessage,
-                'created_by'       => $createdBy,
+                'nomor_kunjungan' => $nomorKunjungan,
+                'patient_id' => $patientId,
+                'resource_type' => $resourceType,
+                'resource_uuid' => $resourceUuid,
+                'resource_status' => $resourceStatus,
+                'error_message' => $errorMessage,
+                'created_by' => $createdBy,
             ]);
         } catch (\Exception $e) {
             Log::warning("Gagal menyimpan status resource [{$resourceType}]: " . $e->getMessage());
@@ -3299,8 +3301,8 @@ class SatuSehatService
         $nomor_kunjungan = $data['nomor_kunjungan'];
 
         $pemeriksaan = \Illuminate\Support\Facades\DB::table('trx_pemeriksaan')->where('nomor_kunjungan', $nomor_kunjungan)->first();
-        $text = $pemeriksaan && !empty($pemeriksaan->rekomendasi_diet) 
-            ? $pemeriksaan->rekomendasi_diet 
+        $text = $pemeriksaan && !empty($pemeriksaan->rekomendasi_diet)
+            ? $pemeriksaan->rekomendasi_diet
             : "Tidak ada rekomendasi khusus";
 
         $payload = [
@@ -3486,12 +3488,113 @@ class SatuSehatService
             'Content-Type' => 'application/json',
         ];
     }
-    
+
     /**
      * Utility to get Full Base URL for FHIR Requests.
      */
     public function getBaseUrl()
     {
         return $this->settings->url ?: 'https://api-satusehat.kemkes.go.id/fhir-r4/v1';
+    }
+
+    // ==========================================
+    // KFA KEMENKES V2 API
+    // ==========================================
+
+    /**
+     * Utility to get KFA Base URL
+     */
+    public function getKfaBaseUrl()
+    {
+        return 'https://api-satusehat-stg.kemkes.go.id/kfa-v2';
+    }
+
+    /**
+     * Cari produk farmasi di KFA
+     */
+    public function searchKfaProduct(string $keyword, int $page = 1, int $size = 100)
+    {
+        $url = $this->getKfaBaseUrl() . '/products/all';
+        $params = [
+            'page' => $page,
+            'size' => $size,
+            'product_type' => 'farmasi',
+            'keyword' => $keyword
+        ];
+
+        $response = Http::withHeaders($this->getHeaders())->get($url, $params);
+
+        try {
+            \App\Models\LogSatusehat::create([
+                'request_json' => json_encode(['url' => $url, 'params' => $params]),
+                'response_json' => $response->body(),
+                'status' => $response->status(),
+            ]);
+        } catch (\Exception $e) {
+            Log::warning('Gagal menyimpan log KFA: ' . $e->getMessage());
+        }
+
+        if ($response->successful()) {
+            return $response->json();
+        }
+
+        throw new \Exception('Gagal mencari produk KFA: ' . $response->body());
+    }
+
+    /**
+     * Simpan data KFA dari response API ke tabel mst_kfa_obat dan mst_kfa_ingredient
+     */
+    public function syncKfaProduct(array $kfaData)
+    {
+        $kfaCode = $kfaData['kfa_code'] ?? $kfaData['product_template_code'] ?? null;
+        if (!$kfaCode) {
+            $kfaCode = $kfaData['kode_kfa'] ?? null; // Try another common key mapping
+            if (!$kfaCode) {
+                throw new \Exception('Data KFA tidak memiliki kfa_code yang valid.');
+            }
+        }
+
+        // Manufacturer logic
+        $manufacturer = $kfaData['manufacturer'] ?? null;
+        if (!$manufacturer && isset($kfaData['kfa_poa']['name'])) {
+            $manufacturer = $kfaData['kfa_poa']['name'];
+        }
+
+        $obatKfa = \App\Models\MstKfaObat::updateOrCreate(
+            ['kfa_code' => (string) $kfaCode],
+            [
+                'name' => $kfaData['name'] ?? $kfaData['nama_produk'] ?? null,
+                'manufacturer' => $manufacturer,
+                'dosage_form_code' => $kfaData['dosage_form']['code'] ?? null,
+                'dosage_form_name' => $kfaData['dosage_form']['name'] ?? null,
+                'produk_template_kfa' => $kfaData['kfa_code'] ?? null,
+                'last_synced_at' => now(),
+            ]
+        );
+
+        // Process ingredients if they exist
+        if (isset($kfaData['active_ingredients']) && is_array($kfaData['active_ingredients'])) {
+            $obatKfa->ingredients()->delete();
+
+            foreach ($kfaData['active_ingredients'] as $ingredient) {
+                // Determine active substance (zat_aktif)
+                $zatAktif = null;
+                if (isset($ingredient['kfa_poa']['name'])) {
+                    $zatAktif = $ingredient['kfa_poa']['name'];
+                } elseif (isset($ingredient['name'])) {
+                    $zatAktif = $ingredient['name'];
+                } elseif (isset($ingredient['zat_aktif'])) {
+                    $zatAktif = $ingredient['zat_aktif'];
+                }
+
+                $obatKfa->ingredients()->create([
+                    'zat_aktif' => $zatAktif,
+                    'kfa_code_ingredient' => $ingredient['kfa_code'] ?? null,
+                    'kekuatan_zat_aktif' => $ingredient['kekuatan_zat_aktif'] ?? $ingredient['strength'] ?? $ingredient['kekuatan'] ?? null,
+                ]);
+            }
+        }
+
+        return $obatKfa;
     }
 }
