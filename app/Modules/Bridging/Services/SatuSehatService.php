@@ -2272,6 +2272,398 @@ class SatuSehatService
     }
 
     // ==========================================
+    // PROCEDURE RESOURCE
+    // ==========================================
+
+    /**
+     * Search Procedures by Patient Subject UUID.
+     * GET {baseUrl}/Procedure?subject={subjectUuid}
+     *
+     * @param string $subjectUuid SatuSehat UUID pasien (dari mst_pasien.satusehat_uuid)
+     */
+    public function searchProcedureBySubject(string $subjectUuid)
+    {
+        $url = $this->getBaseUrl() . '/Procedure';
+        $params = ['subject' => $subjectUuid];
+
+        $response = Http::withHeaders($this->getHeaders())->get($url, $params);
+
+        if ($response->successful() && !empty($response->json()['entry'])) {
+            return $response->json()['entry'];
+        }
+
+        return null;
+    }
+
+    /**
+     * Search Procedures by Patient Subject UUID and Encounter UUID.
+     * GET {baseUrl}/Procedure?subject={subjectUuid}&encounter={encounterUuid}
+     *
+     * @param string $subjectUuid   SatuSehat UUID pasien (dari mst_pasien.satusehat_uuid)
+     * @param string $encounterUuid UUID Encounter
+     */
+    public function searchProcedureBySubjectAndEncounter(string $subjectUuid, string $encounterUuid)
+    {
+        $url = $this->getBaseUrl() . '/Procedure';
+        $params = [
+            'subject'   => $subjectUuid,
+            'encounter' => $encounterUuid,
+        ];
+
+        $response = Http::withHeaders($this->getHeaders())->get($url, $params);
+
+        if ($response->successful() && !empty($response->json()['entry'])) {
+            return $response->json()['entry'];
+        }
+
+        return null;
+    }
+
+    /**
+     * Search Procedures by Encounter UUID.
+     * GET {baseUrl}/Procedure?encounter={encounterUuid}
+     *
+     * @param string $encounterUuid UUID Encounter
+     */
+    public function searchProcedureByEncounter(string $encounterUuid)
+    {
+        $url = $this->getBaseUrl() . '/Procedure';
+        $params = ['encounter' => $encounterUuid];
+
+        $response = Http::withHeaders($this->getHeaders())->get($url, $params);
+
+        if ($response->successful() && !empty($response->json()['entry'])) {
+            return $response->json()['entry'];
+        }
+
+        return null;
+    }
+
+    /**
+     * Get a specific Procedure by its UUID (path variable).
+     * GET {baseUrl}/Procedure/{id}
+     *
+     * @param string $procedureUuid UUID Procedure
+     */
+    public function getProcedureById(string $procedureUuid)
+    {
+        $url = $this->getBaseUrl() . '/Procedure/' . $procedureUuid;
+
+        $response = Http::withHeaders($this->getHeaders())->get($url);
+
+        if ($response->successful()) {
+            return $response->json();
+        }
+
+        return null;
+    }
+
+    /**
+     * Create a new Procedure resource in SatuSehat.
+     * POST {baseUrl}/Procedure
+     *
+     * Data tindakan diambil dari trx_tindakan, kode ICD-9-CM dan SNOMED dari mst_tindakan.
+     *
+     * @param array $data Expecting keys:
+     *   - pasien (MstPasien model)
+     *   - dokter (MstDokter model)
+     *   - encounter_uuid (string)
+     *   - encounter_display (string)
+     *   - tindakan (TrxTindakan model with relation 'tindakan' loaded)
+     *   - performed_start (datetime, opsional)
+     *   - performed_end (datetime, opsional)
+     *   - reason_code (string, ICD-10 code, opsional)
+     *   - reason_display (string, opsional)
+     *   - note (string, opsional)
+     */
+    public function createProcedure(array $data)
+    {
+        $pasien = $data['pasien']; // MstPasien model
+        $dokter = $data['dokter']; // MstDokter model
+        $trxTindakan = $data['tindakan']; // TrxTindakan model
+        $masterTindakan = $trxTindakan->tindakan; // MstTindakan (relasi)
+
+        $body = [
+            "resourceType" => "Procedure",
+            "status" => "completed",
+            "category" => [
+                "coding" => [
+                    [
+                        "system" => "http://snomed.info/sct",
+                        "code" => $masterTindakan->snomed_code ?: "103693007",
+                        "display" => $masterTindakan->snomed_name ?: "Diagnostic procedure",
+                    ]
+                ],
+                "text" => $masterTindakan->snomed_name ?: "Diagnostic procedure",
+            ],
+            "code" => [
+                "coding" => [
+                    [
+                        "system" => "http://hl7.org/fhir/sid/icd-9-cm",
+                        "code" => $masterTindakan->icd9cm_code ?: $masterTindakan->kode_tindakan,
+                        "display" => $masterTindakan->icd9cm_name ?: $masterTindakan->nama_tindakan,
+                    ]
+                ],
+            ],
+            "subject" => [
+                "reference" => "Patient/" . $pasien->satusehat_uuid,
+                "display" => $pasien->nama_pasien,
+            ],
+            "encounter" => [
+                "reference" => "Encounter/" . $data['encounter_uuid'],
+                "display" => $data['encounter_display'] ?? '',
+            ],
+            "performedPeriod" => [
+                "start" => $this->formatUtcDateTime($data['performed_start'] ?? null),
+                "end" => $this->formatUtcDateTime($data['performed_end'] ?? null),
+            ],
+            "performer" => [
+                [
+                    "actor" => [
+                        "reference" => "Practitioner/" . $dokter->practitioner_id,
+                        "display" => $dokter->nama_dokter,
+                    ]
+                ],
+            ],
+        ];
+
+        // Tambahkan reasonCode jika ada diagnosis terkait
+        if (!empty($data['reason_code'])) {
+            $body['reasonCode'] = [
+                [
+                    "coding" => [
+                        [
+                            "system" => "http://hl7.org/fhir/sid/icd-10",
+                            "code" => $data['reason_code'],
+                            "display" => $data['reason_display'] ?? $data['reason_code'],
+                        ]
+                    ],
+                ],
+            ];
+        }
+
+        // Tambahkan bodySite jika SNOMED code tersedia
+        if (!empty($masterTindakan->snomed_code)) {
+            $body['bodySite'] = [
+                [
+                    "coding" => [
+                        [
+                            "system" => "http://snomed.info/sct",
+                            "code" => $masterTindakan->snomed_code,
+                            "display" => $masterTindakan->snomed_name ?: '',
+                        ]
+                    ],
+                ],
+            ];
+        }
+
+        // Tambahkan catatan jika ada
+        if (!empty($data['note'])) {
+            $body['note'] = [
+                [
+                    "text" => $data['note'],
+                ],
+            ];
+        }
+
+        $url = $this->getBaseUrl() . '/Procedure';
+        $response = Http::withHeaders($this->getHeaders())->post($url, $body);
+
+        if ($response->successful()) {
+            $result = $response->json();
+            $this->logSatusehatData(null, $result['id'] ?? null, $body, 'success');
+            return $result;
+        }
+
+        $this->logSatusehatData(null, null, $body, 'failed');
+        throw new \Exception('Gagal create Procedure di SatuSehat: ' . $response->body());
+    }
+
+    /**
+     * Update an existing Procedure in SatuSehat.
+     * PUT {baseUrl}/Procedure/{id}
+     *
+     * @param string $procedureUuid UUID Procedure yang akan di-update
+     * @param array  $data (sama seperti createProcedure)
+     */
+    public function updateProcedure(string $procedureUuid, array $data)
+    {
+        $pasien = $data['pasien'];
+        $dokter = $data['dokter'];
+        $trxTindakan = $data['tindakan'];
+        $masterTindakan = $trxTindakan->tindakan;
+
+        $body = [
+            "resourceType" => "Procedure",
+            "id" => $procedureUuid,
+            "status" => "completed",
+            "category" => [
+                "coding" => [
+                    [
+                        "system" => "http://snomed.info/sct",
+                        "code" => $masterTindakan->snomed_code ?: "103693007",
+                        "display" => $masterTindakan->snomed_name ?: "Diagnostic procedure",
+                    ]
+                ],
+                "text" => $masterTindakan->snomed_name ?: "Diagnostic procedure",
+            ],
+            "code" => [
+                "coding" => [
+                    [
+                        "system" => "http://hl7.org/fhir/sid/icd-9-cm",
+                        "code" => $masterTindakan->icd9cm_code ?: $masterTindakan->kode_tindakan,
+                        "display" => $masterTindakan->icd9cm_name ?: $masterTindakan->nama_tindakan,
+                    ]
+                ],
+            ],
+            "subject" => [
+                "reference" => "Patient/" . $pasien->satusehat_uuid,
+                "display" => $pasien->nama_pasien,
+            ],
+            "encounter" => [
+                "reference" => "Encounter/" . $data['encounter_uuid'],
+                "display" => $data['encounter_display'] ?? '',
+            ],
+            "performedPeriod" => [
+                "start" => $this->formatUtcDateTime($data['performed_start'] ?? null),
+                "end" => $this->formatUtcDateTime($data['performed_end'] ?? null),
+            ],
+            "performer" => [
+                [
+                    "actor" => [
+                        "reference" => "Practitioner/" . $dokter->practitioner_id,
+                        "display" => $dokter->nama_dokter,
+                    ]
+                ],
+            ],
+        ];
+
+        // Tambahkan reasonCode jika ada
+        if (!empty($data['reason_code'])) {
+            $body['reasonCode'] = [
+                [
+                    "coding" => [
+                        [
+                            "system" => "http://hl7.org/fhir/sid/icd-10",
+                            "code" => $data['reason_code'],
+                            "display" => $data['reason_display'] ?? $data['reason_code'],
+                        ]
+                    ],
+                ],
+            ];
+        }
+
+        // Tambahkan bodySite jika SNOMED code tersedia
+        if (!empty($masterTindakan->snomed_code)) {
+            $body['bodySite'] = [
+                [
+                    "coding" => [
+                        [
+                            "system" => "http://snomed.info/sct",
+                            "code" => $masterTindakan->snomed_code,
+                            "display" => $masterTindakan->snomed_name ?: '',
+                        ]
+                    ],
+                ],
+            ];
+        }
+
+        // Tambahkan catatan jika ada
+        if (!empty($data['note'])) {
+            $body['note'] = [
+                [
+                    "text" => $data['note'],
+                ],
+            ];
+        }
+
+        $url = $this->getBaseUrl() . '/Procedure/' . $procedureUuid;
+        $response = Http::withHeaders($this->getHeaders())->put($url, $body);
+
+        if ($response->successful()) {
+            $this->logSatusehatData(null, $procedureUuid, $body, 'success');
+            return $response->json();
+        }
+
+        $this->logSatusehatData(null, $procedureUuid, $body, 'failed');
+        throw new \Exception('Gagal update Procedure di SatuSehat: ' . $response->body());
+    }
+
+    /**
+     * Kirim semua tindakan dari kunjungan sebagai Procedure resources.
+     *
+     * @param array $data Expecting keys:
+     *   - pendaftaran (TrxPendaftaran model with relations)
+     *   - encounter_uuid (string)
+     * @return array Hasil per-tindakan
+     */
+    public function createProcedureAllTindakan(array $data): array
+    {
+        $pendaftaran = $data['pendaftaran'];
+        $encounterUuid = $data['encounter_uuid'];
+
+        $pasien = $pendaftaran->pasien;
+        $dokter = $pendaftaran->dokter;
+
+        // Load tindakan beserta relasi master
+        $tindakanList = \App\Models\TrxTindakan::with('tindakan')
+            ->where('nomor_kunjungan', $pendaftaran->nomor_kunjungan)
+            ->get();
+
+        $results = [];
+
+        if ($tindakanList->isEmpty()) {
+            return $results;
+        }
+
+        // Ambil diagnosis utama untuk reasonCode (opsional)
+        $diagnoses = $pendaftaran->diagnoses ?? collect();
+        $primaryDiag = $diagnoses->first();
+        $reasonCode = null;
+        $reasonDisplay = null;
+        if ($primaryDiag) {
+            $reasonCode = $primaryDiag->kode_diagnosa;
+            $reasonDisplay = $primaryDiag->masterDiagnosis ? $primaryDiag->masterDiagnosis->nama_diagnosa : $reasonCode;
+        }
+
+        foreach ($tindakanList as $trxTindakan) {
+            try {
+                $masterTindakan = $trxTindakan->tindakan;
+
+                // Skip jika master tindakan tidak ditemukan
+                if (!$masterTindakan) {
+                    $results[$trxTindakan->kode_tindakan] = [
+                        'error' => "Master tindakan tidak ditemukan untuk kode: {$trxTindakan->kode_tindakan}",
+                    ];
+                    continue;
+                }
+
+                $result = $this->createProcedure([
+                    'pasien'            => $pasien,
+                    'dokter'            => $dokter,
+                    'encounter_uuid'    => $encounterUuid,
+                    'encounter_display' => "Tindakan {$masterTindakan->nama_tindakan} {$pasien->nama_pasien} tanggal " . ($pendaftaran->created_at ? $pendaftaran->created_at->format('d/m/Y') : '-'),
+                    'tindakan'          => $trxTindakan,
+                    'performed_start'   => $pendaftaran->created_at,
+                    'performed_end'     => $pendaftaran->updated_at ?? $pendaftaran->created_at,
+                    'reason_code'       => $reasonCode,
+                    'reason_display'    => $reasonDisplay,
+                    'note'              => $masterTindakan->deskripsi,
+                ]);
+
+                $results[$trxTindakan->kode_tindakan] = $result;
+
+            } catch (\Exception $e) {
+                $results[$trxTindakan->kode_tindakan] = [
+                    'error' => $e->getMessage(),
+                ];
+            }
+        }
+
+        return $results;
+    }
+
+    // ==========================================
     // RESUME MEDIS ORCHESTRATOR
     // ==========================================
 
@@ -2294,6 +2686,7 @@ class SatuSehatService
             'encounter'       => null,
             'conditions'      => [],
             'observations'    => [],
+            'procedures'      => [],
             'errors'          => [],
         ];
 
@@ -2369,7 +2762,7 @@ class SatuSehatService
 
         } catch (\Exception $e) {
             Log::error("SendResumeMedis Encounter gagal [{$nomorKunjungan}]: " . $e->getMessage());
-            $this->saveResourceStatus($nomorKunjungan, $pasien->satusehat_uuid, 'Encounter', null, 'Failed', $createdBy);
+            $this->saveResourceStatus($nomorKunjungan, $pasien->satusehat_uuid, 'Encounter', null, 'Failed', $createdBy, $e->getMessage());
             $results['encounter'] = ['uuid' => null, 'status' => 'Failed', 'error' => $e->getMessage()];
             $results['errors'][] = 'Encounter: ' . $e->getMessage();
             // Encounter gagal → tidak bisa lanjut
@@ -2408,7 +2801,7 @@ class SatuSehatService
 
                 } catch (\Exception $e) {
                     Log::error("SendResumeMedis Condition gagal [{$nomorKunjungan}] {$diagCode}: " . $e->getMessage());
-                    $this->saveResourceStatus($nomorKunjungan, $pasien->satusehat_uuid, 'Condition', null, 'Failed', $createdBy);
+                    $this->saveResourceStatus($nomorKunjungan, $pasien->satusehat_uuid, 'Condition', null, 'Failed', $createdBy, $e->getMessage());
                     $results['conditions'][] = ['uuid' => null, 'code' => $diagCode ?? '-', 'status' => 'Failed', 'error' => $e->getMessage()];
                     $results['errors'][] = "Condition ({$diagCode}): " . $e->getMessage();
                 }
@@ -2434,7 +2827,7 @@ class SatuSehatService
 
             } catch (\Exception $e) {
                 Log::error("SendResumeMedis ConditionStable gagal [{$nomorKunjungan}]: " . $e->getMessage());
-                $this->saveResourceStatus($nomorKunjungan, $pasien->satusehat_uuid, 'Condition', null, 'Failed', $createdBy);
+                $this->saveResourceStatus($nomorKunjungan, $pasien->satusehat_uuid, 'Condition', null, 'Failed', $createdBy, $e->getMessage());
                 $results['conditions'][] = ['uuid' => null, 'code' => 'Stable', 'status' => 'Failed', 'error' => $e->getMessage()];
                 $results['errors'][] = 'Condition (Stable): ' . $e->getMessage();
             }
@@ -2482,7 +2875,7 @@ class SatuSehatService
 
             foreach ($obsResults as $vitalType => $obsResult) {
                 if (isset($obsResult['error'])) {
-                    $this->saveResourceStatus($nomorKunjungan, $pasien->satusehat_uuid, 'Observation', null, 'Failed', $createdBy);
+                    $this->saveResourceStatus($nomorKunjungan, $pasien->satusehat_uuid, 'Observation', null, 'Failed', $createdBy, $obsResult['error'] ?? 'Gagal membuat Observation');
                     $results['observations'][] = ['type' => $vitalType, 'status' => 'Failed', 'error' => $obsResult['error']];
                     $results['errors'][] = "Observation ({$vitalType}): " . $obsResult['error'];
                 } else {
@@ -2493,9 +2886,62 @@ class SatuSehatService
             }
         } catch (\Exception $e) {
             Log::error("SendResumeMedis Observation gagal [{$nomorKunjungan}]: " . $e->getMessage());
-            $this->saveResourceStatus($nomorKunjungan, $pasien->satusehat_uuid, 'Observation', null, 'Failed', $createdBy);
+            $this->saveResourceStatus($nomorKunjungan, $pasien->satusehat_uuid, 'Observation', null, 'Failed', $createdBy, $e->getMessage());
             $results['observations'][] = ['type' => 'all', 'status' => 'Failed', 'error' => $e->getMessage()];
             $results['errors'][] = 'Observation: ' . $e->getMessage();
+        }
+
+        // ================================================================
+        // STEP 4: PROCEDURE (Tindakan)
+        // ================================================================
+        try {
+            $procResults = $this->createProcedureAllTindakan([
+                'pendaftaran'    => $pendaftaran,
+                'encounter_uuid' => $encounterUuid,
+            ]);
+
+            foreach ($procResults as $tindakanCode => $procResult) {
+                if (isset($procResult['error'])) {
+                    $this->saveResourceStatus($nomorKunjungan, $pasien->satusehat_uuid, 'Procedure', null, 'Failed', $createdBy, $procResult['error'] ?? 'Gagal membuat Procedure');
+                    $results['procedures'][] = ['code' => $tindakanCode, 'status' => 'Failed', 'error' => $procResult['error']];
+                    $results['errors'][] = "Procedure ({$tindakanCode}): " . $procResult['error'];
+                } else {
+                    $procUuid = $procResult['id'] ?? null;
+                    $this->saveResourceStatus($nomorKunjungan, $pasien->satusehat_uuid, 'Procedure', $procUuid, 'Success', $createdBy);
+                    $results['procedures'][] = ['code' => $tindakanCode, 'uuid' => $procUuid, 'status' => 'Success'];
+                }
+            }
+        } catch (\Exception $e) {
+            Log::error("SendResumeMedis Procedure gagal [{$nomorKunjungan}]: " . $e->getMessage());
+            $this->saveResourceStatus($nomorKunjungan, $pasien->satusehat_uuid, 'Procedure', null, 'Failed', $createdBy, $e->getMessage());
+            $results['procedures'][] = ['code' => 'all', 'status' => 'Failed', 'error' => $e->getMessage()];
+            $results['errors'][] = 'Procedure: ' . $e->getMessage();
+        }
+
+        // ================================================================
+        // STEP 5: COMPOSITION (Discharge Summary)
+        // ================================================================
+        try {
+            $compositionData = [
+                'pasien'            => $pasien,
+                'dokter'            => $dokter,
+                'encounter_uuid'    => $encounterUuid,
+                'encounter_display' => "Kunjungan {$pasien->nama_pasien} tanggal " . ($pendaftaran->created_at ? $pendaftaran->created_at->format('d/m/Y') : '-'),
+                'date'              => $pendaftaran->created_at ? $pendaftaran->created_at->format('Y-m-d') : now()->format('Y-m-d'),
+                'nomor_kunjungan'   => $nomorKunjungan,
+            ];
+
+            $compositionResult = $this->createComposition($compositionData);
+            $compUuid = $compositionResult['id'] ?? null;
+
+            $this->saveResourceStatus($nomorKunjungan, $pasien->satusehat_uuid, 'Composition', $compUuid, 'Success', $createdBy);
+            $results['composition'] = ['uuid' => $compUuid, 'status' => 'Success'];
+
+        } catch (\Exception $e) {
+            Log::error("SendResumeMedis Composition gagal [{$nomorKunjungan}]: " . $e->getMessage());
+            $this->saveResourceStatus($nomorKunjungan, $pasien->satusehat_uuid, 'Composition', null, 'Failed', $createdBy, $e->getMessage());
+            $results['composition'] = ['uuid' => null, 'status' => 'Failed', 'error' => $e->getMessage()];
+            $results['errors'][] = 'Composition: ' . $e->getMessage();
         }
 
         return $results;
@@ -2505,7 +2951,7 @@ class SatuSehatService
      * Kirim ulang (retry) resource yang gagal untuk satu kunjungan.
      *
      * @param string $nomorKunjungan
-     * @param string $resourceType   'Encounter', 'Condition', atau 'Observation'
+     * @param string $resourceType   'Encounter', 'Condition', 'Observation', 'Procedure', atau 'Composition'
      * @param string|null $createdBy
      * @return array Hasil pengiriman ulang
      */
@@ -2576,7 +3022,7 @@ class SatuSehatService
                         $this->saveResourceStatus($nomorKunjungan, $pasien->satusehat_uuid, 'Condition', $condUuid, 'Success', $createdBy);
                         $results['items'][] = ['uuid' => $condUuid, 'code' => $diagCode, 'status' => 'Success'];
                     } catch (\Exception $e) {
-                        $this->saveResourceStatus($nomorKunjungan, $pasien->satusehat_uuid, 'Condition', null, 'Failed', $createdBy);
+                        $this->saveResourceStatus($nomorKunjungan, $pasien->satusehat_uuid, 'Condition', null, 'Failed', $createdBy, $e->getMessage());
                         $results['items'][] = ['code' => $diagCode ?? '-', 'status' => 'Failed', 'error' => $e->getMessage()];
                         $results['errors'][] = $e->getMessage();
                     }
@@ -2592,7 +3038,7 @@ class SatuSehatService
                     $this->saveResourceStatus($nomorKunjungan, $pasien->satusehat_uuid, 'Condition', $condUuid, 'Success', $createdBy);
                     $results['items'][] = ['uuid' => $condUuid, 'code' => 'Stable', 'status' => 'Success'];
                 } catch (\Exception $e) {
-                    $this->saveResourceStatus($nomorKunjungan, $pasien->satusehat_uuid, 'Condition', null, 'Failed', $createdBy);
+                    $this->saveResourceStatus($nomorKunjungan, $pasien->satusehat_uuid, 'Condition', null, 'Failed', $createdBy, $e->getMessage());
                     $results['items'][] = ['code' => 'Stable', 'status' => 'Failed', 'error' => $e->getMessage()];
                     $results['errors'][] = $e->getMessage();
                 }
@@ -2663,7 +3109,7 @@ class SatuSehatService
 
                 foreach ($obsResults as $vitalType => $obsResult) {
                     if (isset($obsResult['error'])) {
-                        $this->saveResourceStatus($nomorKunjungan, $pasien->satusehat_uuid, 'Observation', null, 'Failed', $createdBy);
+                        $this->saveResourceStatus($nomorKunjungan, $pasien->satusehat_uuid, 'Observation', null, 'Failed', $createdBy, $obsResult['error'] ?? 'Gagal membuat Observation');
                         $results['items'][] = ['type' => $vitalType, 'status' => 'Failed', 'error' => $obsResult['error']];
                         $results['errors'][] = $obsResult['error'];
                     } else {
@@ -2673,8 +3119,56 @@ class SatuSehatService
                     }
                 }
             } catch (\Exception $e) {
-                $this->saveResourceStatus($nomorKunjungan, $pasien->satusehat_uuid, 'Observation', null, 'Failed', $createdBy);
+                $this->saveResourceStatus($nomorKunjungan, $pasien->satusehat_uuid, 'Observation', null, 'Failed', $createdBy, $e->getMessage());
                 $results['items'][] = ['type' => 'all', 'status' => 'Failed', 'error' => $e->getMessage()];
+                $results['errors'][] = $e->getMessage();
+            }
+        }
+
+        if ($resourceType === 'Procedure') {
+            try {
+                $procResults = $this->createProcedureAllTindakan([
+                    'pendaftaran'     => $pendaftaran,
+                    'encounter_uuid'  => $encounterUuid,
+                ]);
+
+                foreach ($procResults as $tindakanCode => $procResult) {
+                    if (isset($procResult['error'])) {
+                        $this->saveResourceStatus($nomorKunjungan, $pasien->satusehat_uuid, 'Procedure', null, 'Failed', $createdBy, $procResult['error'] ?? 'Gagal membuat Procedure');
+                        $results['items'][] = ['code' => $tindakanCode, 'status' => 'Failed', 'error' => $procResult['error']];
+                        $results['errors'][] = $procResult['error'];
+                    } else {
+                        $procUuid = $procResult['id'] ?? null;
+                        $this->saveResourceStatus($nomorKunjungan, $pasien->satusehat_uuid, 'Procedure', $procUuid, 'Success', $createdBy);
+                        $results['items'][] = ['code' => $tindakanCode, 'uuid' => $procUuid, 'status' => 'Success'];
+                    }
+                }
+            } catch (\Exception $e) {
+                $this->saveResourceStatus($nomorKunjungan, $pasien->satusehat_uuid, 'Procedure', null, 'Failed', $createdBy, $e->getMessage());
+                $results['items'][] = ['code' => 'all', 'status' => 'Failed', 'error' => $e->getMessage()];
+                $results['errors'][] = $e->getMessage();
+            }
+        }
+
+        if ($resourceType === 'Composition') {
+            try {
+                $compositionData = [
+                    'pasien'            => $pasien,
+                    'dokter'            => $dokter,
+                    'encounter_uuid'    => $encounterUuid,
+                    'encounter_display' => "Kunjungan {$pasien->nama_pasien} tanggal " . ($pendaftaran->created_at ? $pendaftaran->created_at->format('d/m/Y') : '-'),
+                    'date'              => $pendaftaran->created_at ? $pendaftaran->created_at->format('Y-m-d') : now()->format('Y-m-d'),
+                    'nomor_kunjungan'   => $nomorKunjungan,
+                ];
+
+                $compositionResult = $this->createComposition($compositionData);
+                $compUuid = $compositionResult['id'] ?? null;
+
+                $this->saveResourceStatus($nomorKunjungan, $pasien->satusehat_uuid, 'Composition', $compUuid, 'Success', $createdBy);
+                $results['items'][] = ['type' => 'Composition', 'uuid' => $compUuid, 'status' => 'Success'];
+            } catch (\Exception $e) {
+                $this->saveResourceStatus($nomorKunjungan, $pasien->satusehat_uuid, 'Composition', null, 'Failed', $createdBy, $e->getMessage());
+                $results['items'][] = ['type' => 'Composition', 'status' => 'Failed', 'error' => $e->getMessage()];
                 $results['errors'][] = $e->getMessage();
             }
         }
@@ -2691,7 +3185,8 @@ class SatuSehatService
         string $resourceType,
         ?string $resourceUuid,
         string $resourceStatus,
-        ?string $createdBy = null
+        ?string $createdBy = null,
+        ?string $errorMessage = null
     ): void {
         try {
             \App\Models\TrxSatusehatStatus::create([
@@ -2700,6 +3195,7 @@ class SatuSehatService
                 'resource_type'    => $resourceType,
                 'resource_uuid'    => $resourceUuid,
                 'resource_status'  => $resourceStatus,
+                'error_message'    => $errorMessage,
                 'created_by'       => $createdBy,
             ]);
         } catch (\Exception $e) {
@@ -2707,11 +3203,237 @@ class SatuSehatService
         }
     }
 
+    // ==========================================
+    // COMPOSITION RESOURCE
+    // ==========================================
+
+    /**
+     * Search Composition by Patient Subject UUID.
+     * GET {baseUrl}/Composition?subject={subjectUuid}
+     */
+    public function searchCompositionBySubject(string $subjectUuid)
+    {
+        $url = $this->getBaseUrl() . '/Composition';
+        $params = ['subject' => $subjectUuid];
+
+        $response = Http::withHeaders($this->getHeaders())->get($url, $params);
+
+        if ($response->successful() && !empty($response->json()['entry'])) {
+            return $response->json()['entry'];
+        }
+
+        return null;
+    }
+
+    /**
+     * Search Composition by Subject and Encounter UUID.
+     * GET {baseUrl}/Composition?subject={subjectUuid}&encounter={encounterUuid}
+     */
+    public function searchCompositionBySubjectAndEncounter(string $subjectUuid, string $encounterUuid)
+    {
+        $url = $this->getBaseUrl() . '/Composition';
+        $params = [
+            'subject' => $subjectUuid,
+            'encounter' => $encounterUuid
+        ];
+
+        $response = Http::withHeaders($this->getHeaders())->get($url, $params);
+
+        if ($response->successful() && !empty($response->json()['entry'])) {
+            return $response->json()['entry'];
+        }
+
+        return null;
+    }
+
+    /**
+     * Search Composition by Encounter UUID.
+     * GET {baseUrl}/Composition?encounter={encounterUuid}
+     */
+    public function searchCompositionByEncounter(string $encounterUuid)
+    {
+        $url = $this->getBaseUrl() . '/Composition';
+        $params = ['encounter' => $encounterUuid];
+
+        $response = Http::withHeaders($this->getHeaders())->get($url, $params);
+
+        if ($response->successful() && !empty($response->json()['entry'])) {
+            return $response->json()['entry'];
+        }
+
+        return null;
+    }
+
+    /**
+     * Get a specific Composition by its UUID (path variable).
+     * GET {baseUrl}/Composition/{id}
+     */
+    public function getCompositionById(string $compositionUuid)
+    {
+        $url = $this->getBaseUrl() . '/Composition/' . $compositionUuid;
+
+        $response = Http::withHeaders($this->getHeaders())->get($url);
+
+        if ($response->successful()) {
+            return $response->json();
+        }
+
+        return null;
+    }
+
+    /**
+     * Format Composition payload for FHIR R4
+     */
+    protected function formatCompositionPayload(array $data, ?string $id = null)
+    {
+        $instansi = \App\Models\MstInstansi::first();
+        if (!$instansi) {
+            throw new \Exception('Data profil klinik (mst_instansi) tidak ditemukan.');
+        }
+
+        $pasien = $data['pasien'];
+        $dokter = $data['dokter'];
+        $encounterUuid = $data['encounter_uuid'];
+        $encounterDisplay = $data['encounter_display'] ?? "Kunjungan " . $pasien->nama_pasien;
+        $date = $data['date'] ?? now()->format('Y-m-d');
+        $nomor_kunjungan = $data['nomor_kunjungan'];
+
+        $pemeriksaan = \Illuminate\Support\Facades\DB::table('trx_pemeriksaan')->where('nomor_kunjungan', $nomor_kunjungan)->first();
+        $text = $pemeriksaan && !empty($pemeriksaan->rekomendasi_diet) 
+            ? $pemeriksaan->rekomendasi_diet 
+            : "Tidak ada rekomendasi khusus";
+
+        $payload = [
+            "resourceType" => "Composition",
+            "identifier" => [
+                "system" => "http://sys-ids.kemkes.go.id/composition/" . $instansi->organization_id,
+                "value" => $nomor_kunjungan
+            ],
+            "status" => "final",
+            "type" => [
+                "coding" => [
+                    [
+                        "system" => "http://loinc.org",
+                        "code" => "18842-5",
+                        "display" => "Discharge summary"
+                    ]
+                ]
+            ],
+            "category" => [
+                [
+                    "coding" => [
+                        [
+                            "system" => "http://loinc.org",
+                            "code" => "LP173421-1",
+                            "display" => "Report"
+                        ]
+                    ]
+                ]
+            ],
+            "subject" => [
+                "reference" => "Patient/" . $pasien->satusehat_uuid,
+                "display" => $pasien->nama_pasien
+            ],
+            "encounter" => [
+                "reference" => "Encounter/" . $encounterUuid,
+                "display" => $encounterDisplay
+            ],
+            "date" => $date,
+            "author" => [
+                [
+                    "reference" => "Practitioner/" . $dokter->practitioner_id,
+                    "display" => $dokter->nama_dokter
+                ]
+            ],
+            "title" => "Resume Medis Rawat Jalan",
+            "custodian" => [
+                "reference" => "Organization/" . $instansi->organization_id
+            ],
+            "section" => [
+                [
+                    "code" => [
+                        "coding" => [
+                            [
+                                "system" => "http://loinc.org",
+                                "code" => "42344-2",
+                                "display" => "Discharge diet (narrative)"
+                            ]
+                        ]
+                    ],
+                    "text" => [
+                        "status" => "additional",
+                        "div" => $text
+                    ]
+                ]
+            ]
+        ];
+
+        if ($id) {
+            $payload['id'] = $id;
+        }
+
+        return $payload;
+    }
+
+    /**
+     * Create a new Composition.
+     * POST {baseUrl}/Composition
+     *
+     * @param array $data
+     */
+    public function createComposition(array $data)
+    {
+        $instansi = \App\Models\MstInstansi::first();
+        if (!$instansi) {
+            throw new \Exception('Data profil klinik (mst_instansi) tidak ditemukan.');
+        }
+
+        $body = $this->formatCompositionPayload($data);
+
+        $url = $this->getBaseUrl() . '/Composition';
+        $response = Http::withHeaders($this->getHeaders())->post($url, $body);
+
+        if ($response->successful()) {
+            $result = $response->json();
+            $this->logSatusehatData($instansi->organization_id, $result['id'] ?? null, $body, 'success');
+            return $result;
+        }
+
+        $this->logSatusehatData($instansi->organization_id, null, $body, 'failed');
+        throw new \Exception('Gagal create Composition di SatuSehat: ' . $response->body());
+    }
+
+    /**
+     * Update an existing Composition.
+     * PUT {baseUrl}/Composition/{id}
+     *
+     * @param string $compositionUuid
+     * @param array  $data
+     */
+    public function updateComposition(string $compositionUuid, array $data)
+    {
+        $instansi = \App\Models\MstInstansi::first();
+        if (!$instansi) {
+            throw new \Exception('Data profil klinik (mst_instansi) tidak ditemukan.');
+        }
+
+        $body = $this->formatCompositionPayload($data, $compositionUuid);
+
+        $url = $this->getBaseUrl() . '/Composition/' . $compositionUuid;
+        $response = Http::withHeaders($this->getHeaders())->put($url, $body);
+
+        if ($response->successful()) {
+            $result = $response->json();
+            $this->logSatusehatData($instansi->organization_id, $result['id'] ?? null, $body, 'success');
+            return $result;
+        }
+
+        $this->logSatusehatData($instansi->organization_id, $compositionUuid, $body, 'failed');
+        throw new \Exception('Gagal update Composition di SatuSehat: ' . $response->body());
+    }
+
     /**
      * Request a fresh token from SatuSehat OAuth2 endpoint.
-
-
-
      */
     public function requestNewToken()
     {

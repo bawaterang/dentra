@@ -22,6 +22,14 @@ class TindakanPage extends Component
 
     public $kategori_tindakan;
 
+    public $icd9cm_code;
+
+    public $icd9cm_name;
+
+    public $snomed_code;
+
+    public $snomed_name;
+
     public $harga_default;
 
     public $deskripsi;
@@ -88,7 +96,7 @@ class TindakanPage extends Component
 
     public function resetForm()
     {
-        $this->reset(['tindakanId', 'kode_tindakan', 'nama_tindakan', 'kategori_tindakan', 'harga_default', 'deskripsi', 'isEdit']);
+        $this->reset(['tindakanId', 'kode_tindakan', 'nama_tindakan', 'kategori_tindakan', 'icd9cm_code', 'icd9cm_name', 'snomed_code', 'snomed_name', 'harga_default', 'deskripsi', 'isEdit']);
         $this->status = 'Aktif';
         $this->harga_default = 0;
         $this->resetErrorBag();
@@ -115,6 +123,10 @@ class TindakanPage extends Component
         $this->kode_tindakan = $item->kode_tindakan;
         $this->nama_tindakan = $item->nama_tindakan;
         $this->kategori_tindakan = $item->kategori_tindakan;
+        $this->icd9cm_code = $item->icd9cm_code;
+        $this->icd9cm_name = $item->icd9cm_name;
+        $this->snomed_code = $item->snomed_code;
+        $this->snomed_name = $item->snomed_name;
         $this->harga_default = $item->harga_default;
         $this->deskripsi = $item->deskripsi;
         $this->status = $item->status;
@@ -139,6 +151,10 @@ class TindakanPage extends Component
                 'kode_tindakan' => $this->kode_tindakan,
                 'nama_tindakan' => $this->nama_tindakan,
                 'kategori_tindakan' => $this->kategori_tindakan,
+                'icd9cm_code' => $this->icd9cm_code,
+                'icd9cm_name' => $this->icd9cm_name,
+                'snomed_code' => $this->snomed_code,
+                'snomed_name' => $this->snomed_name,
                 'harga_default' => $this->harga_default,
                 'deskripsi' => $this->deskripsi,
                 'status' => $this->status ?? 'Aktif',
@@ -555,6 +571,42 @@ class TindakanPage extends Component
                                 <input type="number" wire:model="harga_default" 
                                        class="w-full bg-gray-50 border border-gray-100 rounded-xl sm:rounded-2xl py-2.5 sm:py-3 px-4 text-sm font-bold text-[#2c3e50] focus:bg-white focus:ring-4 focus:ring-indigo-100 focus:border-[#405189] transition-all outline-none" 
                                        min="0" placeholder="0">
+                            </div>
+
+                            {{-- SatuSehat Coding (ICD-9-CM & SNOMED) --}}
+                            <div class="mt-2 p-4 bg-gradient-to-r from-indigo-50/50 to-purple-50/50 rounded-xl sm:rounded-2xl border border-indigo-100/50">
+                                <div class="flex items-center gap-2 mb-4">
+                                    <div class="w-6 h-6 rounded-lg bg-indigo-100 flex items-center justify-center">
+                                        <i class="ri-heart-pulse-fill text-indigo-600 text-xs"></i>
+                                    </div>
+                                    <span class="text-[9px] sm:text-[10px] font-black text-indigo-500 uppercase tracking-widest">Kode SatuSehat (Opsional)</span>
+                                </div>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div class="space-y-1.5">
+                                        <label class="text-[9px] sm:text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">ICD-9-CM Code</label>
+                                        <input type="text" wire:model="icd9cm_code" 
+                                               class="w-full bg-white border border-gray-100 rounded-xl py-2.5 px-4 text-sm font-bold text-[#2c3e50] focus:ring-4 focus:ring-indigo-100 focus:border-[#405189] transition-all outline-none" 
+                                               placeholder="Contoh: 87.44">
+                                    </div>
+                                    <div class="space-y-1.5">
+                                        <label class="text-[9px] sm:text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">ICD-9-CM Name</label>
+                                        <input type="text" wire:model="icd9cm_name" 
+                                               class="w-full bg-white border border-gray-100 rounded-xl py-2.5 px-4 text-sm font-bold text-[#2c3e50] focus:ring-4 focus:ring-indigo-100 focus:border-[#405189] transition-all outline-none" 
+                                               placeholder="Contoh: Routine chest x-ray">
+                                    </div>
+                                    <div class="space-y-1.5">
+                                        <label class="text-[9px] sm:text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">SNOMED Code</label>
+                                        <input type="text" wire:model="snomed_code" 
+                                               class="w-full bg-white border border-gray-100 rounded-xl py-2.5 px-4 text-sm font-bold text-[#2c3e50] focus:ring-4 focus:ring-indigo-100 focus:border-[#405189] transition-all outline-none" 
+                                               placeholder="Contoh: 103693007">
+                                    </div>
+                                    <div class="space-y-1.5">
+                                        <label class="text-[9px] sm:text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">SNOMED Name</label>
+                                        <input type="text" wire:model="snomed_name" 
+                                               class="w-full bg-white border border-gray-100 rounded-xl py-2.5 px-4 text-sm font-bold text-[#2c3e50] focus:ring-4 focus:ring-indigo-100 focus:border-[#405189] transition-all outline-none" 
+                                               placeholder="Contoh: Diagnostic procedure">
+                                    </div>
+                                </div>
                             </div>
 
                             <div class="space-y-1.5">

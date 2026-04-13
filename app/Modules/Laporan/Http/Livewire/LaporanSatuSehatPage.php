@@ -109,7 +109,17 @@ class LaporanSatuSehatPage extends Component
         $successCount = $statuses->where('resource_status', 'Success')->count();
         $failedCount  = $statuses->where('resource_status', 'Failed')->count();
 
-        if ($failedCount === 0 && $successCount > 0) {
+        $hasEncounter = $statuses->where('resource_type', 'Encounter')->where('resource_status', 'Success')->count() > 0;
+        $hasCondition = $statuses->where('resource_type', 'Condition')->where('resource_status', 'Success')->count() > 0;
+        $hasObservation = $statuses->where('resource_type', 'Observation')->where('resource_status', 'Success')->count() > 0;
+        $hasProcedure = $statuses->where('resource_type', 'Procedure')->where('resource_status', 'Success')->count() > 0;
+        $hasComposition = $statuses->where('resource_type', 'Composition')->where('resource_status', 'Success')->count() > 0;
+
+        // Procedure dianggap opsional: jika tidak ada tindakan, tidak perlu sukses
+        $hasTindakan = \App\Models\TrxTindakan::where('nomor_kunjungan', $nomorKunjungan)->exists();
+        $procedureOk = !$hasTindakan || $hasProcedure;
+
+        if ($hasEncounter && $hasCondition && $hasObservation && $procedureOk && $hasComposition && $failedCount === 0) {
             return 'Success';
         }
 
@@ -234,6 +244,8 @@ class LaporanSatuSehatPage extends Component
             $hasEncounterSuccess = $statusGroup->get('Encounter', collect())->where('resource_status', 'Success')->count() > 0;
             $hasConditionSuccess = $statusGroup->get('Condition', collect())->where('resource_status', 'Success')->count() > 0;
             $hasObservationSuccess = $statusGroup->get('Observation', collect())->where('resource_status', 'Success')->count() > 0;
+            $hasProcedureSuccess = $statusGroup->get('Procedure', collect())->where('resource_status', 'Success')->count() > 0;
+            $hasCompositionSuccess = $statusGroup->get('Composition', collect())->where('resource_status', 'Success')->count() > 0;
 
             if ($statuses->isEmpty() || !$hasEncounterSuccess) {
                 // Jika Encounter belum pernah sukses, jalankan ulang seluruh flow
@@ -247,6 +259,14 @@ class LaporanSatuSehatPage extends Component
                 }
                 if (!$hasObservationSuccess) {
                     $res = $service->retrySendResource($nomor_kunjungan, 'Observation', $createdBy);
+                    if (!empty($res['errors'])) $errors = array_merge($errors, $res['errors']);
+                }
+                if (!$hasProcedureSuccess) {
+                    $res = $service->retrySendResource($nomor_kunjungan, 'Procedure', $createdBy);
+                    if (!empty($res['errors'])) $errors = array_merge($errors, $res['errors']);
+                }
+                if (!$hasCompositionSuccess) {
+                    $res = $service->retrySendResource($nomor_kunjungan, 'Composition', $createdBy);
                     if (!empty($res['errors'])) $errors = array_merge($errors, $res['errors']);
                 }
                 $result = ['errors' => $errors];
@@ -300,6 +320,8 @@ class LaporanSatuSehatPage extends Component
                 $hasEncounterSuccess = $statusGroup->get('Encounter', collect())->where('resource_status', 'Success')->count() > 0;
                 $hasConditionSuccess = $statusGroup->get('Condition', collect())->where('resource_status', 'Success')->count() > 0;
                 $hasObservationSuccess = $statusGroup->get('Observation', collect())->where('resource_status', 'Success')->count() > 0;
+                $hasProcedureSuccess = $statusGroup->get('Procedure', collect())->where('resource_status', 'Success')->count() > 0;
+                $hasCompositionSuccess = $statusGroup->get('Composition', collect())->where('resource_status', 'Success')->count() > 0;
 
                 $hasError = false;
 
@@ -313,6 +335,14 @@ class LaporanSatuSehatPage extends Component
                     }
                     if (!$hasObservationSuccess) {
                         $res = $service->retrySendResource($nomorKunjungan, 'Observation', $createdBy);
+                        if (!empty($res['errors'])) $hasError = true;
+                    }
+                    if (!$hasProcedureSuccess) {
+                        $res = $service->retrySendResource($nomorKunjungan, 'Procedure', $createdBy);
+                        if (!empty($res['errors'])) $hasError = true;
+                    }
+                    if (!$hasCompositionSuccess) {
+                        $res = $service->retrySendResource($nomorKunjungan, 'Composition', $createdBy);
                         if (!empty($res['errors'])) $hasError = true;
                     }
                 }
@@ -802,7 +832,7 @@ class LaporanSatuSehatPage extends Component
                                     {{-- Per-Resource Mini Badges --}}
                                     @if($status !== 'Pending')
                                     <div class="mt-2 flex flex-wrap gap-1">
-                                        @foreach(['Encounter', 'Condition', 'Observation'] as $resType)
+                                        @foreach(['Encounter', 'Condition', 'Observation', 'Procedure', 'Composition'] as $resType)
                                             @php
                                                 $resGroup = $resourceStatuses->get($resType, collect());
                                                 $hasSuccess = $resGroup->where('resource_status', 'Success')->count() > 0;
@@ -889,7 +919,7 @@ class LaporanSatuSehatPage extends Component
                             $groupedStatuses = collect($detailStatuses)->groupBy('resource_type');
                         @endphp
 
-                        @foreach(['Encounter', 'Condition', 'Observation'] as $resType)
+                        @foreach(['Encounter', 'Condition', 'Observation', 'Procedure', 'Composition'] as $resType)
                             @php
                                 $resGroup = $groupedStatuses->get($resType, collect());
                                 $hasSuccess = collect($resGroup)->where('resource_status', 'Success')->count() > 0;
@@ -928,26 +958,33 @@ class LaporanSatuSehatPage extends Component
                                 @if(collect($resGroup)->isNotEmpty())
                                 <div class="divide-y divide-gray-100">
                                     @foreach($resGroup as $statusRow)
-                                    <div class="px-4 py-2.5 flex items-center justify-between text-[11px]">
-                                        <div class="flex items-center gap-2">
-                                            @if($statusRow['resource_status'] === 'Success')
-                                                <span class="resource-badge success">
-                                                    <i class="ri-check-line" style="font-size: 10px;"></i> Success
-                                                </span>
-                                            @else
-                                                <span class="resource-badge failed">
-                                                    <i class="ri-close-line" style="font-size: 10px;"></i> Failed
-                                                </span>
-                                            @endif
-                                            @if(!empty($statusRow['resource_uuid']))
-                                                <span class="font-mono text-[9px] text-gray-400 max-w-[200px] truncate" title="{{ $statusRow['resource_uuid'] }}">
-                                                    UUID: {{ $statusRow['resource_uuid'] }}
-                                                </span>
-                                            @endif
+                                    <div class="px-4 py-2.5 flex flex-col gap-1.5 border-b border-gray-50 last:border-0">
+                                        <div class="flex items-center justify-between text-[11px]">
+                                            <div class="flex items-center gap-2">
+                                                @if($statusRow['resource_status'] === 'Success')
+                                                    <span class="resource-badge success">
+                                                        <i class="ri-check-line" style="font-size: 10px;"></i> Success
+                                                    </span>
+                                                @else
+                                                    <span class="resource-badge failed">
+                                                        <i class="ri-close-line" style="font-size: 10px;"></i> Failed
+                                                    </span>
+                                                @endif
+                                                @if(!empty($statusRow['resource_uuid']))
+                                                    <span class="font-mono text-[9px] text-gray-400 max-w-[200px] truncate" title="{{ $statusRow['resource_uuid'] }}">
+                                                        UUID: {{ $statusRow['resource_uuid'] }}
+                                                    </span>
+                                                @endif
+                                            </div>
+                                            <span class="text-[9px] font-medium text-gray-400">
+                                                {{ \Carbon\Carbon::parse($statusRow['created_at'])->format('d/m/Y H:i') }}
+                                            </span>
                                         </div>
-                                        <span class="text-[9px] font-medium text-gray-400">
-                                            {{ \Carbon\Carbon::parse($statusRow['created_at'])->format('d/m/Y H:i') }}
-                                        </span>
+                                        @if(!empty($statusRow['error_message']))
+                                            <div class="text-[10px] text-red-600 font-mono bg-red-50/50 p-2 rounded-lg border border-red-100 whitespace-pre-wrap mt-0.5">
+                                                <i class="ri-error-warning-line"></i> {{ $statusRow['error_message'] }}
+                                            </div>
+                                        @endif
                                     </div>
                                     @endforeach
                                 </div>
