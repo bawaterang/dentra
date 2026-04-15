@@ -80,7 +80,7 @@ class TrxPendaftaran extends Model
 
     public function satusehatStatuses()
     {
-        return $this->hasMany(TrxSatusehatStatus::class, 'nomor_kunjungan', 'nomor_kunjungan');
+        return $this->hasMany(TrxSatusehatLog::class, 'nomor_kunjungan', 'nomor_kunjungan');
     }
 
     /**

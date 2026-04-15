@@ -205,7 +205,7 @@ class SettingAntrianPage extends Component
             $configs = MstSettingAntrianHari::where('is_holiday', false)->get();
             $data = [];
             $now = Carbon::now();
-            $user = Auth::user()->name ?? 'System';
+            $user = Auth::user()->username ?? 'System';
 
             foreach ($configs as $config) {
                 if (empty($config->jam_buka) || empty($config->jam_tutup)) continue;

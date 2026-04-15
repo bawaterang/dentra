@@ -245,7 +245,7 @@
                         </div>
                         <div class="text-center w-64">
                             <p class="mb-20 font-medium">Tempat, {{ date('d F Y') }}</p>
-                            <p class="font-bold border-b-2 border-gray-900 pb-1 mb-1 text-lg">{{ auth()->user()->name ?? 'Kasir / Petugas' }}</p>
+                            <p class="font-bold border-b-2 border-gray-900 pb-1 mb-1 text-lg">{{ auth()->user()->username ?? 'Kasir / Petugas' }}</p>
                             <p class="text-xs font-bold uppercase text-gray-500 tracking-widest">Tanda Tangan & Nama Terang</p>
                         </div>
                     </div>

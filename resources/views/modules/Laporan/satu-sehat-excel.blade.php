@@ -25,9 +25,9 @@
             <td>{{ $item->pasien ? $item->pasien->no_rm : '-' }}</td>
             <td>{{ $item->pasien && $item->pasien->nik ? $item->pasien->nik : '-' }}</td>
             @php
-                $statuses = \App\Models\TrxSatusehatStatus::where('nomor_kunjungan', $item->nomor_kunjungan)->get();
-                $successCount = $statuses->where('resource_status', 'Success')->count();
-                $failedCount = $statuses->where('resource_status', 'Failed')->count();
+                $statuses = \App\Models\TrxSatusehatLog::where('nomor_kunjungan', $item->nomor_kunjungan)->get();
+                $successCount = $statuses->where('status', 'Success')->count();
+                $failedCount = $statuses->where('status', 'Failed')->count();
                 $bundleStatus = $statuses->isEmpty() ? 'Pending' : ($failedCount === 0 ? 'Success' : ($successCount === 0 ? 'Failed' : 'Partial'));
             @endphp
             <td>{{ $bundleStatus }}</td>

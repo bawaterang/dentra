@@ -3,14 +3,15 @@
 namespace App\Modules\Laporan\Http\Livewire;
 
 use App\Models\TrxPendaftaran;
-use App\Models\TrxSatusehatStatus;
+use App\Models\TrxSatusehatLog;
+use App\Models\TrxTindakan;
 use App\Modules\Bridging\Services\SatuSehatService;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
 use Livewire\WithPagination;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Log;
 
 class LaporanSatuSehatPage extends Component
 {
@@ -19,11 +20,15 @@ class LaporanSatuSehatPage extends Component
     public $periodType = 'DAILY'; // DAILY, MONTHLY, YEARLY
 
     public $selectedDate;
+
     public $selectedBulan;
+
     public $selectedTahun;
+
     public $search = '';
 
     public $availableYears = [];
+
     public $listBulan = [];
 
     public $listPeriodType = [
@@ -33,11 +38,14 @@ class LaporanSatuSehatPage extends Component
     ];
 
     public $selectedKunjungan = [];
+
     public $selectAll = false;
 
     // Detail modal state
     public $showDetailModal = false;
+
     public $detailNomorKunjungan = null;
+
     public $detailStatuses = [];
 
     // Sending state
@@ -92,32 +100,32 @@ class LaporanSatuSehatPage extends Component
 
     /**
      * Hitung status bridging per kunjungan berdasarkan per-resource statuses.
-     * 
+     *
      * Logika:
-     * - Jika tidak ada record → "Pending"  
+     * - Jika tidak ada record → "Pending"
      * - Jika semua Success → "Success"
      * - Jika ada Failed → "Partial" (jika ada yg Success juga) atau "Failed" (semua gagal)
      */
     private function computeBundleStatus(string $nomorKunjungan): string
     {
-        $statuses = TrxSatusehatStatus::where('nomor_kunjungan', $nomorKunjungan)->get();
+        $statuses = TrxSatusehatLog::where('nomor_kunjungan', $nomorKunjungan)->get();
 
         if ($statuses->isEmpty()) {
             return 'Pending';
         }
 
-        $successCount = $statuses->where('resource_status', 'Success')->count();
-        $failedCount  = $statuses->where('resource_status', 'Failed')->count();
+        $successCount = $statuses->where('status', 'Success')->count();
+        $failedCount = $statuses->where('status', 'Failed')->count();
 
-        $hasEncounter = $statuses->where('resource_type', 'Encounter')->where('resource_status', 'Success')->count() > 0;
-        $hasCondition = $statuses->where('resource_type', 'Condition')->where('resource_status', 'Success')->count() > 0;
-        $hasObservation = $statuses->where('resource_type', 'Observation')->where('resource_status', 'Success')->count() > 0;
-        $hasProcedure = $statuses->where('resource_type', 'Procedure')->where('resource_status', 'Success')->count() > 0;
-        $hasComposition = $statuses->where('resource_type', 'Composition')->where('resource_status', 'Success')->count() > 0;
+        $hasEncounter = $statuses->where('resource_type', 'Encounter')->where('status', 'Success')->count() > 0;
+        $hasCondition = $statuses->where('resource_type', 'Condition')->where('status', 'Success')->count() > 0;
+        $hasObservation = $statuses->where('resource_type', 'Observation')->where('status', 'Success')->count() > 0;
+        $hasProcedure = $statuses->where('resource_type', 'Procedure')->where('status', 'Success')->count() > 0;
+        $hasComposition = $statuses->where('resource_type', 'Composition')->where('status', 'Success')->count() > 0;
 
         // Procedure dianggap opsional: jika tidak ada tindakan, tidak perlu sukses
-        $hasTindakan = \App\Models\TrxTindakan::where('nomor_kunjungan', $nomorKunjungan)->exists();
-        $procedureOk = !$hasTindakan || $hasProcedure;
+        $hasTindakan = TrxTindakan::where('nomor_kunjungan', $nomorKunjungan)->exists();
+        $procedureOk = ! $hasTindakan || $hasProcedure;
 
         if ($hasEncounter && $hasCondition && $hasObservation && $procedureOk && $hasComposition && $failedCount === 0) {
             return 'Success';
@@ -145,11 +153,11 @@ class LaporanSatuSehatPage extends Component
             $query->whereYear('trx_pendaftaran.created_at', $this->selectedTahun);
         }
 
-        if (!empty($this->search)) {
+        if (! empty($this->search)) {
             $query->whereHas('pasien', function ($q) {
-                $q->where('nama_pasien', 'like', '%' . $this->search . '%')
-                  ->orWhere('no_rm', 'like', '%' . $this->search . '%')
-                  ->orWhere('nik', 'like', '%' . $this->search . '%');
+                $q->where('nama_pasien', 'like', '%'.$this->search.'%')
+                    ->orWhere('no_rm', 'like', '%'.$this->search.'%')
+                    ->orWhere('nik', 'like', '%'.$this->search.'%');
             });
         }
 
@@ -160,7 +168,7 @@ class LaporanSatuSehatPage extends Component
             $item->computed_status = $this->computeBundleStatus($item->nomor_kunjungan);
 
             // Load per-resource detail
-            $item->resource_statuses = TrxSatusehatStatus::where('nomor_kunjungan', $item->nomor_kunjungan)
+            $item->resource_statuses = TrxSatusehatLog::where('nomor_kunjungan', $item->nomor_kunjungan)
                 ->orderBy('created_at', 'desc')
                 ->get()
                 ->groupBy('resource_type');
@@ -174,7 +182,7 @@ class LaporanSatuSehatPage extends Component
     public function updatedSelectAll($value)
     {
         if ($value) {
-            $this->selectedKunjungan = $this->laporanSatuSehat->pluck('nomor_kunjungan')->map(fn($id) => (string) $id)->toArray();
+            $this->selectedKunjungan = $this->laporanSatuSehat->pluck('nomor_kunjungan')->map(fn ($id) => (string) $id)->toArray();
         } else {
             $this->selectedKunjungan = [];
         }
@@ -234,40 +242,48 @@ class LaporanSatuSehatPage extends Component
                 ->first();
 
             $dokterId = $pendaftaran?->dokter_id;
-            $service  = new SatuSehatService($dokterId);
-            $createdBy = Auth::user()?->name ?? 'System';
+            $service = new SatuSehatService($dokterId);
+            $createdBy = Auth::user()?->username ?? 'System';
 
             // Cari status saat ini untuk melihat bagian mana yang belum sukses
-            $statuses = TrxSatusehatStatus::where('nomor_kunjungan', $nomor_kunjungan)->get();
+            $statuses = TrxSatusehatLog::where('nomor_kunjungan', $nomor_kunjungan)->get();
             $statusGroup = $statuses->groupBy('resource_type');
 
-            $hasEncounterSuccess = $statusGroup->get('Encounter', collect())->where('resource_status', 'Success')->count() > 0;
-            $hasConditionSuccess = $statusGroup->get('Condition', collect())->where('resource_status', 'Success')->count() > 0;
-            $hasObservationSuccess = $statusGroup->get('Observation', collect())->where('resource_status', 'Success')->count() > 0;
-            $hasProcedureSuccess = $statusGroup->get('Procedure', collect())->where('resource_status', 'Success')->count() > 0;
-            $hasCompositionSuccess = $statusGroup->get('Composition', collect())->where('resource_status', 'Success')->count() > 0;
+            $hasEncounterSuccess = $statusGroup->get('Encounter', collect())->where('status', 'Success')->count() > 0;
+            $hasConditionSuccess = $statusGroup->get('Condition', collect())->where('status', 'Success')->count() > 0;
+            $hasObservationSuccess = $statusGroup->get('Observation', collect())->where('status', 'Success')->count() > 0;
+            $hasProcedureSuccess = $statusGroup->get('Procedure', collect())->where('status', 'Success')->count() > 0;
+            $hasCompositionSuccess = $statusGroup->get('Composition', collect())->where('status', 'Success')->count() > 0;
 
-            if ($statuses->isEmpty() || !$hasEncounterSuccess) {
+            if ($statuses->isEmpty() || ! $hasEncounterSuccess) {
                 // Jika Encounter belum pernah sukses, jalankan ulang seluruh flow
                 $result = $service->sendResumeMedis($nomor_kunjungan, $createdBy);
             } else {
                 // Smart Retry: kirim hanya resource yang masih gagal atau belum terkirim
                 $errors = [];
-                if (!$hasConditionSuccess) {
+                if (! $hasConditionSuccess) {
                     $res = $service->retrySendResource($nomor_kunjungan, 'Condition', $createdBy);
-                    if (!empty($res['errors'])) $errors = array_merge($errors, $res['errors']);
+                    if (! empty($res['errors'])) {
+                        $errors = array_merge($errors, $res['errors']);
+                    }
                 }
-                if (!$hasObservationSuccess) {
+                if (! $hasObservationSuccess) {
                     $res = $service->retrySendResource($nomor_kunjungan, 'Observation', $createdBy);
-                    if (!empty($res['errors'])) $errors = array_merge($errors, $res['errors']);
+                    if (! empty($res['errors'])) {
+                        $errors = array_merge($errors, $res['errors']);
+                    }
                 }
-                if (!$hasProcedureSuccess) {
+                if (! $hasProcedureSuccess) {
                     $res = $service->retrySendResource($nomor_kunjungan, 'Procedure', $createdBy);
-                    if (!empty($res['errors'])) $errors = array_merge($errors, $res['errors']);
+                    if (! empty($res['errors'])) {
+                        $errors = array_merge($errors, $res['errors']);
+                    }
                 }
-                if (!$hasCompositionSuccess) {
+                if (! $hasCompositionSuccess) {
                     $res = $service->retrySendResource($nomor_kunjungan, 'Composition', $createdBy);
-                    if (!empty($res['errors'])) $errors = array_merge($errors, $res['errors']);
+                    if (! empty($res['errors'])) {
+                        $errors = array_merge($errors, $res['errors']);
+                    }
                 }
                 $result = ['errors' => $errors];
             }
@@ -279,8 +295,8 @@ class LaporanSatuSehatPage extends Component
                 session()->flash('warning', "Resume medis {$nomor_kunjungan} dikirim dengan {$errorCount} error. Klik detail untuk info lengkap.");
             }
         } catch (\Exception $e) {
-            Log::error("Kirim SatuSehat gagal [{$nomor_kunjungan}]: " . $e->getMessage());
-            session()->flash('error', "Gagal kirim {$nomor_kunjungan}: " . $e->getMessage());
+            Log::error("Kirim SatuSehat gagal [{$nomor_kunjungan}]: ".$e->getMessage());
+            session()->flash('error', "Gagal kirim {$nomor_kunjungan}: ".$e->getMessage());
         }
 
         $this->isSending = false;
@@ -294,13 +310,14 @@ class LaporanSatuSehatPage extends Component
     {
         if (count($this->selectedKunjungan) === 0) {
             session()->flash('warning', 'Pilih minimal satu kunjungan untuk dikirim.');
+
             return;
         }
 
         $this->isSending = true;
-        $total   = count($this->selectedKunjungan);
+        $total = count($this->selectedKunjungan);
         $success = 0;
-        $failed  = 0;
+        $failed = 0;
         $partial = 0;
 
         foreach ($this->selectedKunjungan as $nomorKunjungan) {
@@ -310,60 +327,76 @@ class LaporanSatuSehatPage extends Component
                     ->first();
 
                 $dokterId = $pendaftaran?->dokter_id;
-                $service  = new SatuSehatService($dokterId);
-                $createdBy = Auth::user()?->name ?? 'System';
+                $service = new SatuSehatService($dokterId);
+                $createdBy = Auth::user()?->username ?? 'System';
 
                 // Smart Retry / Kirim Logic per Kunjungan
-                $statuses = TrxSatusehatStatus::where('nomor_kunjungan', $nomorKunjungan)->get();
+                $statuses = TrxSatusehatLog::where('nomor_kunjungan', $nomorKunjungan)->get();
                 $statusGroup = $statuses->groupBy('resource_type');
 
-                $hasEncounterSuccess = $statusGroup->get('Encounter', collect())->where('resource_status', 'Success')->count() > 0;
-                $hasConditionSuccess = $statusGroup->get('Condition', collect())->where('resource_status', 'Success')->count() > 0;
-                $hasObservationSuccess = $statusGroup->get('Observation', collect())->where('resource_status', 'Success')->count() > 0;
-                $hasProcedureSuccess = $statusGroup->get('Procedure', collect())->where('resource_status', 'Success')->count() > 0;
-                $hasCompositionSuccess = $statusGroup->get('Composition', collect())->where('resource_status', 'Success')->count() > 0;
+                $hasEncounterSuccess = $statusGroup->get('Encounter', collect())->where('status', 'Success')->count() > 0;
+                $hasConditionSuccess = $statusGroup->get('Condition', collect())->where('status', 'Success')->count() > 0;
+                $hasObservationSuccess = $statusGroup->get('Observation', collect())->where('status', 'Success')->count() > 0;
+                $hasProcedureSuccess = $statusGroup->get('Procedure', collect())->where('status', 'Success')->count() > 0;
+                $hasCompositionSuccess = $statusGroup->get('Composition', collect())->where('status', 'Success')->count() > 0;
 
                 $hasError = false;
 
-                if ($statuses->isEmpty() || !$hasEncounterSuccess) {
+                if ($statuses->isEmpty() || ! $hasEncounterSuccess) {
                     $result = $service->sendResumeMedis($nomorKunjungan, $createdBy);
-                    if (!empty($result['errors'])) $hasError = true;
+                    if (! empty($result['errors'])) {
+                        $hasError = true;
+                    }
                 } else {
-                    if (!$hasConditionSuccess) {
+                    if (! $hasConditionSuccess) {
                         $res = $service->retrySendResource($nomorKunjungan, 'Condition', $createdBy);
-                        if (!empty($res['errors'])) $hasError = true;
+                        if (! empty($res['errors'])) {
+                            $hasError = true;
+                        }
                     }
-                    if (!$hasObservationSuccess) {
+                    if (! $hasObservationSuccess) {
                         $res = $service->retrySendResource($nomorKunjungan, 'Observation', $createdBy);
-                        if (!empty($res['errors'])) $hasError = true;
+                        if (! empty($res['errors'])) {
+                            $hasError = true;
+                        }
                     }
-                    if (!$hasProcedureSuccess) {
+                    if (! $hasProcedureSuccess) {
                         $res = $service->retrySendResource($nomorKunjungan, 'Procedure', $createdBy);
-                        if (!empty($res['errors'])) $hasError = true;
+                        if (! empty($res['errors'])) {
+                            $hasError = true;
+                        }
                     }
-                    if (!$hasCompositionSuccess) {
+                    if (! $hasCompositionSuccess) {
                         $res = $service->retrySendResource($nomorKunjungan, 'Composition', $createdBy);
-                        if (!empty($res['errors'])) $hasError = true;
+                        if (! empty($res['errors'])) {
+                            $hasError = true;
+                        }
                     }
                 }
 
-                if (!$hasError) {
+                if (! $hasError) {
                     $success++;
                 } else {
                     $partial++;
                 }
             } catch (\Exception $e) {
                 $failed++;
-                Log::error("Kirim batch SatuSehat gagal [{$nomorKunjungan}]: " . $e->getMessage());
+                Log::error("Kirim batch SatuSehat gagal [{$nomorKunjungan}]: ".$e->getMessage());
             }
         }
 
         $msg = "Batch selesai ({$total} kunjungan): ";
         $parts = [];
-        if ($success > 0) $parts[] = "{$success} berhasil";
-        if ($partial > 0) $parts[] = "{$partial} partial";
-        if ($failed > 0)  $parts[] = "{$failed} gagal";
-        $msg .= implode(', ', $parts) . '.';
+        if ($success > 0) {
+            $parts[] = "{$success} berhasil";
+        }
+        if ($partial > 0) {
+            $parts[] = "{$partial} partial";
+        }
+        if ($failed > 0) {
+            $parts[] = "{$failed} gagal";
+        }
+        $msg .= implode(', ', $parts).'.';
 
         if ($failed === 0 && $partial === 0) {
             session()->flash('success', $msg);
@@ -386,24 +419,42 @@ class LaporanSatuSehatPage extends Component
         $this->isSending = true;
 
         try {
+            // Cek apakah ada resource yang gagal
+            $failedCount = TrxSatusehatLog::where('nomor_kunjungan', $nomorKunjungan)
+                ->where('resource_type', $resourceType)
+                ->where('status', 'Failed')
+                ->count();
+
+            if ($failedCount === 0) {
+                session()->flash('info', "Tidak ada resource {$resourceType} yang gagal untuk {$nomorKunjungan}.");
+                $this->isSending = false;
+
+                return;
+            }
+
             $pendaftaran = TrxPendaftaran::with('dokter')
                 ->where('nomor_kunjungan', $nomorKunjungan)
                 ->first();
 
-            $dokterId  = $pendaftaran?->dokter_id;
-            $service   = new SatuSehatService($dokterId);
-            $createdBy = Auth::user()?->name ?? 'System';
+            $dokterId = $pendaftaran?->dokter_id;
+            $service = new SatuSehatService($dokterId);
+            $createdBy = Auth::user()?->username ?? 'System';
 
             $result = $service->retrySendResource($nomorKunjungan, $resourceType, $createdBy);
 
-            if (empty($result['errors'] ?? [])) {
+            // Cek apakah ada item yang di-skip
+            $skippedItems = collect($result['items'] ?? [])->where('status', 'Skipped')->count();
+
+            if ($skippedItems > 0 && empty($result['errors'] ?? [])) {
+                session()->flash('info', "Retry {$resourceType}: {$skippedItems} resource tidak perlu dikirim ulang (sudah berhasil).");
+            } elseif (empty($result['errors'] ?? [])) {
                 session()->flash('success', "Retry {$resourceType} untuk {$nomorKunjungan} berhasil.");
             } else {
                 session()->flash('warning', "Retry {$resourceType} selesai dengan error.");
             }
         } catch (\Exception $e) {
-            Log::error("Retry resource gagal [{$nomorKunjungan}][{$resourceType}]: " . $e->getMessage());
-            session()->flash('error', "Retry {$resourceType} gagal: " . $e->getMessage());
+            Log::error("Retry resource gagal [{$nomorKunjungan}][{$resourceType}]: ".$e->getMessage());
+            session()->flash('error', "Retry {$resourceType} gagal: ".$e->getMessage());
         }
 
         $this->isSending = false;
@@ -417,7 +468,7 @@ class LaporanSatuSehatPage extends Component
     public function showDetail($nomorKunjungan)
     {
         $this->detailNomorKunjungan = $nomorKunjungan;
-        $this->detailStatuses = TrxSatusehatStatus::where('nomor_kunjungan', $nomorKunjungan)
+        $this->detailStatuses = TrxSatusehatLog::where('nomor_kunjungan', $nomorKunjungan)
             ->orderBy('resource_type')
             ->orderBy('created_at', 'desc')
             ->get()
@@ -835,8 +886,8 @@ class LaporanSatuSehatPage extends Component
                                         @foreach(['Encounter', 'Condition', 'Observation', 'Procedure', 'Composition'] as $resType)
                                             @php
                                                 $resGroup = $resourceStatuses->get($resType, collect());
-                                                $hasSuccess = $resGroup->where('resource_status', 'Success')->count() > 0;
-                                                $hasFailed  = $resGroup->where('resource_status', 'Failed')->count() > 0;
+                                                $hasSuccess = $resGroup->where('status', 'Success')->count() > 0;
+                                                $hasFailed  = $resGroup->where('status', 'Failed')->count() > 0;
                                                 $badgeClass = $resGroup->isEmpty() ? 'pending' : ($hasFailed ? 'failed' : ($hasSuccess ? 'success' : 'pending'));
                                                 $icon = match($badgeClass) {
                                                     'success' => 'ri-check-line',
@@ -922,8 +973,8 @@ class LaporanSatuSehatPage extends Component
                         @foreach(['Encounter', 'Condition', 'Observation', 'Procedure', 'Composition'] as $resType)
                             @php
                                 $resGroup = $groupedStatuses->get($resType, collect());
-                                $hasSuccess = collect($resGroup)->where('resource_status', 'Success')->count() > 0;
-                                $hasFailed  = collect($resGroup)->where('resource_status', 'Failed')->count() > 0;
+                                $hasSuccess = collect($resGroup)->where('status', 'Success')->count() > 0;
+                                $hasFailed  = collect($resGroup)->where('status', 'Failed')->count() > 0;
                             @endphp
                             <div class="rounded-2xl border {{ $hasFailed ? 'border-red-200 bg-red-50/30' : ($hasSuccess ? 'border-emerald-200 bg-emerald-50/30' : 'border-gray-200 bg-gray-50/30') }} overflow-hidden">
                                 <div class="px-4 py-3 flex items-center justify-between {{ $hasFailed ? 'bg-red-50' : ($hasSuccess ? 'bg-emerald-50' : 'bg-gray-50') }}">
@@ -961,7 +1012,7 @@ class LaporanSatuSehatPage extends Component
                                     <div class="px-4 py-2.5 flex flex-col gap-1.5 border-b border-gray-50 last:border-0">
                                         <div class="flex items-center justify-between text-[11px]">
                                             <div class="flex items-center gap-2">
-                                                @if($statusRow['resource_status'] === 'Success')
+                                                @if($statusRow['status'] === 'Success')
                                                     <span class="resource-badge success">
                                                         <i class="ri-check-line" style="font-size: 10px;"></i> Success
                                                     </span>
