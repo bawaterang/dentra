@@ -13,6 +13,7 @@ use Livewire\Attributes\Computed;
 use Livewire\Component;
 use Livewire\WithPagination;
 
+
 class LaporanSatuSehatPage extends Component
 {
     use WithPagination;
@@ -122,12 +123,18 @@ class LaporanSatuSehatPage extends Component
         $hasObservation = $statuses->where('resource_type', 'Observation')->where('status', 'Success')->count() > 0;
         $hasProcedure = $statuses->where('resource_type', 'Procedure')->where('status', 'Success')->count() > 0;
         $hasComposition = $statuses->where('resource_type', 'Composition')->where('status', 'Success')->count() > 0;
+        $hasMedication = $statuses->where('resource_type', 'Medication')->where('status', 'Success')->count() > 0;
+        $hasMedicationRequest = $statuses->where('resource_type', 'MedicationRequest')->where('status', 'Success')->count() > 0;
 
         // Procedure dianggap opsional: jika tidak ada tindakan, tidak perlu sukses
         $hasTindakan = TrxTindakan::where('nomor_kunjungan', $nomorKunjungan)->exists();
         $procedureOk = ! $hasTindakan || $hasProcedure;
 
-        if ($hasEncounter && $hasCondition && $hasObservation && $procedureOk && $hasComposition && $failedCount === 0) {
+        // Medication opsional: jika tidak ada obat di kunjungan, tidak perlu sukses
+        $hasObat = DB::table('trx_obat')->where('nomor_kunjungan', $nomorKunjungan)->whereNull('deleted_at')->exists();
+        $medicationOk = ! $hasObat || ($hasMedication && $hasMedicationRequest);
+
+        if ($hasEncounter && $hasCondition && $hasObservation && $procedureOk && $medicationOk && $hasComposition && $failedCount === 0) {
             return 'Success';
         }
 
@@ -253,11 +260,19 @@ class LaporanSatuSehatPage extends Component
             $hasConditionSuccess = $statusGroup->get('Condition', collect())->where('status', 'Success')->count() > 0;
             $hasObservationSuccess = $statusGroup->get('Observation', collect())->where('status', 'Success')->count() > 0;
             $hasProcedureSuccess = $statusGroup->get('Procedure', collect())->where('status', 'Success')->count() > 0;
+            $hasMedicationSuccess = $statusGroup->get('Medication', collect())->where('status', 'Success')->count() > 0;
+            $hasMedicationRequestSuccess = $statusGroup->get('MedicationRequest', collect())->where('status', 'Success')->count() > 0;
             $hasCompositionSuccess = $statusGroup->get('Composition', collect())->where('status', 'Success')->count() > 0;
 
             if ($statuses->isEmpty() || ! $hasEncounterSuccess) {
                 // Jika Encounter belum pernah sukses, jalankan ulang seluruh flow
                 $result = $service->sendResumeMedis($nomor_kunjungan, $createdBy);
+
+                // Tampilkan warning obat yang belum di-mapping KFA
+                if (! empty($result['unmapped_drugs'])) {
+                    $unmappedNames = collect($result['unmapped_drugs'])->pluck('nama_obat')->implode(', ');
+                    session()->flash('warning', "Obat berikut belum di-mapping KFA dan tidak dikirim: {$unmappedNames}. Silakan mapping di menu Setting Obat KFA.");
+                }
             } else {
                 // Smart Retry: kirim hanya resource yang masih gagal atau belum terkirim
                 $errors = [];
@@ -275,6 +290,12 @@ class LaporanSatuSehatPage extends Component
                 }
                 if (! $hasProcedureSuccess) {
                     $res = $service->retrySendResource($nomor_kunjungan, 'Procedure', $createdBy);
+                    if (! empty($res['errors'])) {
+                        $errors = array_merge($errors, $res['errors']);
+                    }
+                }
+                if (! $hasMedicationSuccess || ! $hasMedicationRequestSuccess) {
+                    $res = $service->retrySendResource($nomor_kunjungan, 'Medication', $createdBy);
                     if (! empty($res['errors'])) {
                         $errors = array_merge($errors, $res['errors']);
                     }
@@ -338,6 +359,8 @@ class LaporanSatuSehatPage extends Component
                 $hasConditionSuccess = $statusGroup->get('Condition', collect())->where('status', 'Success')->count() > 0;
                 $hasObservationSuccess = $statusGroup->get('Observation', collect())->where('status', 'Success')->count() > 0;
                 $hasProcedureSuccess = $statusGroup->get('Procedure', collect())->where('status', 'Success')->count() > 0;
+                $hasMedicationSuccess = $statusGroup->get('Medication', collect())->where('status', 'Success')->count() > 0;
+                $hasMedicationRequestSuccess = $statusGroup->get('MedicationRequest', collect())->where('status', 'Success')->count() > 0;
                 $hasCompositionSuccess = $statusGroup->get('Composition', collect())->where('status', 'Success')->count() > 0;
 
                 $hasError = false;
@@ -362,6 +385,12 @@ class LaporanSatuSehatPage extends Component
                     }
                     if (! $hasProcedureSuccess) {
                         $res = $service->retrySendResource($nomorKunjungan, 'Procedure', $createdBy);
+                        if (! empty($res['errors'])) {
+                            $hasError = true;
+                        }
+                    }
+                    if (! $hasMedicationSuccess || ! $hasMedicationRequestSuccess) {
+                        $res = $service->retrySendResource($nomorKunjungan, 'Medication', $createdBy);
                         if (! empty($res['errors'])) {
                             $hasError = true;
                         }
@@ -883,9 +912,10 @@ class LaporanSatuSehatPage extends Component
                                     {{-- Per-Resource Mini Badges --}}
                                     @if($status !== 'Pending')
                                     <div class="mt-2 flex flex-wrap gap-1">
-                                        @foreach(['Encounter', 'Condition', 'Observation', 'Procedure', 'Composition'] as $resType)
+                                        @foreach(['Encounter', 'Condition', 'Observation', 'Procedure', 'Medication', 'MedReq', 'Composition'] as $resType)
                                             @php
-                                                $resGroup = $resourceStatuses->get($resType, collect());
+                                                $actualResType = $resType === 'MedReq' ? 'MedicationRequest' : $resType;
+                                                $resGroup = $resourceStatuses->get($actualResType, collect());
                                                 $hasSuccess = $resGroup->where('status', 'Success')->count() > 0;
                                                 $hasFailed  = $resGroup->where('status', 'Failed')->count() > 0;
                                                 $badgeClass = $resGroup->isEmpty() ? 'pending' : ($hasFailed ? 'failed' : ($hasSuccess ? 'success' : 'pending'));
@@ -894,10 +924,15 @@ class LaporanSatuSehatPage extends Component
                                                     'failed'  => 'ri-close-line',
                                                     default   => 'ri-time-line',
                                                 };
+                                                $badgeLabel = match($resType) {
+                                                    'Medication' => 'Med',
+                                                    'MedReq' => 'MRq',
+                                                    default => substr($resType, 0, 3),
+                                                };
                                             @endphp
                                             <span class="resource-badge {{ $badgeClass }}">
                                                 <i class="{{ $icon }}" style="font-size: 10px;"></i>
-                                                {{ substr($resType, 0, 3) }}
+                                                {{ $badgeLabel }}
                                             </span>
                                         @endforeach
                                     </div>
@@ -970,7 +1005,7 @@ class LaporanSatuSehatPage extends Component
                             $groupedStatuses = collect($detailStatuses)->groupBy('resource_type');
                         @endphp
 
-                        @foreach(['Encounter', 'Condition', 'Observation', 'Procedure', 'Composition'] as $resType)
+                        @foreach(['Encounter', 'Condition', 'Observation', 'Procedure', 'Medication', 'MedicationRequest', 'Composition'] as $resType)
                             @php
                                 $resGroup = $groupedStatuses->get($resType, collect());
                                 $hasSuccess = collect($resGroup)->where('status', 'Success')->count() > 0;

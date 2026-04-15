@@ -3058,6 +3058,9 @@ class SatuSehatService
             'conditions' => [],
             'observations' => [],
             'procedures' => [],
+            'medications' => [],
+            'medication_requests' => [],
+            'unmapped_drugs' => [],
             'errors' => [],
         ];
 
@@ -3285,7 +3288,48 @@ class SatuSehatService
         }
 
         // ================================================================
-        // STEP 5: COMPOSITION (Discharge Summary)
+        // STEP 5: MEDICATION + MEDICATION REQUEST (Obat)
+        // ================================================================
+        try {
+            $medResults = $this->createMedicationAllObat([
+                'pendaftaran' => $pendaftaran,
+                'encounter_uuid' => $encounterUuid,
+                'created_by' => $createdBy,
+            ]);
+
+            // Process Medication results
+            foreach ($medResults['medications'] as $kodeObat => $medResult) {
+                if (isset($medResult['error'])) {
+                    $results['medications'][] = ['code' => $kodeObat, 'status' => 'Failed', 'error' => $medResult['error']];
+                    $results['errors'][] = "Medication ({$kodeObat}): ".$medResult['error'];
+                } else {
+                    $medUuid = $medResult['id'] ?? null;
+                    $results['medications'][] = ['code' => $kodeObat, 'uuid' => $medUuid, 'status' => 'Success'];
+                }
+            }
+
+            // Process MedicationRequest results
+            foreach ($medResults['medication_requests'] as $kodeObat => $medReqResult) {
+                if (isset($medReqResult['error'])) {
+                    $results['medication_requests'][] = ['code' => $kodeObat, 'status' => 'Failed', 'error' => $medReqResult['error']];
+                    $results['errors'][] = "MedicationRequest ({$kodeObat}): ".$medReqResult['error'];
+                } else {
+                    $medReqUuid = $medReqResult['id'] ?? null;
+                    $results['medication_requests'][] = ['code' => $kodeObat, 'uuid' => $medReqUuid, 'status' => 'Success'];
+                }
+            }
+
+            // Catat obat yang belum di-mapping KFA untuk warning
+            $results['unmapped_drugs'] = $medResults['unmapped_drugs'] ?? [];
+
+        } catch (\Exception $e) {
+            Log::error("SendResumeMedis Medication gagal [{$nomorKunjungan}]: ".$e->getMessage());
+            $results['medications'][] = ['code' => 'all', 'status' => 'Failed', 'error' => $e->getMessage()];
+            $results['errors'][] = 'Medication: '.$e->getMessage();
+        }
+
+        // ================================================================
+        // STEP 6: COMPOSITION (Discharge Summary)
         // ================================================================
         try {
             $compositionData = [
@@ -3315,7 +3359,7 @@ class SatuSehatService
     /**
      * Kirim ulang (retry) resource yang gagal untuk satu kunjungan.
      *
-     * @param  string  $resourceType  'Encounter', 'Condition', 'Observation', 'Procedure', atau 'Composition'
+     * @param  string  $resourceType  'Encounter', 'Condition', 'Observation', 'Procedure', 'Medication', 'MedicationRequest', atau 'Composition'
      * @return array Hasil pengiriman ulang
      */
     public function retrySendResource(string $nomorKunjungan, string $resourceType, ?string $createdBy = null): array
@@ -3588,6 +3632,90 @@ class SatuSehatService
             }
         }
 
+        if ($resourceType === 'Medication' || $resourceType === 'MedicationRequest') {
+            // Retry Medication: hapus failed logs, lalu ulang createMedicationAllObat
+            // Ini juga otomatis mengirim MedicationRequest karena flow-nya berurutan
+
+            // Hapus juga log MedicationRequest yang gagal karena akan dikirim ulang
+            if ($resourceType === 'Medication') {
+                TrxSatusehatLog::where('nomor_kunjungan', $nomorKunjungan)
+                    ->where('resource_type', 'MedicationRequest')
+                    ->where('status', 'Failed')
+                    ->delete();
+            }
+
+            // Ambil kode obat yang gagal dari log
+            $failedMedLogs = TrxSatusehatLog::where('nomor_kunjungan', $nomorKunjungan)
+                ->where('resource_type', $resourceType)
+                ->where('status', 'Failed')
+                ->get();
+
+            $failedKodeObats = [];
+            foreach ($failedMedLogs as $log) {
+                $request = $log->request_json ?? [];
+                // Extract kode obat dari identifier
+                if (isset($request['identifier'])) {
+                    foreach ($request['identifier'] as $identifier) {
+                        $val = $identifier['value'] ?? '';
+                        if (str_contains($val, '-')) {
+                            $parts = explode('-', $val);
+                            $failedKodeObats[] = end($parts);
+                        }
+                    }
+                }
+            }
+            $failedKodeObats = array_unique($failedKodeObats);
+
+            if (empty($failedKodeObats)) {
+                $results['items'][] = ['code' => '-', 'status' => 'Skipped', 'message' => "Tidak ada resource {$resourceType} yang gagal"];
+
+                return $results;
+            }
+
+            try {
+                $medAllResults = $this->createMedicationAllObat([
+                    'pendaftaran' => $pendaftaran,
+                    'encounter_uuid' => $encounterUuid,
+                    'created_by' => $createdBy,
+                    'retry_kode_obats' => $failedKodeObats,
+                ]);
+
+                foreach ($medAllResults['medications'] as $kode => $medResult) {
+                    if (isset($medResult['error'])) {
+                        $results['items'][] = ['code' => $kode, 'type' => 'Medication', 'status' => 'Failed', 'error' => $medResult['error']];
+                        $results['errors'][] = $medResult['error'];
+                    } else {
+                        $results['items'][] = ['code' => $kode, 'type' => 'Medication', 'uuid' => $medResult['id'] ?? null, 'status' => 'Success'];
+                    }
+                }
+
+                foreach ($medAllResults['medication_requests'] as $kode => $medReqResult) {
+                    if (isset($medReqResult['error'])) {
+                        $results['items'][] = ['code' => $kode, 'type' => 'MedicationRequest', 'status' => 'Failed', 'error' => $medReqResult['error']];
+                        $results['errors'][] = $medReqResult['error'];
+                    } else {
+                        $results['items'][] = ['code' => $kode, 'type' => 'MedicationRequest', 'uuid' => $medReqResult['id'] ?? null, 'status' => 'Success'];
+                    }
+                }
+
+                // Unmapped drugs warning
+                if (! empty($medAllResults['unmapped_drugs'])) {
+                    foreach ($medAllResults['unmapped_drugs'] as $unmapped) {
+                        $results['items'][] = [
+                            'code' => $unmapped['kode_obat'],
+                            'type' => 'Medication',
+                            'status' => 'Skipped',
+                            'message' => "Obat '{$unmapped['nama_obat']}' belum di-mapping ke KFA",
+                        ];
+                    }
+                }
+
+            } catch (\Exception $e) {
+                $results['items'][] = ['code' => 'all', 'status' => 'Failed', 'error' => $e->getMessage()];
+                $results['errors'][] = $e->getMessage();
+            }
+        }
+
         if ($resourceType === 'Composition') {
             try {
                 $compositionData = [
@@ -3607,6 +3735,789 @@ class SatuSehatService
             } catch (\Exception $e) {
                 $results['items'][] = ['type' => 'Composition', 'status' => 'Failed', 'error' => $e->getMessage()];
                 $results['errors'][] = $e->getMessage();
+            }
+        }
+
+        return $results;
+    }
+
+    // ==========================================
+    // MEDICATION RESOURCE
+    // ==========================================
+
+    /**
+     * Get a specific Medication by its UUID (path variable).
+     * GET {baseUrl}/Medication/{id}
+     */
+    public function getMedicationById(string $medicationUuid)
+    {
+        $url = $this->getBaseUrl().'/Medication/'.$medicationUuid;
+
+        $response = Http::withHeaders($this->getHeaders())->get($url);
+
+        if ($response->successful()) {
+            return $response->json();
+        }
+
+        return null;
+    }
+
+    /**
+     * Format Medication payload for FHIR R4.
+     *
+     * @param  array  $data  Keys: kfa_obat (MstKfaObat), nomor_kunjungan, kode_obat
+     * @param  string|null  $id  Medication UUID for update
+     */
+    protected function formatMedicationPayload(array $data, ?string $id = null): array
+    {
+        $instansi = MstInstansi::first();
+        if (! $instansi) {
+            throw new \Exception('Data profil klinik (mst_instansi) tidak ditemukan.');
+        }
+
+        $kfaObat = $data['kfa_obat']; // MstKfaObat model with ingredients loaded
+        $nomorKunjungan = $data['nomor_kunjungan'] ?? '';
+        $kodeObat = $data['kode_obat'] ?? '';
+
+        $payload = [
+            'resourceType' => 'Medication',
+            'meta' => [
+                'profile' => [
+                    'https://fhir.kemkes.go.id/r4/StructureDefinition/Medication',
+                ],
+            ],
+            'identifier' => [
+                [
+                    'system' => 'http://sys-ids.kemkes.go.id/medication/'.$instansi->organization_id,
+                    'use' => 'official',
+                    'value' => $nomorKunjungan.'-'.$kodeObat,
+                ],
+            ],
+            'code' => [
+                'coding' => [
+                    [
+                        'system' => 'http://sys-ids.kemkes.go.id/kfa',
+                        'code' => $kfaObat->kfa_code,
+                        'display' => $kfaObat->name,
+                    ],
+                ],
+            ],
+            'status' => 'active',
+            'manufacturer' => [
+                'reference' => 'Organization/'.$instansi->organization_id,
+            ],
+            'form' => [
+                'coding' => [
+                    [
+                        'system' => 'http://terminology.kemkes.go.id/CodeSystem/medication-form',
+                        'code' => $kfaObat->dosage_form_code ?? 'BS000',
+                        'display' => $kfaObat->dosage_form_name ?? 'Tidak Diketahui',
+                    ],
+                ],
+            ],
+            'extension' => [
+                [
+                    'url' => 'https://fhir.kemkes.go.id/r4/StructureDefinition/MedicationType',
+                    'valueCodeableConcept' => [
+                        'coding' => [
+                            [
+                                'system' => 'http://terminology.kemkes.go.id/CodeSystem/medication-type',
+                                'code' => 'NC',
+                                'display' => 'Non-compound',
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        // Ingredient — dari mst_kfa_ingredient
+        $ingredients = $kfaObat->ingredients ?? collect();
+        if ($ingredients->isNotEmpty()) {
+            $ingredientArray = [];
+            foreach ($ingredients as $ingredient) {
+                // Parse kekuatan_zat_aktif: contoh "150 mg" → value=150, unit="mg"
+                $strength = $this->parseStrength($ingredient->kekuatan_zat_aktif);
+
+                $ingredientItem = [
+                    'itemCodeableConcept' => [
+                        'coding' => [
+                            [
+                                'system' => 'http://sys-ids.kemkes.go.id/kfa',
+                                'code' => $ingredient->kfa_code_ingredient ?? '',
+                                'display' => $ingredient->zat_aktif ?? '',
+                            ],
+                        ],
+                    ],
+                    'isActive' => true,
+                    'strength' => [
+                        'numerator' => [
+                            'value' => $strength['value'],
+                            'system' => 'http://unitsofmeasure.org',
+                            'code' => $strength['unit'],
+                        ],
+                        'denominator' => [
+                            'value' => 1,
+                            'system' => 'http://terminology.hl7.org/CodeSystem/v3-orderableDrugForm',
+                            'code' => 'TAB',
+                        ],
+                    ],
+                ];
+
+                $ingredientArray[] = $ingredientItem;
+            }
+            $payload['ingredient'] = $ingredientArray;
+        }
+
+        if ($id) {
+            $payload['id'] = $id;
+        }
+
+        return $payload;
+    }
+
+    /**
+     * Parse strength string like "150 mg" into value and unit.
+     */
+    protected function parseStrength(?string $strengthStr): array
+    {
+        if (empty($strengthStr)) {
+            return ['value' => 0, 'unit' => 'mg'];
+        }
+
+        // Try pattern "150 mg", "0.5 ml", "150mg"
+        if (preg_match('/^([\d.]+)\s*(\w+)$/', trim($strengthStr), $matches)) {
+            return [
+                'value' => (float) $matches[1],
+                'unit' => $matches[2],
+            ];
+        }
+
+        // If only numeric
+        if (is_numeric(trim($strengthStr))) {
+            return ['value' => (float) trim($strengthStr), 'unit' => 'mg'];
+        }
+
+        return ['value' => 0, 'unit' => 'mg'];
+    }
+
+    /**
+     * Create a new Medication.
+     * POST {baseUrl}/Medication
+     */
+    public function createMedication(array $data)
+    {
+        $instansi = MstInstansi::first();
+        if (! $instansi) {
+            throw new \Exception('Data profil klinik (mst_instansi) tidak ditemukan.');
+        }
+
+        $body = $this->formatMedicationPayload($data);
+        $pasien = $data['pasien'] ?? null;
+
+        $url = $this->getBaseUrl().'/Medication';
+        $response = Http::withHeaders($this->getHeaders())->post($url, $body);
+
+        if ($response->successful()) {
+            $result = $response->json();
+            $this->logSatusehatData(
+                $instansi->organization_id,
+                $result['id'] ?? null,
+                $body,
+                'Success',
+                $data['nomor_kunjungan'] ?? null,
+                'Medication',
+                $pasien->satusehat_uuid ?? null,
+                $result,
+                null,
+                $data['created_by'] ?? null
+            );
+
+            return $result;
+        }
+
+        $this->logSatusehatData(
+            $instansi->organization_id,
+            null,
+            $body,
+            'Failed',
+            $data['nomor_kunjungan'] ?? null,
+            'Medication',
+            $pasien->satusehat_uuid ?? null,
+            [],
+            $response->body(),
+            $data['created_by'] ?? null
+        );
+        throw new \Exception('Gagal create Medication di SatuSehat: '.$response->body());
+    }
+
+    /**
+     * Update an existing Medication.
+     * PUT {baseUrl}/Medication/{id}
+     */
+    public function updateMedication(string $medicationUuid, array $data)
+    {
+        $instansi = MstInstansi::first();
+        if (! $instansi) {
+            throw new \Exception('Data profil klinik (mst_instansi) tidak ditemukan.');
+        }
+
+        $body = $this->formatMedicationPayload($data, $medicationUuid);
+        $pasien = $data['pasien'] ?? null;
+
+        $url = $this->getBaseUrl().'/Medication/'.$medicationUuid;
+        $response = Http::withHeaders($this->getHeaders())->put($url, $body);
+
+        if ($response->successful()) {
+            $result = $response->json();
+            $this->logSatusehatData(
+                $instansi->organization_id,
+                $result['id'] ?? null,
+                $body,
+                'Success',
+                $data['nomor_kunjungan'] ?? null,
+                'Medication',
+                $pasien->satusehat_uuid ?? null,
+                $result,
+                null,
+                $data['created_by'] ?? null
+            );
+
+            return $result;
+        }
+
+        $this->logSatusehatData(
+            $instansi->organization_id,
+            $medicationUuid,
+            $body,
+            'Failed',
+            $data['nomor_kunjungan'] ?? null,
+            'Medication',
+            $pasien->satusehat_uuid ?? null,
+            [],
+            $response->body(),
+            $data['created_by'] ?? null
+        );
+        throw new \Exception('Gagal update Medication di SatuSehat: '.$response->body());
+    }
+
+    // ==========================================
+    // MEDICATION REQUEST RESOURCE
+    // ==========================================
+
+    /**
+     * Search MedicationRequest by Patient Subject UUID.
+     * GET {baseUrl}/MedicationRequest?subject={subjectUuid}
+     */
+    public function searchMedicationRequestBySubject(string $subjectUuid)
+    {
+        $url = $this->getBaseUrl().'/MedicationRequest';
+        $params = ['subject' => $subjectUuid];
+
+        $response = Http::withHeaders($this->getHeaders())->get($url, $params);
+
+        if ($response->successful() && ! empty($response->json()['entry'])) {
+            return $response->json()['entry'];
+        }
+
+        return null;
+    }
+
+    /**
+     * Search MedicationRequest by Subject and Encounter UUID.
+     * GET {baseUrl}/MedicationRequest?subject={subjectUuid}&encounter={encounterUuid}
+     */
+    public function searchMedicationRequestBySubjectAndEncounter(string $subjectUuid, string $encounterUuid)
+    {
+        $url = $this->getBaseUrl().'/MedicationRequest';
+        $params = [
+            'subject' => $subjectUuid,
+            'encounter' => $encounterUuid,
+        ];
+
+        $response = Http::withHeaders($this->getHeaders())->get($url, $params);
+
+        if ($response->successful() && ! empty($response->json()['entry'])) {
+            return $response->json()['entry'];
+        }
+
+        return null;
+    }
+
+    /**
+     * Search MedicationRequest by Encounter UUID.
+     * GET {baseUrl}/MedicationRequest?encounter={encounterUuid}
+     */
+    public function searchMedicationRequestByEncounter(string $encounterUuid)
+    {
+        $url = $this->getBaseUrl().'/MedicationRequest';
+        $params = ['encounter' => $encounterUuid];
+
+        $response = Http::withHeaders($this->getHeaders())->get($url, $params);
+
+        if ($response->successful() && ! empty($response->json()['entry'])) {
+            return $response->json()['entry'];
+        }
+
+        return null;
+    }
+
+    /**
+     * Get a specific MedicationRequest by its UUID (path variable).
+     * GET {baseUrl}/MedicationRequest/{id}
+     */
+    public function getMedicationRequestById(string $medicationRequestUuid)
+    {
+        $url = $this->getBaseUrl().'/MedicationRequest/'.$medicationRequestUuid;
+
+        $response = Http::withHeaders($this->getHeaders())->get($url);
+
+        if ($response->successful()) {
+            return $response->json();
+        }
+
+        return null;
+    }
+
+    /**
+     * Format MedicationRequest payload for FHIR R4.
+     *
+     * @param  array  $data  Keys: pasien, dokter, encounter_uuid, medication_uuid, medication_display,
+     *                       nomor_kunjungan, trx_obat, diagnosis_code, diagnosis_display
+     * @param  string|null  $id  MedicationRequest UUID for update
+     */
+    protected function formatMedicationRequestPayload(array $data, ?string $id = null): array
+    {
+        $instansi = MstInstansi::first();
+        if (! $instansi) {
+            throw new \Exception('Data profil klinik (mst_instansi) tidak ditemukan.');
+        }
+
+        $pasien = $data['pasien'];
+        $dokter = $data['dokter'];
+        $encounterUuid = $data['encounter_uuid'];
+        $medicationUuid = $data['medication_uuid'];
+        $medicationDisplay = $data['medication_display'] ?? '';
+        $nomorKunjungan = $data['nomor_kunjungan'] ?? '';
+        $trxObat = $data['trx_obat']; // stdClass from DB
+        $diagCode = $data['diagnosis_code'] ?? null;
+        $diagDisplay = $data['diagnosis_display'] ?? null;
+        $date = $data['date'] ?? now()->format('Y-m-d');
+
+        // Parse signa/aturan: "3x1" → frequency=3, dose=1
+        $signa = $this->parseSigma($trxObat->aturan ?? '1x1');
+        $dosis = (float) ($trxObat->dosis ?? 1);
+
+        $payload = [
+            'resourceType' => 'MedicationRequest',
+            'identifier' => [
+                [
+                    'system' => 'http://sys-ids.kemkes.go.id/prescription/'.$instansi->organization_id,
+                    'use' => 'official',
+                    'value' => $nomorKunjungan,
+                ],
+                [
+                    'system' => 'http://sys-ids.kemkes.go.id/prescription-item/'.$instansi->organization_id,
+                    'use' => 'official',
+                    'value' => $nomorKunjungan.'-'.$trxObat->kode_obat,
+                ],
+            ],
+            'status' => $data['status'] ?? 'completed',
+            'intent' => 'order',
+            'category' => [
+                [
+                    'coding' => [
+                        [
+                            'system' => 'http://terminology.hl7.org/CodeSystem/medicationrequest-category',
+                            'code' => 'outpatient',
+                            'display' => 'Outpatient',
+                        ],
+                    ],
+                ],
+            ],
+            'priority' => 'routine',
+            'medicationReference' => [
+                'reference' => 'Medication/'.$medicationUuid,
+                'display' => $medicationDisplay,
+            ],
+            'subject' => [
+                'reference' => 'Patient/'.$pasien->satusehat_uuid,
+                'display' => $pasien->nama_pasien,
+            ],
+            'encounter' => [
+                'reference' => 'Encounter/'.$encounterUuid,
+            ],
+            'authoredOn' => $date,
+            'requester' => [
+                'reference' => 'Practitioner/'.$dokter->practitioner_id,
+                'display' => $dokter->nama_dokter,
+            ],
+            'courseOfTherapyType' => [
+                'coding' => [
+                    [
+                        'system' => 'http://terminology.hl7.org/CodeSystem/medicationrequest-course-of-therapy',
+                        'code' => 'continuous',
+                        'display' => 'Continuing long term therapy',
+                    ],
+                ],
+            ],
+            'dosageInstruction' => [
+                [
+                    'sequence' => 1,
+                    'text' => ($dosis > 0 ? (int) $dosis.' ' : '').($trxObat->aturan ?? ''),
+                    'additionalInstruction' => [
+                        [
+                            'text' => $trxObat->aturan ?? 'Sesuai aturan pakai',
+                        ],
+                    ],
+                    'patientInstruction' => ($dosis > 0 ? (int) $dosis.' ' : '').($trxObat->aturan ?? 'Sesuai aturan pakai'),
+                    'timing' => [
+                        'repeat' => [
+                            'frequency' => $signa['frequency'],
+                            'period' => 1,
+                            'periodUnit' => 'd',
+                        ],
+                    ],
+                    'route' => [
+                        'coding' => [
+                            [
+                                'system' => 'http://www.whocc.no/atc',
+                                'code' => 'O',
+                                'display' => 'Oral',
+                            ],
+                        ],
+                    ],
+                    'doseAndRate' => [
+                        [
+                            'type' => [
+                                'coding' => [
+                                    [
+                                        'system' => 'http://terminology.hl7.org/CodeSystem/dose-rate-type',
+                                        'code' => 'ordered',
+                                        'display' => 'Ordered',
+                                    ],
+                                ],
+                            ],
+                            'doseQuantity' => [
+                                'value' => $signa['dose'],
+                                'unit' => 'TAB',
+                                'system' => 'http://terminology.hl7.org/CodeSystem/v3-orderableDrugForm',
+                                'code' => 'TAB',
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+            'dispenseRequest' => [
+                'dispenseInterval' => [
+                    'value' => 1,
+                    'unit' => 'days',
+                    'system' => 'http://unitsofmeasure.org',
+                    'code' => 'd',
+                ],
+                'validityPeriod' => [
+                    'start' => $date,
+                    'end' => Carbon::parse($date)->addDays(30)->format('Y-m-d'),
+                ],
+                'numberOfRepeatsAllowed' => 0,
+                'quantity' => [
+                    'value' => $dosis > 0 ? (int) $dosis : 1,
+                    'unit' => 'TAB',
+                    'system' => 'http://terminology.hl7.org/CodeSystem/v3-orderableDrugForm',
+                    'code' => 'TAB',
+                ],
+                'expectedSupplyDuration' => [
+                    'value' => 30,
+                    'unit' => 'days',
+                    'system' => 'http://unitsofmeasure.org',
+                    'code' => 'd',
+                ],
+                'performer' => [
+                    'reference' => 'Organization/'.$instansi->organization_id,
+                ],
+            ],
+        ];
+
+        // Add reasonCode jika ada diagnosis
+        if ($diagCode) {
+            $payload['reasonCode'] = [
+                [
+                    'coding' => [
+                        [
+                            'system' => 'http://hl7.org/fhir/sid/icd-10',
+                            'code' => $diagCode,
+                            'display' => $diagDisplay ?? $diagCode,
+                        ],
+                    ],
+                ],
+            ];
+        }
+
+        if ($id) {
+            $payload['id'] = $id;
+        }
+
+        return $payload;
+    }
+
+    /**
+     * Parse signa/aturan string like "3x1" into frequency and dose.
+     * Contoh: "3x1" → frequency=3, dose=1
+     *         "2x1" → frequency=2, dose=1
+     *         "1x2" → frequency=1, dose=2
+     */
+    protected function parseSigma(?string $signa): array
+    {
+        if (empty($signa)) {
+            return ['frequency' => 1, 'dose' => 1];
+        }
+
+        // Pattern "3x1", "3X1", "3 x 1"
+        if (preg_match('/^(\d+)\s*[xX]\s*(\d+)/', trim($signa), $matches)) {
+            return [
+                'frequency' => (int) $matches[1],
+                'dose' => (int) $matches[2],
+            ];
+        }
+
+        return ['frequency' => 1, 'dose' => 1];
+    }
+
+    /**
+     * Create a new MedicationRequest.
+     * POST {baseUrl}/MedicationRequest
+     */
+    public function createMedicationRequest(array $data)
+    {
+        $instansi = MstInstansi::first();
+        if (! $instansi) {
+            throw new \Exception('Data profil klinik (mst_instansi) tidak ditemukan.');
+        }
+
+        $body = $this->formatMedicationRequestPayload($data);
+        $pasien = $data['pasien'];
+
+        $url = $this->getBaseUrl().'/MedicationRequest';
+        $response = Http::withHeaders($this->getHeaders())->post($url, $body);
+
+        if ($response->successful()) {
+            $result = $response->json();
+            $this->logSatusehatData(
+                $instansi->organization_id,
+                $result['id'] ?? null,
+                $body,
+                'Success',
+                $data['nomor_kunjungan'] ?? null,
+                'MedicationRequest',
+                $pasien->satusehat_uuid ?? null,
+                $result,
+                null,
+                $data['created_by'] ?? null
+            );
+
+            return $result;
+        }
+
+        $this->logSatusehatData(
+            $instansi->organization_id,
+            null,
+            $body,
+            'Failed',
+            $data['nomor_kunjungan'] ?? null,
+            'MedicationRequest',
+            $pasien->satusehat_uuid ?? null,
+            [],
+            $response->body(),
+            $data['created_by'] ?? null
+        );
+        throw new \Exception('Gagal create MedicationRequest di SatuSehat: '.$response->body());
+    }
+
+    /**
+     * Update an existing MedicationRequest.
+     * PUT {baseUrl}/MedicationRequest/{id}
+     */
+    public function updateMedicationRequest(string $medicationRequestUuid, array $data)
+    {
+        $instansi = MstInstansi::first();
+        if (! $instansi) {
+            throw new \Exception('Data profil klinik (mst_instansi) tidak ditemukan.');
+        }
+
+        $body = $this->formatMedicationRequestPayload($data, $medicationRequestUuid);
+        $pasien = $data['pasien'];
+
+        $url = $this->getBaseUrl().'/MedicationRequest/'.$medicationRequestUuid;
+        $response = Http::withHeaders($this->getHeaders())->put($url, $body);
+
+        if ($response->successful()) {
+            $result = $response->json();
+            $this->logSatusehatData(
+                $instansi->organization_id,
+                $result['id'] ?? null,
+                $body,
+                'Success',
+                $data['nomor_kunjungan'] ?? null,
+                'MedicationRequest',
+                $pasien->satusehat_uuid ?? null,
+                $result,
+                null,
+                $data['created_by'] ?? null
+            );
+
+            return $result;
+        }
+
+        $this->logSatusehatData(
+            $instansi->organization_id,
+            $medicationRequestUuid,
+            $body,
+            'Failed',
+            $data['nomor_kunjungan'] ?? null,
+            'MedicationRequest',
+            $pasien->satusehat_uuid ?? null,
+            [],
+            $response->body(),
+            $data['created_by'] ?? null
+        );
+        throw new \Exception('Gagal update MedicationRequest di SatuSehat: '.$response->body());
+    }
+
+    /**
+     * Create Medication + MedicationRequest untuk semua obat di satu kunjungan.
+     *
+     * Flow per obat:
+     * 1. trx_obat → mst_obat → mst_map_obat_kfa → mst_kfa_obat (+ ingredients)
+     * 2. Create Medication → ambil UUID
+     * 3. Create MedicationRequest referencing Medication UUID
+     *
+     * Obat tanpa mapping KFA di-skip, nama obat dikumpulkan untuk warning.
+     *
+     * @return array ['medications' => [...], 'medication_requests' => [...], 'unmapped_drugs' => [...]]
+     */
+    public function createMedicationAllObat(array $data): array
+    {
+        $pendaftaran = $data['pendaftaran']; // TrxPendaftaran model
+        $encounterUuid = $data['encounter_uuid'];
+        $createdBy = $data['created_by'] ?? null;
+
+        $pasien = $pendaftaran->pasien;
+        $dokter = $pendaftaran->dokter;
+        $nomorKunjungan = $pendaftaran->nomor_kunjungan;
+
+        // Ambil semua obat di kunjungan ini
+        $trxObats = DB::table('trx_obat')
+            ->join('mst_obat', 'trx_obat.kode_obat', '=', 'mst_obat.kode_obat')
+            ->where('trx_obat.nomor_kunjungan', $nomorKunjungan)
+            ->whereNull('trx_obat.deleted_at')
+            ->select('trx_obat.*', 'mst_obat.id as mst_obat_id', 'mst_obat.nama_obat', 'mst_obat.satuan')
+            ->get();
+
+        if ($trxObats->isEmpty()) {
+            return ['medications' => [], 'medication_requests' => [], 'unmapped_drugs' => []];
+        }
+
+        // Get primary diagnosis for reasonCode
+        $primaryDiag = DB::table('trx_diagnosis')
+            ->join('mst_diagnosis', 'trx_diagnosis.kode_diagnosa', '=', 'mst_diagnosis.kode_diagnosa')
+            ->where('trx_diagnosis.nomor_kunjungan', $nomorKunjungan)
+            ->whereNull('trx_diagnosis.deleted_at')
+            ->select('trx_diagnosis.kode_diagnosa', 'mst_diagnosis.nama_diagnosa')
+            ->first();
+
+        $results = [
+            'medications' => [],
+            'medication_requests' => [],
+            'unmapped_drugs' => [],
+        ];
+
+        // Filter retry jika ada
+        $retryKodeObats = $data['retry_kode_obats'] ?? null;
+
+        foreach ($trxObats as $trxObat) {
+            // Skip jika tidak termasuk retry
+            if ($retryKodeObats !== null && ! in_array($trxObat->kode_obat, $retryKodeObats)) {
+                continue;
+            }
+
+            // Cari mapping KFA: mst_obat.id → mst_map_obat_kfa → mst_kfa_obat
+            $mapping = DB::table('mst_map_obat_kfa')
+                ->where('obat_id', $trxObat->mst_obat_id)
+                ->where('is_active', true)
+                ->first();
+
+            if (! $mapping) {
+                // Obat belum di-mapping KFA → skip dan catat untuk warning
+                $results['unmapped_drugs'][] = [
+                    'kode_obat' => $trxObat->kode_obat,
+                    'nama_obat' => $trxObat->nama_obat,
+                ];
+
+                continue;
+            }
+
+            // Load KFA obat dengan ingredients
+            $kfaObat = MstKfaObat::with('ingredients')->find($mapping->kfa_code);
+
+            if (! $kfaObat) {
+                $results['unmapped_drugs'][] = [
+                    'kode_obat' => $trxObat->kode_obat,
+                    'nama_obat' => $trxObat->nama_obat,
+                    'reason' => 'Data KFA code '.$mapping->kfa_code.' tidak ditemukan di mst_kfa_obat',
+                ];
+
+                continue;
+            }
+
+            // ── Step 1: Create Medication ──
+            $medicationUuid = null;
+            try {
+                $medResult = $this->createMedication([
+                    'kfa_obat' => $kfaObat,
+                    'nomor_kunjungan' => $nomorKunjungan,
+                    'kode_obat' => $trxObat->kode_obat,
+                    'pasien' => $pasien,
+                    'created_by' => $createdBy,
+                ]);
+
+                $medicationUuid = $medResult['id'] ?? null;
+                $results['medications'][$trxObat->kode_obat] = $medResult;
+
+            } catch (\Exception $e) {
+                $results['medications'][$trxObat->kode_obat] = ['error' => $e->getMessage()];
+
+                // Medication gagal → tidak bisa lanjut ke MedicationRequest untuk obat ini
+                continue;
+            }
+
+            if (! $medicationUuid) {
+                continue;
+            }
+
+            // ── Step 2: Create MedicationRequest ──
+            try {
+                $date = $pendaftaran->created_at
+                    ? $pendaftaran->created_at->format('Y-m-d')
+                    : now()->format('Y-m-d');
+
+                $medReqResult = $this->createMedicationRequest([
+                    'pasien' => $pasien,
+                    'dokter' => $dokter,
+                    'encounter_uuid' => $encounterUuid,
+                    'medication_uuid' => $medicationUuid,
+                    'medication_display' => $kfaObat->name,
+                    'nomor_kunjungan' => $nomorKunjungan,
+                    'trx_obat' => $trxObat,
+                    'diagnosis_code' => $primaryDiag->kode_diagnosa ?? null,
+                    'diagnosis_display' => $primaryDiag->nama_diagnosa ?? null,
+                    'date' => $date,
+                    'created_by' => $createdBy,
+                ]);
+
+                $results['medication_requests'][$trxObat->kode_obat] = $medReqResult;
+
+            } catch (\Exception $e) {
+                $results['medication_requests'][$trxObat->kode_obat] = ['error' => $e->getMessage()];
             }
         }
 

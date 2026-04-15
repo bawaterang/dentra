@@ -20,8 +20,7 @@ class MenuSeeder extends Seeder
             DB::statement('PRAGMA foreign_keys = OFF;');
             DB::table('mst_menu')->delete();
             DB::statement('PRAGMA foreign_keys = ON;');
-        }
-        else {
+        } else {
             DB::statement('SET FOREIGN_KEY_CHECKS=0;');
             DB::table('mst_menu')->truncate();
             DB::statement('SET FOREIGN_KEY_CHECKS=1;');
@@ -203,6 +202,18 @@ class MenuSeeder extends Seeder
             'updated_at' => $now,
         ]);
 
+        DB::table('mst_menu')->insert([
+            'id' => 35,
+            'menu_name' => 'API Monitoring',
+            'menu_link' => '/bridging/api-monitoring',
+            'menu_icon' => 'ri-signal-tower-line',
+            'parent_id' => 3,
+            'order_no' => 3,
+            'is_active' => true,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
         // =============================================
         // SUB MENUS - KEUANGAN (parent_id = 5)
         // =============================================
@@ -343,6 +354,30 @@ class MenuSeeder extends Seeder
             'updated_at' => $now,
         ]);
 
+        DB::table('mst_menu')->insert([
+            'id' => 38,
+            'menu_name' => 'Data Poli',
+            'menu_link' => '/master/data-poli',
+            'menu_icon' => 'ri-hospital-line',
+            'parent_id' => 6,
+            'order_no' => 11,
+            'is_active' => true,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        DB::table('mst_menu')->insert([
+            'id' => 39,
+            'menu_name' => 'Data Survei',
+            'menu_link' => '/master/data-survei',
+            'menu_icon' => 'ri-survey-line',
+            'parent_id' => 6,
+            'order_no' => 12,
+            'is_active' => true,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
         // =============================================
         // SUB MENUS - SETTING (parent_id = 7)
         // =============================================
@@ -414,6 +449,30 @@ class MenuSeeder extends Seeder
             'menu_icon' => 'ri-database-line',
             'parent_id' => 7,
             'order_no' => 6,
+            'is_active' => true,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        DB::table('mst_menu')->insert([
+            'id' => 36,
+            'menu_name' => 'Setting Klinik',
+            'menu_link' => '/setting-klinik',
+            'menu_icon' => 'ri-hospital-line',
+            'parent_id' => 7,
+            'order_no' => 7,
+            'is_active' => true,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        DB::table('mst_menu')->insert([
+            'id' => 37,
+            'menu_name' => 'Setting Antrian',
+            'menu_link' => '/setting/antrian',
+            'menu_icon' => 'ri-list-ordered',
+            'parent_id' => 7,
+            'order_no' => 8,
             'is_active' => true,
             'created_at' => $now,
             'updated_at' => $now,
