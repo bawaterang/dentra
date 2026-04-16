@@ -10,6 +10,7 @@ use App\Modules\Setting\Http\Livewire\UserPage;
 use App\Modules\Setting\Http\Livewire\RoleUserPage;
 use App\Modules\Setting\Http\Livewire\BackupPage;
 use App\Modules\Setting\Http\Livewire\AksesMenuPage;
+use App\Modules\Setting\Http\Livewire\InformasiPage;
 
 Route::middleware(['web', 'auth'])->group(function () {
     Route::get('/setting-klinik', SettingKlinikPage::class)->name('setting.klinik');
@@ -18,6 +19,11 @@ Route::middleware(['web', 'auth'])->group(function () {
     // Setting prefixed group
     Route::prefix('setting')->name('setting.')->group(function () {
         Route::get('/antrian', \App\Modules\Antrian\Http\Livewire\SettingAntrianPage::class)->name('antrian');
+        
+        Route::get('/informasi', InformasiPage::class)->name('informasi');
+        Route::get('/informasi/print', [\App\Modules\Setting\Http\Controllers\InformasiExportController::class, 'print'])->name('informasi.print');
+        Route::get('/informasi/export', [\App\Modules\Setting\Http\Controllers\InformasiExportController::class, 'exportExcel'])->name('informasi.export');
+        
         Route::get('/jadwal-dokter', JadwalDokterPage::class)->name('jadwal_dokter');
         
         Route::get('/user', UserPage::class)->name('user');
