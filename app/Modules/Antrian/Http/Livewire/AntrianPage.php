@@ -21,6 +21,7 @@ class AntrianPage extends Component
     public $selesai = 0;
     public $batal = 0;
     public $search = '';
+    public $viewMode = 'table'; // table or grid
 
     public $syncAntrianId;
     public $searchPasien = '';
@@ -209,6 +210,43 @@ class AntrianPage extends Component
         return $query->orderBy('nomor_antrian')->paginate(25);
     }
 
+    #[Computed]
+    public function groupedAntrianList()
+    {
+        $query = TrxAntrian::with(['pasien', 'poli', 'dokter'])
+            ->whereDate('tanggal_antrian', $this->selectedDate)
+            ->where('status', '!=', 'batal');
+        
+        if ($this->selectedStatus !== 'all') {
+            $query->where('status', $this->selectedStatus);
+        }
+
+        if ($this->search) {
+            $query->where(function($q) {
+                $q->where('nomor_antrian', 'like', '%' . $this->search . '%')
+                  ->orWhere('nama_pasien_input_manual', 'like', '%' . $this->search . '%')
+                  ->orWhereHas('pasien', function($qp) {
+                      $qp->where('nama_pasien', 'like', '%' . $this->search . '%')
+                        ->orWhere('no_rm', 'like', '%' . $this->search . '%');
+                  });
+            });
+        }
+
+        $allData = $query->orderBy('nomor_antrian')->get();
+        
+        $grouped = [];
+        foreach($allData as $item) {
+            $slot = $item->time_slot ? substr($item->time_slot, 0, 5) : 'Walk-in';
+            if (!isset($grouped[$slot])) {
+                $grouped[$slot] = [];
+            }
+            $grouped[$slot][] = $item;
+        }
+        
+        ksort($grouped);
+        return $grouped;
+    }
+
     public function render()
     {
         $dayQuery = TrxAntrian::where(fn($q) => $q->where('tanggal_antrian', $this->selectedDate));
@@ -380,11 +418,22 @@ class AntrianPage extends Component
                                 <li class="nav-item"><a class="nav-link {{ $selectedStatus === 'selesai' ? 'active active-pill-success' : '' }}" wire:click="setStatus('selesai')" role="button"><i class="ri-checkbox-circle-line"></i><span>Selesai</span></a></li>
                             </ul></div>
                             
-                            <div class="relative flex-grow max-w-[320px]">
-                                <i class="ri-search-2-line absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg"></i>
-                                <input type="text" wire:model.live.debounce.300ms="search" class="w-full bg-gray-50 border border-gray-200 rounded-2xl py-2 pl-11 pr-4 text-sm font-medium outline-none transition-all focus:border-[#405189] focus:ring-4 focus:ring-[#405189]/5 placeholder:text-gray-300" placeholder="Cari pasien atau nomor...">
+                            <div class="flex items-center gap-3 w-full lg:w-auto">
+                                <div class="bg-gray-100 p-1 rounded-xl flex items-center shrink-0">
+                                    <button wire:click="$set('viewMode', 'table')" class="w-9 h-8 flex items-center justify-center rounded-lg transition-all {{ $viewMode === 'table' ? 'bg-white shadow-sm text-[#405189]' : 'text-gray-500 hover:text-gray-700' }}" title="Tampilan Tabel">
+                                        <i class="ri-list-check"></i>
+                                    </button>
+                                    <button wire:click="$set('viewMode', 'grid')" class="w-9 h-8 flex items-center justify-center rounded-lg transition-all {{ $viewMode === 'grid' ? 'bg-white shadow-sm text-[#405189]' : 'text-gray-500 hover:text-gray-700' }}" title="Tampilan Grup Waktu">
+                                        <i class="ri-grid-fill"></i>
+                                    </button>
+                                </div>
+                                <div class="relative flex-grow max-w-[320px] lg:w-80">
+                                    <i class="ri-search-2-line absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg"></i>
+                                    <input type="text" wire:model.live.debounce.300ms="search" class="w-full bg-gray-50 border border-gray-200 rounded-2xl py-2 pl-11 pr-4 text-sm font-medium outline-none transition-all focus:border-[#405189] focus:ring-4 focus:ring-[#405189]/5 placeholder:text-gray-300" placeholder="Cari pasien atau nomor...">
+                                </div>
                             </div>
                         </div></div>
+                        @if($viewMode === 'table')
                         <div class="card-body p-0"><div class="overflow-x-auto dark:bg-transparent">
                             <table class="w-full text-left border-collapse">
                                 <thead class="bg-gray-50/50">
@@ -491,6 +540,109 @@ class AntrianPage extends Component
                             </div>
                             @endif
                         </div></div>
+                        @else
+                        <div class="p-6 bg-gray-50/50 min-h-[400px]">
+                            @php $groupedData = $this->groupedAntrianList; @endphp
+                            
+                            @if(count($groupedData) === 0)
+                                <div class="flex flex-col items-center justify-center py-16">
+                                    <div class="w-20 h-20 bg-white shadow-sm rounded-full flex items-center justify-center mb-4">
+                                        <i class="ri-list-ordered text-4xl text-gray-300"></i>
+                                    </div>
+                                    <p class="text-base font-bold text-gray-500">Belum ada data antrian</p>
+                                    <p class="text-xs text-gray-400 mt-1">Gunakan filter pencarian atau ubah tanggal.</p>
+                                </div>
+                            @else
+                                <div class="space-y-10">
+                                    @foreach($groupedData as $slot => $items)
+                                        <div>
+                                            <div class="flex items-center gap-4 mb-5">
+                                                <div class="h-9 px-5 rounded-full bg-white border-2 border-[#405189] text-[#405189] flex items-center justify-center font-bold text-sm shadow-sm">
+                                                    @if($slot === 'Walk-in')
+                                                        <i class="ri-walk-line mr-2 text-lg"></i> Walk-in (Tanpa Waktu)
+                                                    @else
+                                                        <i class="ri-time-line mr-2 text-lg"></i> {{ $slot }} WIB
+                                                    @endif
+                                                </div>
+                                                <div class="h-px bg-gray-200 flex-1"></div>
+                                                <div class="text-xs font-bold text-gray-400 uppercase tracking-widest bg-white px-3 py-1 rounded-md border border-gray-100 shadow-sm">{{ count($items) }} Pasien</div>
+                                            </div>
+                                            
+                                            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+                                                @foreach($items as $item)
+                                                    <div class="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm hover:shadow-lg transition-all duration-300 group relative overflow-hidden flex flex-col">
+                                                         @php 
+                                                            $statusColorsList = ['menunggu'=>'bg-warning-subtle text-amber-600','dipanggil'=>'bg-primary-subtle text-[#405189]','hadir'=>'bg-success-subtle text-emerald-600','tidak_hadir'=>'bg-danger-subtle text-rose-600','batal'=>'bg-secondary-subtle text-gray-600','selesai'=>'bg-success-subtle text-emerald-600']; 
+                                                            $borderColors = ['menunggu'=>'bg-amber-500','dipanggil'=>'bg-[#405189]','hadir'=>'bg-emerald-500','tidak_hadir'=>'bg-rose-500','batal'=>'bg-gray-400','selesai'=>'bg-emerald-500'];
+                                                         @endphp
+                                                         <div class="absolute left-0 top-0 bottom-0 w-1.5 {{ $borderColors[$item->status] ?? 'bg-gray-300' }}"></div>
+                                                         
+                                                         <div class="flex justify-between items-start mb-3 pl-2">
+                                                              <div class="flex items-center gap-2">
+                                                                 <span class="inline-flex items-center justify-center h-8 px-2.5 rounded-lg bg-gray-100 text-gray-700 font-bold text-sm">{{ $item->nomor_antrian }}</span>
+                                                                 @if($item->jenis_antrian === 'online')
+                                                                     <span class="px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest bg-info-subtle text-info border border-info/10"><i class="ri-global-line mr-0.5"></i>Online</span>
+                                                                 @elseif($item->jenis_antrian === 'mobile_jkn')
+                                                                     <span class="px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest bg-purple-100 text-purple-600 border border-purple-200"><i class="ri-smartphone-line mr-0.5"></i>JKN</span>
+                                                                 @else
+                                                                     <span class="px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest bg-gray-100 text-gray-500 border border-gray-200">Offline</span>
+                                                                 @endif
+                                                              </div>
+                                                              <span class="px-2.5 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1.5 {{ $statusColorsList[$item->status] ?? 'bg-secondary-subtle' }}">
+                                                                  <span class="h-1.5 w-1.5 rounded-full {{ str_contains($borderColors[$item->status] ?? '', '#405189') ? 'bg-current animate-ping' : 'bg-current' }}"></span>
+                                                                  {{ ucfirst(str_replace('_',' ',$item->status)) }}
+                                                              </span>
+                                                         </div>
+                                                         <div class="mb-4 pl-2 flex-grow">
+                                                              <h5 class="text-base font-black text-[#2c3e50] mb-1 leading-tight">{{ $item->pasien?->nama_pasien ?? $item->nama_pasien_input_manual ?? '-' }}</h5>
+                                                              @if($item->pasien_id)
+                                                                <div class="text-[11px] font-mono text-gray-400">RM: {{ $item->pasien?->no_rm }}</div>
+                                                              @else
+                                                                <div class="text-[10px] text-orange-500 font-bold"><i class="ri-alert-line mr-0.5"></i>Belum sinkron</div>
+                                                              @endif
+                                                         </div>
+                                                         
+                                                         <div class="pt-3 border-t border-gray-50 pl-2">
+                                                              <div class="flex items-center gap-3">
+                                                                  <div class="h-8 w-8 rounded-full bg-blue-50 text-blue-500 flex items-center justify-center shrink-0">
+                                                                      <i class="ri-stethoscope-line text-lg"></i>
+                                                                  </div>
+                                                                  <div>
+                                                                      <p class="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{{ $item->poli?->nama_poli ?? $item->kode_poli ?? '-' }}</p>
+                                                                      <p class="text-xs text-[#405189] font-semibold">{{ $item->dokter?->nama_dokter ?? 'Belum terhubung dokter' }}</p>
+                                                                  </div>
+                                                              </div>
+                                                         </div>
+                                                         
+                                                         <!-- Hover Actions Overlay -->
+                                                         <div class="absolute inset-0 bg-white rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-2 z-10">
+                                                              <a href="{{ route('antrian.cetak', $item->id) }}" target="_blank" class="w-10 h-10 rounded-full flex items-center justify-center bg-indigo-50 text-[#405189] hover:bg-[#405189] hover:text-white hover:-translate-y-1 transition-all shadow-sm" title="Cetak Tiket"><i class="ri-printer-line text-lg"></i></a>
+                                                              @if(in_array($item->status, ['menunggu','dipanggil']))
+                                                                  <button wire:click="editAntrian({{ $item->id }})" class="w-10 h-10 rounded-full flex items-center justify-center bg-orange-50 text-orange-500 hover:bg-orange-500 hover:text-white hover:-translate-y-1 transition-all shadow-sm" title="Edit"><i class="ri-edit-line text-lg"></i></button>
+                                                              @endif
+                                                              @if($item->status === 'menunggu')
+                                                                  <button wire:click="ubahStatus({{ $item->id }}, 'dipanggil')" class="w-10 h-10 rounded-full flex items-center justify-center bg-blue-50 text-blue-500 hover:bg-blue-500 hover:text-white hover:-translate-y-1 transition-all shadow-sm" title="Panggil"><i class="ri-notification-3-line text-lg"></i></button>
+                                                              @endif
+                                                              @if($item->status === 'dipanggil')
+                                                                  <button wire:click="ubahStatus({{ $item->id }}, 'hadir')" class="w-10 h-10 rounded-full flex items-center justify-center bg-emerald-50 text-emerald-500 hover:bg-emerald-500 hover:text-white hover:-translate-y-1 transition-all shadow-sm" title="Hadir"><i class="ri-user-follow-line text-lg"></i></button>
+                                                                  <button wire:click="ubahStatus({{ $item->id }}, 'tidak_hadir')" class="w-10 h-10 rounded-full flex items-center justify-center bg-rose-50 text-rose-500 hover:bg-rose-500 hover:text-white hover:-translate-y-1 transition-all shadow-sm" title="Tidak Hadir"><i class="ri-user-unfollow-line text-lg"></i></button>
+                                                              @endif
+                                                              @if(!$item->pasien_id && in_array($item->status, ['menunggu','dipanggil','hadir']))
+                                                                  <button wire:click="openSyncModal({{ $item->id }})" class="w-10 h-10 rounded-full flex items-center justify-center bg-purple-50 text-purple-600 hover:bg-purple-600 hover:text-white hover:-translate-y-1 transition-all shadow-sm" title="Sinkron Pasien"><i class="ri-link text-lg"></i></button>
+                                                              @endif
+                                                              @if(in_array($item->status, ['hadir','dipanggil']) && $item->pasien_id)
+                                                                  <button wire:click="daftarkan({{ $item->id }})" class="w-10 h-10 rounded-full flex items-center justify-center bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white hover:-translate-y-1 transition-all shadow-sm" title="Daftarkan"><i class="ri-file-add-line text-lg"></i></button>
+                                                              @endif
+                                                         </div>
+                                                    </div>
+                                                @endforeach
+                                            </div>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            @endif
+                        </div>
+                        @endif
                     </div>
                 </div>
             </div>
