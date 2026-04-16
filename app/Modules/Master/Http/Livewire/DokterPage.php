@@ -884,7 +884,7 @@ class DokterPage extends Component
             </div>
 
             <!-- Search Practitioner Modal -->
-            <div x-show="searchPracModal" class="fixed inset-0 z-[1100] flex items-center justify-center p-4" x-transition.opacity style="display: none;">
+            <div x-show="searchPracModal" class="fixed inset-0 z-[1055] flex items-center justify-center p-4" x-transition.opacity style="display: none;">
                 <div class="absolute inset-0 bg-[#0a192f]/60 backdrop-blur-md" @click="searchPracModal = false"></div>
                 <div x-show="searchPracModal" x-transition.scale.95 class="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden p-8 relative z-10 border border-white/20">
                     <div class="absolute top-6 right-6">

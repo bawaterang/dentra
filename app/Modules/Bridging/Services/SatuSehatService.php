@@ -158,7 +158,7 @@ class SatuSehatService
                 ],
             ],
             'gender' => $pasien->jenis_kelamin === 'Laki-laki' ? 'male' : 'female',
-            'birthDate' => $pasien->tanggal_lahir ? $pasien->tanggal_lahir->format('Y-m-d') : null,
+            'birthDate' => $this->formatUtcDate($pasien->tanggal_lahir),
             'deceasedBoolean' => false,
             'address' => [
                 [
@@ -1394,6 +1394,8 @@ class SatuSehatService
                 'reference' => 'Encounter/'.$data['encounter_uuid'],
                 'display' => $data['encounter_display'] ?? '',
             ],
+            'onsetDateTime' => $this->formatUtcDateTime($data['onset_date'] ?? null),
+            'recordedDate' => $this->formatUtcDateTime($data['recorded_date'] ?? null),
         ];
 
         $url = $this->getBaseUrl().'/Condition';
@@ -1487,6 +1489,8 @@ class SatuSehatService
                 'reference' => 'Encounter/'.$data['encounter_uuid'],
                 'display' => $data['encounter_display'] ?? '',
             ],
+            'onsetDateTime' => $this->formatUtcDateTime($data['onset_date'] ?? null),
+            'recordedDate' => $this->formatUtcDateTime($data['recorded_date'] ?? null),
         ];
 
         $url = $this->getBaseUrl().'/Condition';
@@ -1587,6 +1591,8 @@ class SatuSehatService
                 'reference' => 'Encounter/'.$data['encounter_uuid'],
                 'display' => $data['encounter_display'] ?? '',
             ],
+            'onsetDateTime' => $this->formatUtcDateTime($data['onset_date'] ?? null),
+            'recordedDate' => $this->formatUtcDateTime($data['recorded_date'] ?? null),
         ];
 
         $url = $this->getBaseUrl().'/Condition/'.$conditionUuid;
@@ -4102,7 +4108,7 @@ class SatuSehatService
         $trxObat = $data['trx_obat']; // stdClass from DB
         $diagCode = $data['diagnosis_code'] ?? null;
         $diagDisplay = $data['diagnosis_display'] ?? null;
-        $date = $data['date'] ?? now()->format('Y-m-d');
+        $date = $this->formatUtcDateTime($data['date'] ?? null);
 
         // Parse signa/aturan: "3x1" → frequency=3, dose=1
         $signa = $this->parseSigma($trxObat->aturan ?? '1x1');
@@ -4217,7 +4223,7 @@ class SatuSehatService
                 ],
                 'validityPeriod' => [
                     'start' => $date,
-                    'end' => Carbon::parse($date)->addDays(30)->format('Y-m-d'),
+                    'end' => $this->formatUtcDateTime(Carbon::parse($date)->addDays(30)),
                 ],
                 'numberOfRepeatsAllowed' => 0,
                 'quantity' => [
@@ -4616,7 +4622,7 @@ class SatuSehatService
         $dokter = $data['dokter'];
         $encounterUuid = $data['encounter_uuid'];
         $encounterDisplay = $data['encounter_display'] ?? 'Kunjungan '.$pasien->nama_pasien;
-        $date = $data['date'] ?? now()->format('Y-m-d');
+        $date = $this->formatUtcDateTime($data['date'] ?? null);
         $nomor_kunjungan = $data['nomor_kunjungan'];
 
         $pemeriksaan = DB::table('trx_pemeriksaan')->where('nomor_kunjungan', $nomor_kunjungan)->first();
