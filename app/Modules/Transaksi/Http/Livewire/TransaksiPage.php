@@ -102,6 +102,17 @@ class TransaksiPage extends Component
         $this->selectedDate = now()->format('Y-m-d');
     }
 
+    public function prevDate()
+    {
+        $this->selectedDate = Carbon::parse($this->selectedDate)->subDay()->format('Y-m-d');
+        // No resetPage needed as TransaksiPage doesn't seem to use Livewire Pagination for the main list (it's a simple get())
+    }
+
+    public function nextDate()
+    {
+        $this->selectedDate = Carbon::parse($this->selectedDate)->addDay()->format('Y-m-d');
+    }
+
     public function selectPendaftaran($id)
     {
         $this->selectedPendaftaranId = $id;
@@ -807,10 +818,22 @@ class TransaksiPage extends Component
                         </div>
                         <div class="p-4">
                             <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Tanggal Kunjungan</label>
-                            <input type="date" wire:model.live="selectedDate" class="w-full rounded-lg border-gray-200 text-sm px-4 h-[42px] focus:border-[#405189] transition-all text-center font-semibold">
-                            <div class="mt-3 text-center mb-4">
-                                <p class="text-xs text-[#878a99]">Tanggal dipilih:</p>
-                                <p class="font-bold text-[#405189] text-sm">{{ \Carbon\Carbon::parse($selectedDate)->translatedFormat('l, d F Y') }}</p>
+                            <div class="flex items-center gap-2">
+                                <button wire:click="prevDate" class="flex h-[42px] w-10 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 hover:border-[#405189] hover:text-[#405189] hover:bg-indigo-50 transition-all group" title="Hari Sebelumnya">
+                                    <i class="ri-arrow-left-s-line text-xl group-hover:scale-110 transition-transform"></i>
+                                </button>
+                                
+                                <div class="relative flex-grow">
+                                    <input type="date" wire:model.live="selectedDate" class="w-full rounded-lg border-gray-200 text-sm px-4 h-[42px] focus:border-[#405189] transition-all text-center font-bold text-[#405189] appearance-none cursor-pointer">
+                                </div>
+
+                                <button wire:click="nextDate" class="flex h-[42px] w-10 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 hover:border-[#405189] hover:text-[#405189] hover:bg-indigo-50 transition-all group" title="Hari Berikutnya">
+                                    <i class="ri-arrow-right-s-line text-xl group-hover:scale-110 transition-transform"></i>
+                                </button>
+                            </div>
+                            <div class="mt-3 text-center p-2 bg-indigo-50/50 rounded-xl border border-indigo-100/50">
+                                <p class="text-[10px] text-[#878a99] font-bold uppercase tracking-widest mb-0.5">Tanggal Terpilih</p>
+                                <p class="font-black text-[#405189] text-xs">{{ \Carbon\Carbon::parse($selectedDate)->translatedFormat('l, d F Y') }}</p>
                             </div>
                             
                             <div class="border-t border-[#eff2f7] pt-4 mt-2">

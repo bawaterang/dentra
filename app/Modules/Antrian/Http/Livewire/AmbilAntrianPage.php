@@ -433,7 +433,8 @@ class AmbilAntrianPage extends Component
                                         <label class="block text-xs font-semibold text-gray-500 mb-1">Jenis Antrian</label>
                                         <x-custom-dropdown model="jenis_antrian" :options="[
                                             ['value' => 'offline', 'label' => 'Offline (Datang Langsung)', 'icon' => 'ri-walk-line text-blue-500'],
-                                            ['value' => 'online', 'label' => 'Online (Booking)', 'icon' => 'ri-global-line text-green-500']
+                                            ['value' => 'online', 'label' => 'Online (Booking)', 'icon' => 'ri-global-line text-green-500'],
+                                            ['value' => 'mobile_jkn', 'label' => 'Mobile JKN', 'icon' => 'ri-smartphone-line text-purple-500']
                                         ]" placeholder="Pilih Jenis" />
                                     </div>
                                 </div>

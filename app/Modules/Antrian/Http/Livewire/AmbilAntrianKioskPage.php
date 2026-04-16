@@ -198,6 +198,8 @@ class AmbilAntrianKioskPage extends Component
                 
                 $isBooked = TrxAntrian::whereDate('tanggal_antrian', $this->tanggal_antrian)
                     ->where('time_slot', 'like', substr($this->time_slot, 0, 5) . '%')
+                    ->where('kode_poli', $this->kode_poli)
+                    ->where('kode_dokter', $this->kode_dokter)
                     ->where('status', '!=', 'batal')
                     ->exists();
                     

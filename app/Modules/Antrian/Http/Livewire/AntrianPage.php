@@ -6,16 +6,21 @@ use Livewire\Component;
 use App\Models\TrxAntrian;
 use App\Models\MstPasien;
 use Carbon\Carbon;
+use Livewire\WithPagination;
+use Livewire\Attributes\Computed;
 
 class AntrianPage extends Component
 {
+    use WithPagination;
+
     public $selectedDate;
     public $selectedStatus = 'all';
-    public $antrianList = [];
     public $totalAntrian = 0;
     public $menunggu = 0;
     public $dipanggil = 0;
     public $selesai = 0;
+    public $batal = 0;
+    public $search = '';
 
     public $syncAntrianId;
     public $searchPasien = '';
@@ -34,15 +39,25 @@ class AntrianPage extends Component
         $this->selectedDate = now()->format('Y-m-d');
     }
 
-    public function updatedSelectedDate()
+    public function updatedSelectedDate() { $this->resetPage(); }
+    public function updatedSearch() { $this->resetPage(); }
+
+    public function prevDate()
     {
-        $this->dispatch('refresh-table');
+        $this->selectedDate = Carbon::parse($this->selectedDate)->subDay()->format('Y-m-d');
+        $this->resetPage();
+    }
+
+    public function nextDate()
+    {
+        $this->selectedDate = Carbon::parse($this->selectedDate)->addDay()->format('Y-m-d');
+        $this->resetPage();
     }
 
     public function setStatus($status) 
     { 
         $this->selectedStatus = $status; 
-        $this->dispatch('refresh-table'); 
+        $this->resetPage();
     }
 
     public function panggilBerikutnya()
@@ -169,41 +184,156 @@ class AntrianPage extends Component
         $this->dispatch('alert', ['type' => 'success', 'message' => 'Data antrian berhasil diperbarui.']);
     }
 
-    public function render()
+    #[Computed]
+    public function antrianList()
     {
-        $query = TrxAntrian::with(['pasien', 'poli', 'dokter'])->where(fn($q) => $q->where('tanggal_antrian', $this->selectedDate));
+        $query = TrxAntrian::with(['pasien', 'poli', 'dokter'])
+            ->whereDate('tanggal_antrian', $this->selectedDate)
+            ->where('status', '!=', 'batal');
         
         if ($this->selectedStatus !== 'all') {
-            $query->where(fn($q) => $q->where('status', $this->selectedStatus));
+            $query->where('status', $this->selectedStatus);
         }
 
-        $this->antrianList = $query->orderBy('nomor_antrian')->get();
-        
+        if ($this->search) {
+            $query->where(function($q) {
+                $q->where('nomor_antrian', 'like', '%' . $this->search . '%')
+                  ->orWhere('nama_pasien_input_manual', 'like', '%' . $this->search . '%')
+                  ->orWhereHas('pasien', function($qp) {
+                      $qp->where('nama_pasien', 'like', '%' . $this->search . '%')
+                        ->orWhere('no_rm', 'like', '%' . $this->search . '%');
+                  });
+            });
+        }
+
+        return $query->orderBy('nomor_antrian')->paginate(25);
+    }
+
+    public function render()
+    {
         $dayQuery = TrxAntrian::where(fn($q) => $q->where('tanggal_antrian', $this->selectedDate));
         $this->totalAntrian = (clone $dayQuery)->count();
         $this->menunggu = (clone $dayQuery)->where(fn($q) => $q->where('status', 'menunggu'))->count();
         $this->dipanggil = (clone $dayQuery)->where(fn($q) => $q->where('status', 'dipanggil'))->count();
         $this->selesai = (clone $dayQuery)->where(fn($q) => $q->where('status', 'selesai'))->count();
+        $this->batal = (clone $dayQuery)->where(fn($q) => $q->where('status', 'batal'))->count();
 
         return <<<'HTML'
         <div x-data="{ 
             showSyncModal: @entangle('showSyncModal'),
-            showEditModal: @entangle('showEditModal'),
-            initDataTable() { 
-                const t='#antrianTable'; 
-                if($.fn.DataTable.isDataTable(t)){$(t).DataTable().destroy()} 
-                $(t).DataTable({scrollX:false,dom:'lrtip',pageLength:25,language:{lengthMenu:'_MENU_',info:'Menampilkan _START_ sampai _END_ dari _TOTAL_ data',infoEmpty:'Tidak ada data',zeroRecords:'Tidak ada antrian',emptyTable:'Belum ada antrian untuk tanggal ini',paginate:{previous:'<i class=ri-arrow-left-s-line></i>',next:'<i class=ri-arrow-right-s-line></i>'}}});
-            },
-            init(){ $nextTick(()=>this.initDataTable()) }
-        }" @refresh-table.window="$nextTick(()=>initDataTable())" x-init="initDataTable()">
+            showEditModal: @entangle('showEditModal')
+        }">
+            <style>
+                .custom-row:hover {
+                    background-color: #d8dce1ff !important;
+                    transition: all 0.3s ease;
+                }
+                .pagination-custom nav span.relative.z-0 { 
+                    display: flex !important; 
+                    gap: 4px !important; 
+                    flex-wrap: wrap !important;
+                    justify-content: center !important;
+                }
+                .pagination-custom nav a, 
+                .pagination-custom nav span[aria-disabled="true"] span,
+                .pagination-custom nav span[aria-current="page"] span {
+                    display: inline-flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                    min-width: 38px !important;
+                    height: 38px !important;
+                    padding: 0 12px !important;
+                    border-radius: 8px !important;
+                    border: 1px solid #767070ff !important;
+                    font-size: 13px !important;
+                    font-weight: 700 !important;
+                    transition: all 0.2s ease-in-out !important;
+                    background-color: #ffffff !important;
+                    color: #475569 !important;
+                    text-decoration: none !important;
+                }
+                .pagination-custom nav a:hover {
+                    background-color: #f1f5f9 !important;
+                    border-color: #405189 !important;
+                    color: #405189 !important;
+                    transform: translateY(-1px) !important;
+                }
+                .pagination-custom nav p.text-sm {
+                    display: none !important;
+                }
+                .pagination-custom nav > div:last-child > div:first-child {
+                    display: none !important;
+                }
+                .pagination-custom [aria-current="page"], 
+                .pagination-custom [aria-current="page"] *,
+                .pagination-custom .active,
+                .pagination-custom .active * {
+                    background-color: #405189 !important;
+                    color: #ffffff !important;
+                    border-color: #405189 !important;
+                    box-shadow: 0 4px 10px rgba(64, 81, 137, 0.3) !important;
+                    z-index: 10 !important;
+                }
+            </style>
             <div class="page-header"><div class="page-header-title"><div class="page-header-icon"><i class="ri-list-ordered"></i></div><h1>Antrian</h1></div><div class="page-header-breadcrumb"><a href="/dashboard" wire:navigate><i class="ri-home-line"></i></a><span class="sep">/</span><span>Antrian</span></div></div>
 
             <!-- Info Cards -->
-            <div class="grid grid-cols-2 gap-4 sm:grid-cols-4 mb-6">
-                <div class="card shadow-sm hover:shadow-md transition-all duration-300" style="border-top: 3px solid #405189;"><div class="flex items-center p-4 gap-3"><div class="flex h-11 w-11 items-center justify-center rounded-lg bg-info-subtle text-info"><i class="ri-list-ordered text-xl"></i></div><div><p class="mb-0.5 text-[#878a99] font-medium text-[10px] uppercase tracking-wider">Total</p><h4 class="mb-0 font-bold text-xl text-[#495057]">{{ $totalAntrian }}</h4></div></div></div>
-                <div class="card shadow-sm hover:shadow-md transition-all duration-300" style="border-top: 3px solid #f7b84b;"><div class="flex items-center p-4 gap-3"><div class="flex h-11 w-11 items-center justify-center rounded-lg bg-warning-subtle text-warning"><i class="ri-time-line text-xl"></i></div><div><p class="mb-0.5 text-[#878a99] font-medium text-[10px] uppercase tracking-wider">Menunggu</p><h4 class="mb-0 font-bold text-xl text-[#495057]">{{ $menunggu }}</h4></div></div></div>
-                <div class="card shadow-sm hover:shadow-md transition-all duration-300" style="border-top: 3px solid #3577f1;"><div class="flex items-center p-4 gap-3"><div class="flex h-11 w-11 items-center justify-center rounded-lg bg-primary-subtle text-primary"><i class="ri-notification-3-line text-xl"></i></div><div><p class="mb-0.5 text-[#878a99] font-medium text-[10px] uppercase tracking-wider">Dipanggil</p><h4 class="mb-0 font-bold text-xl text-[#495057]">{{ $dipanggil }}</h4></div></div></div>
-                <div class="card shadow-sm hover:shadow-md transition-all duration-300" style="border-top: 3px solid #0ab39c;"><div class="flex items-center p-4 gap-3"><div class="flex h-11 w-11 items-center justify-center rounded-lg bg-success-subtle text-success"><i class="ri-checkbox-circle-line text-xl"></i></div><div><p class="mb-0.5 text-[#878a99] font-medium text-[10px] uppercase tracking-wider">Selesai</p><h4 class="mb-0 font-bold text-xl text-[#495057]">{{ $selesai }}</h4></div></div></div>
+            <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-5 mb-8">
+                <div class="group relative overflow-hidden bg-white rounded-2xl p-4 shadow-sm hover:shadow-xl transition-all duration-500 border-l-4 border-[#405189]">
+                    <div class="flex items-center gap-3">
+                        <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-[#405189] group-hover:bg-indigo-500 group-hover:text-white transition-all duration-300 shadow-inner">
+                            <i class="ri-list-ordered text-xl"></i>
+                        </div>
+                        <div>
+                            <p class="text-[#878a99] font-bold text-[9px] uppercase tracking-[0.1em]">Total</p>
+                            <h4 class="text-xl font-black text-[#2c3e50] leading-none mt-1">{{ number_format($totalAntrian) }}</h4>
+                        </div>
+                    </div>
+                </div>
+                <div class="group relative overflow-hidden bg-white rounded-2xl p-4 shadow-sm hover:shadow-xl transition-all duration-500 border-l-4 border-[#f7b84b]">
+                    <div class="flex items-center gap-3">
+                        <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-[#f7b84b] group-hover:bg-amber-500 group-hover:text-white transition-all duration-300 shadow-inner">
+                            <i class="ri-time-line text-xl"></i>
+                        </div>
+                        <div>
+                            <p class="text-[#878a99] font-bold text-[9px] uppercase tracking-[0.1em]">Menunggu</p>
+                            <h4 class="text-xl font-black text-[#2c3e50] leading-none mt-1 text-[#f7b84b]">{{ number_format($menunggu) }}</h4>
+                        </div>
+                    </div>
+                </div>
+                <div class="group relative overflow-hidden bg-white rounded-2xl p-4 shadow-sm hover:shadow-xl transition-all duration-500 border-l-4 border-[#3577f1]">
+                    <div class="flex items-center gap-3">
+                        <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-[#3577f1] group-hover:bg-blue-500 group-hover:text-white transition-all duration-300 shadow-inner">
+                            <i class="ri-notification-3-line text-xl"></i>
+                        </div>
+                        <div>
+                            <p class="text-[#878a99] font-bold text-[9px] uppercase tracking-[0.1em]">Dipanggil</p>
+                            <h4 class="text-xl font-black text-[#2c3e50] leading-none mt-1 text-[#3577f1]">{{ number_format($dipanggil) }}</h4>
+                        </div>
+                    </div>
+                </div>
+                <div class="group relative overflow-hidden bg-white rounded-2xl p-4 shadow-sm hover:shadow-xl transition-all duration-500 border-l-4 border-[#0ab39c]">
+                    <div class="flex items-center gap-3">
+                        <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-[#0ab39c] group-hover:bg-emerald-500 group-hover:text-white transition-all duration-300 shadow-inner">
+                            <i class="ri-checkbox-circle-line text-xl"></i>
+                        </div>
+                        <div>
+                            <p class="text-[#878a99] font-bold text-[9px] uppercase tracking-[0.1em]">Selesai</p>
+                            <h4 class="text-xl font-black text-[#2c3e50] leading-none mt-1 text-[#0ab39c]">{{ number_format($selesai) }}</h4>
+                        </div>
+                    </div>
+                </div>
+                <div class="group relative overflow-hidden bg-white rounded-2xl p-4 shadow-sm hover:shadow-xl transition-all duration-500 border-l-4 border-[#f06548]">
+                    <div class="flex items-center gap-3">
+                        <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-50 text-[#f06548] group-hover:bg-rose-500 group-hover:text-white transition-all duration-300 shadow-inner">
+                            <i class="ri-close-circle-line text-xl"></i>
+                        </div>
+                        <div>
+                            <p class="text-[#878a99] font-bold text-[9px] uppercase tracking-[0.1em]">Batal</p>
+                            <h4 class="text-xl font-black text-[#2c3e50] leading-none mt-1 text-[#f06548]">{{ number_format($batal) }}</h4>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
@@ -212,10 +342,22 @@ class AntrianPage extends Component
                     <div class="card shadow-sm border-t-2 border-[#405189]">
                         <div class="p-4 border-b border-[#eff2f7]"><h6 class="text-xs font-bold text-[#405189] uppercase tracking-widest mb-0"><i class="ri-calendar-line mr-1"></i>Pilih Tanggal</h6></div>
                         <div class="p-4">
-                            <input type="date" wire:model.live="selectedDate" class="w-full rounded-lg border-gray-200 text-sm px-4 h-[42px] focus:border-[#405189] transition-all text-center font-semibold">
-                            <div class="mt-3 text-center">
-                                <p class="text-xs text-[#878a99]">Tanggal dipilih:</p>
-                                <p class="font-bold text-[#405189] text-sm">{{ \Carbon\Carbon::parse($selectedDate)->translatedFormat('l, d F Y') }}</p>
+                            <div class="flex items-center gap-2">
+                                <button wire:click="prevDate" class="flex h-[42px] w-10 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 hover:border-[#405189] hover:text-[#405189] hover:bg-indigo-50 transition-all group" title="Hari Sebelumnya">
+                                    <i class="ri-arrow-left-s-line text-xl group-hover:scale-110 transition-transform"></i>
+                                </button>
+                                
+                                <div class="relative flex-grow">
+                                    <input type="date" wire:model.live="selectedDate" class="w-full rounded-lg border-gray-200 text-sm px-4 h-[42px] focus:border-[#405189] transition-all text-center font-bold text-[#405189] appearance-none cursor-pointer">
+                                </div>
+
+                                <button wire:click="nextDate" class="flex h-[42px] w-10 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 hover:border-[#405189] hover:text-[#405189] hover:bg-indigo-50 transition-all group" title="Hari Berikutnya">
+                                    <i class="ri-arrow-right-s-line text-xl group-hover:scale-110 transition-transform"></i>
+                                </button>
+                            </div>
+                            <div class="mt-3 text-center p-2 bg-indigo-50/50 rounded-xl border border-indigo-100/50">
+                                <p class="text-[10px] text-[#878a99] font-bold uppercase tracking-widest mb-0.5">Tanggal Terpilih</p>
+                                <p class="font-black text-[#405189] text-xs">{{ \Carbon\Carbon::parse($selectedDate)->translatedFormat('l, d F Y') }}</p>
                             </div>
                         </div>
                         <div class="p-4 border-t border-[#eff2f7] space-y-2">
@@ -229,7 +371,7 @@ class AntrianPage extends Component
                 <!-- Antrian Table -->
                 <div class="lg:col-span-3">
                     <div class="card overflow-hidden border-t-2 border-[#405189]">
-                        <div class="p-4 border-b border-[#eff2f7] dark:border-white/10 dark:bg-transparent"><div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                        <div class="p-4 border-b border-[#eff2f7]"><div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                             <div class="flex overflow-x-auto scrollbar-hide -mx-2 px-2 lg:mx-0 lg:px-0"><ul class="nav-pills-custom">
                                 <li class="nav-item"><a class="nav-link {{ $selectedStatus === 'all' ? 'active active-pill-primary' : '' }}" wire:click="setStatus('all')" role="button"><i class="ri-layout-grid-line"></i><span>Semua</span></a></li>
                                 <li class="nav-item"><a class="nav-link {{ $selectedStatus === 'menunggu' ? 'active active-pill-warning' : '' }}" wire:click="setStatus('menunggu')" role="button"><i class="ri-time-line"></i><span>Menunggu</span></a></li>
@@ -237,65 +379,117 @@ class AntrianPage extends Component
                                 <li class="nav-item"><a class="nav-link {{ $selectedStatus === 'hadir' ? 'active active-pill-success' : '' }}" wire:click="setStatus('hadir')" role="button"><i class="ri-user-follow-line"></i><span>Hadir</span></a></li>
                                 <li class="nav-item"><a class="nav-link {{ $selectedStatus === 'selesai' ? 'active active-pill-success' : '' }}" wire:click="setStatus('selesai')" role="button"><i class="ri-checkbox-circle-line"></i><span>Selesai</span></a></li>
                             </ul></div>
+                            
+                            <div class="relative flex-grow max-w-[320px]">
+                                <i class="ri-search-2-line absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg"></i>
+                                <input type="text" wire:model.live.debounce.300ms="search" class="w-full bg-gray-50 border border-gray-200 rounded-2xl py-2 pl-11 pr-4 text-sm font-medium outline-none transition-all focus:border-[#405189] focus:ring-4 focus:ring-[#405189]/5 placeholder:text-gray-300" placeholder="Cari pasien atau nomor...">
+                            </div>
                         </div></div>
-                        <div class="card-body p-0"><div class="table-responsive dark:bg-transparent">
-                            <table id="antrianTable" class="table align-middle table-nowrap w-full">
-                                                         <thead class="table-light text-muted"><tr><th width="8%">No</th><th width="10%">Waktu</th><th>Pasien</th><th>Poli</th><th class="text-center">Jenis</th><th>Status</th><th class="!text-center" style="text-align:center!important;">Aksi</th></tr></thead>
-                            <tbody>
-                                @foreach($antrianList as $item)
-                                <tr wire:key="antrian-{{ $item->id }}" class="{{ $item->status === 'dipanggil' ? 'bg-blue-50 dark:bg-blue-900/20' : ($item->status === 'hadir' ? 'bg-green-50 dark:bg-green-900/20' : ($item->status === 'tidak_hadir' ? 'bg-red-50 dark:bg-red-900/20' : 'bg-transparent')) }}">
-                                    <td><span class="inline-flex items-center justify-center min-w-[32px] px-2 h-8 rounded-lg bg-[#405189] text-white font-bold text-sm">{{ $item->nomor_antrian }}</span></td>
-                                    <td>
-                                        @if($item->time_slot)
-                                            <span class="text-xs font-bold text-[#0ab39c]"><i class="ri-time-line mr-1 opacity-70"></i>{{ substr($item->time_slot, 0, 5) }}</span>
-                                        @else
-                                            <span class="text-xs text-gray-300">-</span>
-                                        @endif
-                                    </td>
-                                    <td>
-                                        <div class="font-semibold text-[#495057] dark:text-black">{{ $item->pasien?->nama_pasien ?? $item->nama_pasien_input_manual ?? '-' }}</div>
-                                        @if($item->pasien_id)
-                                            <div class="text-[11px] font-mono text-[#878a99]">{{ $item->pasien?->no_rm }}</div>
-                                        @else
-                                            <span class="text-[10px] text-orange-500 font-medium"><i class="ri-alert-line mr-0.5"></i>Belum sinkron</span>
-                                        @endif
-                                    </td>
-                                    <td>
-                                        <div class="font-medium text-[#495057]">{{ $item->poli?->nama_poli ?? $item->kode_poli ?? '-' }}</div>
-                                        <div class="text-[10px] text-gray-500 font-medium italic"><i class="ri-user-star-line mr-0.5"></i> {{ $item->dokter?->nama_dokter ?? $item->kode_dokter ?? 'Belum ada dokter' }}</div>
-                                    </td>
-                                    <td class="text-center"><span class="badge {{ $item->jenis_antrian === 'online' ? 'bg-info-subtle text-info' : 'bg-secondary-subtle text-secondary' }}">{{ ucfirst($item->jenis_antrian) }}</span></td>
-                                    <td>
-                                        @php $statusColors = ['menunggu'=>'bg-warning-subtle','dipanggil'=>'bg-primary-subtle','hadir'=>'bg-success-subtle','tidak_hadir'=>'bg-danger-subtle','batal'=>'bg-secondary-subtle','selesai'=>'bg-success-subtle']; @endphp
-                                        <span class="badge {{ $statusColors[$item->status] ?? 'bg-secondary-subtle' }}">{{ ucfirst(str_replace('_',' ',$item->status)) }}</span>
-                                    </td>
-                                    <td class="text-center">
-                                        <div class="flex justify-center gap-1">
-                                            <a href="{{ route('antrian.cetak', $item->id) }}" target="_blank" class="flex h-7 px-2 items-center justify-center rounded bg-[#405189]/10 text-[#405189] hover:bg-[#405189] hover:text-white transition-all text-[10px] font-bold gap-1" title="Cetak Tiket"><i class="ri-printer-line"></i></a>
-                                            @if(in_array($item->status, ['menunggu','dipanggil']))
-                                                <button wire:click="editAntrian({{ $item->id }})" class="flex h-7 px-2 items-center justify-center rounded bg-orange-100 text-orange-600 hover:bg-orange-600 hover:text-white transition-all text-[10px] font-bold gap-1" title="Edit Antrian"><i class="ri-edit-line"></i></button>
+                        <div class="card-body p-0"><div class="overflow-x-auto dark:bg-transparent">
+                            <table class="w-full text-left border-collapse">
+                                <thead class="bg-gray-50/50">
+                                    <tr>
+                                        <th class="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-50">No</th>
+                                        <th class="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-50">Waktu</th>
+                                        <th class="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-50">Pasien</th>
+                                        <th class="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-50">Poli</th>
+                                        <th class="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-50">Status</th>
+                                        <th class="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-50 text-center">Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-50">
+                                    @forelse($this->antrianList as $item)
+                                    <tr wire:key="antrian-{{ $item->id }}" class="custom-row transition-all duration-200 {{ $item->status === 'dipanggil' ? 'bg-blue-50/50 dark:bg-blue-900/20' : ($item->status === 'hadir' ? 'bg-green-50/50 dark:bg-green-900/20' : ($item->status === 'tidak_hadir' ? 'bg-red-50/50 dark:bg-red-900/20' : 'bg-transparent')) }}">
+                                        <td class="px-6 py-4 whitespace-nowrap"><span class="inline-flex items-center justify-center min-w-[32px] px-2 h-8 rounded-lg bg-[#405189] text-white font-bold text-sm shadow-sm">{{ $item->nomor_antrian }}</span></td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            @if($item->time_slot)
+                                                <span class="text-xs font-bold text-[#0ab39c]"><i class="ri-time-line mr-1 opacity-70"></i>{{ substr($item->time_slot, 0, 5) }}</span>
+                                            @else
+                                                <span class="text-xs text-gray-300">-</span>
                                             @endif
-                                            @if($item->status === 'menunggu')
-                                                <button wire:click="ubahStatus({{ $item->id }}, 'dipanggil')" class="flex h-7 px-2 items-center justify-center rounded bg-blue-100 text-blue-600 hover:bg-blue-600 hover:text-white transition-all text-[10px] font-bold gap-1" title="Panggil"><i class="ri-notification-3-line"></i></button>
-                                            @endif
-                                            @if($item->status === 'dipanggil')
-                                                <button wire:click="ubahStatus({{ $item->id }}, 'hadir')" class="flex h-7 px-2 items-center justify-center rounded bg-green-100 text-green-600 hover:bg-green-600 hover:text-white transition-all text-[10px] font-bold gap-1" title="Hadir"><i class="ri-user-follow-line"></i></button>
-                                                <button wire:click="ubahStatus({{ $item->id }}, 'tidak_hadir')" class="flex h-7 px-2 items-center justify-center rounded bg-red-100 text-red-600 hover:bg-red-600 hover:text-white transition-all text-[10px] font-bold gap-1" title="Tidak Hadir"><i class="ri-user-unfollow-line"></i></button>
-                                            @endif
-                                            @if(!$item->pasien_id && in_array($item->status, ['menunggu','dipanggil','hadir']))
-                                                <button wire:click="openSyncModal({{ $item->id }})" class="flex h-7 px-2 items-center justify-center rounded bg-purple-100 text-purple-600 hover:bg-purple-600 hover:text-white transition-all text-[10px] font-bold gap-1" title="Sinkron Pasien"><i class="ri-link"></i></button>
-                                            @endif
-                                            @if(in_array($item->status, ['hadir','dipanggil']))
-                                                <button wire:click="daftarkan({{ $item->id }})" class="flex h-7 px-2 items-center justify-center rounded bg-[#0ab39c]/10 text-[#0ab39c] hover:bg-[#0ab39c] hover:text-white transition-all text-[10px] font-bold gap-1" title="Daftarkan"><i class="ri-file-add-line"></i> Daftar</button>
-                                            @endif
-                                            @if(in_array($item->status, ['menunggu','dipanggil']))
-                                                <button @click="Swal.fire({title:'Batalkan Antrian?',text:'Antrian ini akan dibatalkan.',icon:'warning',showCancelButton:true,confirmButtonColor:'#f06548',cancelButtonColor:'#6c757d',confirmButtonText:'Ya, Batalkan!',cancelButtonText:'Tidak',reverseButtons:true}).then(r=>{if(r.isConfirmed)$wire.ubahStatus({{ $item->id }},'batal')})" class="flex h-7 px-2 items-center justify-center rounded bg-red-100 text-red-600 hover:bg-red-600 hover:text-white transition-all text-[10px] font-bold gap-1" title="Batal"><i class="ri-close-line"></i></button>
-                                            @endif
-                                        </div>
-                                    </td>
-                                </tr>
-                                @endforeach
-                            </tbody></table>
+                                        </td>
+                                        <td class="px-6 py-4 min-w-[200px]">
+                                            <div class="font-bold text-[#2c3e50] text-sm">{{ $item->pasien?->nama_pasien ?? $item->nama_pasien_input_manual ?? '-' }}</div>
+                                            <div class="flex items-center gap-2 mt-1">
+                                                @if($item->pasien_id)
+                                                    <span class="text-[11px] font-mono text-gray-400">{{ $item->pasien?->no_rm }}</span>
+                                                @else
+                                                    <span class="text-[10px] text-orange-500 font-bold inline-block"><i class="ri-alert-line mr-0.5"></i>Belum sinkron</span>
+                                                @endif
+                                                @if($item->jenis_antrian === 'online')
+                                                    <span class="px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-widest bg-info-subtle text-info border border-info/10">{{ $item->jenis_antrian }}</span>
+                                                @elseif($item->jenis_antrian === 'mobile_jkn')
+                                                    <span class="px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-widest bg-purple-100 text-purple-600 border border-purple-200">Mobile JKN</span>
+                                                @else
+                                                    <span class="px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-widest bg-gray-100 text-gray-500 border border-gray-200">{{ $item->jenis_antrian }}</span>
+                                                @endif
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="font-bold text-[#495057] text-sm">{{ $item->poli?->nama_poli ?? $item->kode_poli ?? '-' }}</div>
+                                            <div class="text-[10px] text-gray-400 font-medium italic mt-0.5"><i class="ri-user-star-line mr-0.5"></i> {{ $item->dokter?->nama_dokter ?? $item->kode_dokter ?? 'Belum ada dokter' }}</div>
+                                        </td>
+
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            @php $statusColors = ['menunggu'=>'bg-warning-subtle text-amber-600','dipanggil'=>'bg-primary-subtle text-[#405189]','hadir'=>'bg-success-subtle text-emerald-600','tidak_hadir'=>'bg-danger-subtle text-rose-600','batal'=>'bg-secondary-subtle text-gray-600','selesai'=>'bg-success-subtle text-emerald-600']; @endphp
+                                            <span class="px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center w-max gap-1.5 {{ $statusColors[$item->status] ?? 'bg-secondary-subtle' }}">
+                                                <span class="h-1.5 w-1.5 rounded-full {{ str_contains($statusColors[$item->status] ?? '', 'amber') ? 'bg-amber-500' : (str_contains($statusColors[$item->status] ?? '', '#405189') ? 'bg-[#405189] animate-ping' : 'bg-current') }}"></span>
+                                                {{ ucfirst(str_replace('_',' ',$item->status)) }}
+                                            </span>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="flex items-center justify-center gap-2">
+                                                <a href="{{ route('antrian.cetak', $item->id) }}" target="_blank" class="w-8 h-8 rounded-full flex items-center justify-center bg-indigo-50 text-[#405189] hover:bg-[#405189] hover:text-white transition-all shadow-sm" title="Cetak Tiket"><i class="ri-printer-line"></i></a>
+                                                @if(in_array($item->status, ['menunggu','dipanggil']))
+                                                    <button wire:click="editAntrian({{ $item->id }})" class="w-8 h-8 rounded-full flex items-center justify-center bg-orange-50 text-orange-500 hover:bg-orange-500 hover:text-white transition-all shadow-sm" title="Edit Antrian"><i class="ri-edit-line"></i></button>
+                                                @endif
+                                                @if($item->status === 'menunggu')
+                                                    <button wire:click="ubahStatus({{ $item->id }}, 'dipanggil')" class="w-8 h-8 rounded-full flex items-center justify-center bg-blue-50 text-blue-500 hover:bg-blue-500 hover:text-white transition-all shadow-sm" title="Panggil"><i class="ri-notification-3-line"></i></button>
+                                                @endif
+                                                @if($item->status === 'dipanggil')
+                                                    <button wire:click="ubahStatus({{ $item->id }}, 'hadir')" class="w-8 h-8 rounded-full flex items-center justify-center bg-emerald-50 text-emerald-500 hover:bg-emerald-500 hover:text-white transition-all shadow-sm" title="Hadir"><i class="ri-user-follow-line"></i></button>
+                                                    <button wire:click="ubahStatus({{ $item->id }}, 'tidak_hadir')" class="w-8 h-8 rounded-full flex items-center justify-center bg-rose-50 text-rose-500 hover:bg-rose-500 hover:text-white transition-all shadow-sm" title="Tidak Hadir"><i class="ri-user-unfollow-line"></i></button>
+                                                @endif
+                                                @if(!$item->pasien_id && in_array($item->status, ['menunggu','dipanggil','hadir']))
+                                                    <button wire:click="openSyncModal({{ $item->id }})" class="flex h-8 px-3 rounded-full items-center justify-center bg-purple-50 text-purple-600 hover:bg-purple-600 hover:text-white transition-all shadow-sm text-xs font-bold gap-1" title="Sinkron Pasien"><i class="ri-link"></i> Sinkron</button>
+                                                @endif
+                                                @if(in_array($item->status, ['hadir','dipanggil']) && $item->pasien_id)
+                                                    <button wire:click="daftarkan({{ $item->id }})" class="flex h-8 px-3 rounded-full items-center justify-center bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white transition-all shadow-sm text-xs font-bold gap-1" title="Daftarkan"><i class="ri-file-add-line"></i> Daftar</button>
+                                                @endif
+                                                @if(in_array($item->status, ['menunggu','dipanggil']))
+                                                    <button @click="Swal.fire({title:'Batalkan Antrian?',text:'Antrian ini akan dibatalkan.',icon:'warning',showCancelButton:true,confirmButtonColor:'#f06548',cancelButtonColor:'#6c757d',confirmButtonText:'Ya, Batalkan!',cancelButtonText:'Tidak',reverseButtons:true}).then(r=>{if(r.isConfirmed)$wire.ubahStatus({{ $item->id }},'batal')})" class="w-8 h-8 rounded-full flex items-center justify-center bg-rose-50 text-rose-500 hover:bg-rose-500 hover:text-white transition-all shadow-sm" title="Batal"><i class="ri-close-line"></i></button>
+                                                @endif
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    @empty
+                                    <tr>
+                                        <td colspan="7" class="py-16 text-center">
+                                            <div class="flex flex-col items-center justify-center">
+                                                <div class="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-4">
+                                                    <i class="ri-list-ordered text-4xl text-gray-300"></i>
+                                                </div>
+                                                <p class="text-base font-bold text-gray-500">Belum ada data antrian</p>
+                                                <p class="text-xs text-gray-400 mt-1">Belum ada pasien yang mendaftar pada tanggal ini.</p>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    @endforelse
+                                </tbody>
+                            </table>
+                            @if($this->antrianList->hasPages())
+                            <div class="px-6 py-5 sm:px-8 sm:py-6 bg-gray-50/50 border-t border-gray-100 pagination-custom">
+                                <div class="flex flex-col sm:flex-row items-center justify-between gap-5">
+                                    <div class="text-[11px] font-bold text-[#878a99] tracking-tight text-center sm:text-left">
+                                        <span class="hidden sm:inline">Menampilkan</span> 
+                                        <span class="text-[#405189] font-black">{{ $this->antrianList->firstItem() }} - {{ $this->antrianList->lastItem() }}</span> 
+                                        dari <span class="text-[#405189] font-black">{{ number_format($this->antrianList->total()) }}</span> 
+                                        <span class="hidden sm:inline">antrian</span>
+                                    </div>
+                                    {{ $this->antrianList->links() }}
+                                </div>
+                            </div>
+                            @endif
                         </div></div>
                     </div>
                 </div>

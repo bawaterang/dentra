@@ -5,12 +5,20 @@ namespace App\Modules\Pendaftaran\Http\Livewire;
 use Livewire\Component;
 use App\Models\TrxPendaftaran;
 use Carbon\Carbon;
+use Livewire\WithPagination;
+use Livewire\Attributes\Computed;
 
 class PendaftaranPage extends Component
 {
+    use WithPagination;
+
     public $selectedDate;
     public $selectedStatus = 'all';
-    public $pendaftaranList = [];
+    public $search = '';
+    public $totalPendaftaran = 0;
+    public $terdaftar = 0;
+    public $menungguScreening = 0;
+    public $selesai = 0;
 
     // Edit Pendaftaran
     public $showEditModal = false;
@@ -37,8 +45,22 @@ class PendaftaranPage extends Component
         ];
     }
 
-    public function updatedSelectedDate() { $this->dispatch('refresh-table'); }
-    public function setStatus($status) { $this->selectedStatus = $status; $this->dispatch('refresh-table'); }
+    public function updatedSelectedDate() { $this->resetPage(); }
+    public function updatedSearch() { $this->resetPage(); }
+
+    public function prevDate()
+    {
+        $this->selectedDate = Carbon::parse($this->selectedDate)->subDay()->format('Y-m-d');
+        $this->resetPage();
+    }
+
+    public function nextDate()
+    {
+        $this->selectedDate = Carbon::parse($this->selectedDate)->addDay()->format('Y-m-d');
+        $this->resetPage();
+    }
+
+    public function setStatus($status) { $this->selectedStatus = $status; $this->resetPage(); }
 
     public function editPendaftaran($id)
     {
@@ -117,44 +139,144 @@ class PendaftaranPage extends Component
         $this->dispatch('alert', ['type' => 'success', 'message' => 'Pendaftaran berhasil dibatalkan.']);
     }
 
-    public function render()
+    #[Computed]
+    public function pendaftaranList()
     {
         $query = TrxPendaftaran::with(['pasien', 'poli', 'dokter', 'asuransi'])
             ->whereDate('created_at', $this->selectedDate);
 
         if ($this->selectedStatus !== 'all') {
-            $query->where('status', $this->selectedStatus);
+            if ($this->selectedStatus === 'menunggu_screening') {
+                $query->whereIn('status', ['terdaftar', 'menunggu_screening']);
+            } else {
+                $query->where('status', $this->selectedStatus);
+            }
         }
 
-        $this->pendaftaranList = $query->orderBy('created_at', 'desc')->get();
+        if ($this->search) {
+            $query->where(function($q) {
+                $q->where('nomor_kunjungan', 'like', '%' . $this->search . '%')
+                  ->orWhereHas('pasien', function($qp) {
+                      $qp->where('nama_pasien', 'like', '%' . $this->search . '%')
+                        ->orWhere('no_rm', 'like', '%' . $this->search . '%');
+                  });
+            });
+        }
+
+        return $query->orderBy('created_at', 'desc')->paginate(25);
+    }
+
+    public function render()
+    {
+        $this->totalPendaftaran = TrxPendaftaran::whereDate('created_at', $this->selectedDate)->count();
+        $this->terdaftar = TrxPendaftaran::whereDate('created_at', $this->selectedDate)->where('status', 'terdaftar')->count();
+        $this->menungguScreening = TrxPendaftaran::whereDate('created_at', $this->selectedDate)
+            ->whereIn('status', ['terdaftar', 'menunggu_screening'])->count();
+        $this->selesai = TrxPendaftaran::whereDate('created_at', $this->selectedDate)->where('status', 'selesai')->count();
 
         return <<<'HTML'
-        <div x-data="{ 
-            initDataTable() { 
-                const t='#pendaftaranTable'; 
-                if($.fn.DataTable.isDataTable(t)){$(t).DataTable().destroy()} 
-                $(t).DataTable({
-                    scrollX:false,
-                    dom:'lrtip',
-                    pageLength:25,
-                    autoWidth: false,
-                    responsive: true,
-                    language:{
-                        lengthMenu:'_MENU_',
-                        info:'Menampilkan _START_ sampai _END_ dari _TOTAL_ data',
-                        infoEmpty:'Tidak ada data',
-                        zeroRecords:'Tidak ada pendaftaran',
-                        emptyTable:'Belum ada pendaftaran hari ini',
-                        paginate:{
-                            previous:'<i class=ri-arrow-left-s-line></i>',
-                            next:'<i class=ri-arrow-right-s-line></i>'
-                        }
-                    }
-                });
-            },
-            init(){ $nextTick(()=>this.initDataTable()) }
-        }" @refresh-table.window="$nextTick(()=>initDataTable())" x-init="initDataTable()">
-            <div class="page-header"><div class="page-header-title"><div class="page-header-icon"><i class="ri-file-add-line"></i></div><h1>Pendaftaran</h1></div><div class="page-header-breadcrumb"><a href="/dashboard" wire:navigate><i class="ri-home-line"></i></a><span class="sep">/</span><span>Pendaftaran</span></div></div>
+        <div>
+            <style>
+                .custom-row:hover {
+                    background-color: #d8dce1ff !important;
+                    transition: all 0.3s ease;
+                }
+                .pagination-custom nav span.relative.z-0 { 
+                    display: flex !important; 
+                    gap: 4px !important; 
+                    flex-wrap: wrap !important;
+                    justify-content: center !important;
+                }
+                .pagination-custom nav a, 
+                .pagination-custom nav span[aria-disabled="true"] span,
+                .pagination-custom nav span[aria-current="page"] span {
+                    display: inline-flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                    min-width: 38px !important;
+                    height: 38px !important;
+                    padding: 0 12px !important;
+                    border-radius: 8px !important;
+                    border: 1px solid #767070ff !important;
+                    font-size: 8px !important;
+                    font-weight: 700 !important;
+                    transition: all 0.2s ease-in-out !important;
+                    background-color: #ffffff !important;
+                    color: #475569 !important;
+                    text-decoration: none !important;
+                }
+                .pagination-custom nav a:hover {
+                    background-color: #f1f5f9 !important;
+                    border-color: #405189 !important;
+                    color: #405189 !important;
+                    transform: translateY(-1px) !important;
+                }
+                .pagination-custom nav p.text-sm {
+                    display: none !important;
+                }
+                .pagination-custom nav > div:last-child > div:first-child {
+                    display: none !important;
+                }
+                .pagination-custom [aria-current="page"], 
+                .pagination-custom [aria-current="page"] *,
+                .pagination-custom .active,
+                .pagination-custom .active * {
+                    background-color: #405189 !important;
+                    color: #ffffff !important;
+                    border-color: #405189 !important;
+                    box-shadow: 0 4px 10px rgba(64, 81, 137, 0.3) !important;
+                    z-index: 10 !important;
+                }
+            </style>
+            <div class="page-header"><div class="page-header-title"><div class="page-header-icon"><i class="ri-file-add-line"></i></div><h1>Pendaftaran Pasien</h1></div><div class="page-header-breadcrumb"><a href="/dashboard" wire:navigate><i class="ri-home-line"></i></a><span class="sep">/</span><span>Pendaftaran</span></div></div>
+
+            <!-- Info Cards -->
+            <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4 mb-8">
+                <div class="group relative overflow-hidden bg-white rounded-2xl p-5 shadow-sm hover:shadow-xl transition-all duration-500 border-l-4 border-[#405189]">
+                    <div class="flex items-center gap-4">
+                        <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-50 text-[#405189] group-hover:bg-indigo-500 group-hover:text-white transition-all duration-300 shadow-inner">
+                            <i class="ri-file-add-line text-2xl"></i>
+                        </div>
+                        <div>
+                            <p class="text-[#878a99] font-bold text-[10px] uppercase tracking-[0.1em]">Total Pendaftaran</p>
+                            <h4 class="text-2xl font-black text-[#2c3e50] leading-none mt-1">{{ number_format($totalPendaftaran) }}</h4>
+                        </div>
+                    </div>
+                </div>
+                <div class="group relative overflow-hidden bg-white rounded-2xl p-5 shadow-sm hover:shadow-xl transition-all duration-500 border-l-4 border-[#0ab39c]">
+                    <div class="flex items-center gap-4">
+                        <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-50 text-[#0ab39c] group-hover:bg-emerald-500 group-hover:text-white transition-all duration-300 shadow-inner">
+                            <i class="ri-checkbox-circle-line text-2xl"></i>
+                        </div>
+                        <div>
+                            <p class="text-[#878a99] font-bold text-[10px] uppercase tracking-[0.1em]">Terdaftar</p>
+                            <h4 class="text-2xl font-black text-[#2c3e50] leading-none mt-1 text-[#0ab39c]">{{ number_format($terdaftar) }}</h4>
+                        </div>
+                    </div>
+                </div>
+                <div class="group relative overflow-hidden bg-white rounded-2xl p-5 shadow-sm hover:shadow-xl transition-all duration-500 border-l-4 border-[#f7b84b]">
+                    <div class="flex items-center gap-4">
+                        <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-50 text-[#f7b84b] group-hover:bg-amber-500 group-hover:text-white transition-all duration-300 shadow-inner">
+                            <i class="ri-time-line text-2xl"></i>
+                        </div>
+                        <div>
+                            <p class="text-[#878a99] font-bold text-[10px] uppercase tracking-[0.1em]">Menunggu Screening</p>
+                            <h4 class="text-2xl font-black text-[#2c3e50] leading-none mt-1 text-[#f7b84b]">{{ number_format($menungguScreening) }}</h4>
+                        </div>
+                    </div>
+                </div>
+                <div class="group relative overflow-hidden bg-white rounded-2xl p-5 shadow-sm hover:shadow-xl transition-all duration-500 border-l-4 border-[#3577f1]">
+                    <div class="flex items-center gap-4">
+                        <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-[#3577f1] group-hover:bg-blue-500 group-hover:text-white transition-all duration-300 shadow-inner">
+                            <i class="ri-check-double-line text-2xl"></i>
+                        </div>
+                        <div>
+                            <p class="text-[#878a99] font-bold text-[10px] uppercase tracking-[0.1em]">Selesai</p>
+                            <h4 class="text-2xl font-black text-[#2c3e50] leading-none mt-1 text-[#3577f1]">{{ number_format($selesai) }}</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
             <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
                 <!-- Calendar Sidebar -->
@@ -162,10 +284,22 @@ class PendaftaranPage extends Component
                     <div class="card shadow-sm border-t-2 border-[#405189]">
                         <div class="p-4 border-b border-[#eff2f7]"><h6 class="text-xs font-bold text-[#405189] uppercase tracking-widest mb-0"><i class="ri-calendar-line mr-1"></i>Pilih Tanggal</h6></div>
                         <div class="p-4">
-                            <input type="date" wire:model.live="selectedDate" class="w-full rounded-lg border-gray-200 text-sm px-4 h-[42px] focus:border-[#405189] transition-all text-center font-semibold">
-                            <div class="mt-3 text-center">
-                                <p class="text-xs text-[#878a99]">Tanggal dipilih:</p>
-                                <p class="font-bold text-[#405189] text-sm">{{ \Carbon\Carbon::parse($selectedDate)->translatedFormat('l, d F Y') }}</p>
+                            <div class="flex items-center gap-2">
+                                <button wire:click="prevDate" class="flex h-[42px] w-10 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 hover:border-[#405189] hover:text-[#405189] hover:bg-indigo-50 transition-all group" title="Hari Sebelumnya">
+                                    <i class="ri-arrow-left-s-line text-xl group-hover:scale-110 transition-transform"></i>
+                                </button>
+                                
+                                <div class="relative flex-grow">
+                                    <input type="date" wire:model.live="selectedDate" class="w-full rounded-lg border-gray-200 text-sm px-4 h-[42px] focus:border-[#405189] transition-all text-center font-bold text-[#405189] appearance-none cursor-pointer">
+                                </div>
+
+                                <button wire:click="nextDate" class="flex h-[42px] w-10 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 hover:border-[#405189] hover:text-[#405189] hover:bg-indigo-50 transition-all group" title="Hari Berikutnya">
+                                    <i class="ri-arrow-right-s-line text-xl group-hover:scale-110 transition-transform"></i>
+                                </button>
+                            </div>
+                            <div class="mt-3 text-center p-2 bg-indigo-50/50 rounded-xl border border-indigo-100/50">
+                                <p class="text-[10px] text-[#878a99] font-bold uppercase tracking-widest mb-0.5">Tanggal Terpilih</p>
+                                <p class="font-black text-[#405189] text-xs">{{ \Carbon\Carbon::parse($selectedDate)->translatedFormat('l, d F Y') }}</p>
                             </div>
                         </div>
                         <div class="p-4 border-t border-[#eff2f7]">
@@ -184,46 +318,95 @@ class PendaftaranPage extends Component
                                 <li class="nav-item"><a class="nav-link {{ $selectedStatus === 'menunggu_screening' ? 'active active-pill-warning' : '' }}" wire:click="setStatus('menunggu_screening')" role="button"><i class="ri-time-line"></i><span>Menunggu Screening</span></a></li>
                                 <li class="nav-item"><a class="nav-link {{ $selectedStatus === 'selesai' ? 'active active-pill-success' : '' }}" wire:click="setStatus('selesai')" role="button"><i class="ri-check-double-line"></i><span>Selesai</span></a></li>
                             </ul></div>
+
+                            <div class="relative flex-grow max-w-[320px]">
+                                <i class="ri-search-2-line absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg"></i>
+                                <input type="text" wire:model.live.debounce.300ms="search" class="w-full bg-gray-50 border border-gray-200 rounded-2xl py-2 pl-11 pr-4 text-sm font-medium outline-none transition-all focus:border-[#405189] focus:ring-4 focus:ring-[#405189]/5 placeholder:text-gray-300" placeholder="Cari pasien atau kunjungan...">
+                            </div>
                         </div></div>
-                        <div class="card-body p-0"><div class="table-responsive dark:bg-transparent">
-                            <table id="pendaftaranTable" class="table align-middle table-nowrap w-full">
-                            <thead class="table-light text-muted"><tr><th>No Kunjungan</th><th>Pasien</th><th>Poli</th><th>Dokter</th><th>Asuransi</th><th>Status</th><th class="!text-center" style="text-align:center!important;">Aksi</th></tr></thead>
-                            <tbody>
-                                @foreach($pendaftaranList as $item)
-                                <tr wire:key="daftar-{{ $item->id }}">
-                                    <td><span class="font-mono font-bold text-[#405189] text-xs">{{ $item->nomor_kunjungan }}</span></td>
-                                    <td><div class="font-semibold text-[#495057]">{{ $item->pasien->nama_pasien ?? '-' }}</div><span class="text-[10px] text-[#878a99]">{{ $item->pasien->no_rm ?? '' }}</span></td>
-                                    <td>{{ $item->poli->nama_poli ?? '-' }}</td>
-                                    <td>{{ $item->dokter->nama_dokter ?? '-' }}</td>
-                                    <td>{{ $item->asuransi?->nama_asuransi ?? 'Umum' }}</td>
-                                    <td>
-                                        @php $sc = ['terdaftar'=>'bg-info-subtle','menunggu_screening'=>'bg-warning-subtle','selesai'=>'bg-success-subtle']; @endphp
-                                        <span class="badge {{ $sc[$item->status] ?? 'bg-secondary-subtle' }}">{{ ucfirst(str_replace('_',' ',$item->status)) }}</span>
-                                    </td>
-                                    <td class="text-center"><div class="flex justify-center gap-1">
-                                        <button wire:click="editPendaftaran({{ $item->id }})" class="flex h-7 px-2 items-center justify-center rounded bg-orange-100 text-orange-600 hover:bg-orange-600 hover:text-white transition-all text-[10px] font-bold gap-1" title="Edit"><i class="ri-edit-line"></i></button>
-                                        <a href="{{ route('pendaftaran.print', $item->id) }}" target="_blank" class="flex h-7 px-2 items-center justify-center rounded bg-[#405189]/10 text-[#405189] hover:bg-[#405189] hover:text-white transition-all text-[10px] font-bold gap-1" title="Cetak"><i class="ri-printer-line"></i></a>
-                                        <button @click="
-                                            Swal.fire({
-                                                title: 'Konfirmasi',
-                                                text: 'Apakah Anda yakin ingin membatalkan pendaftaran pasien ini?',
-                                                icon: 'warning',
-                                                showCancelButton: true,
-                                                confirmButtonColor: '#f06548',
-                                                cancelButtonColor: '#6c757d',
-                                                confirmButtonText: 'Ya, Batalkan!',
-                                                cancelButtonText: 'Kembali',
-                                                reverseButtons: true
-                                            }).then((result) => {
-                                                if (result.isConfirmed) {
-                                                    $wire.deletePendaftaran({{ $item->id }})
-                                                }
-                                            })
-                                        " class="flex h-7 px-2 items-center justify-center rounded bg-red-100 text-red-600 hover:bg-red-600 hover:text-white transition-all text-[10px] font-bold gap-1" title="Batal/Hapus"><i class="ri-delete-bin-line"></i></button>
-                                    </div></td>
-                                </tr>
-                                @endforeach
-                            </tbody></table>
+                        <div class="card-body p-0"><div class="overflow-x-auto dark:bg-transparent">
+                            <table class="w-full text-left border-collapse">
+                                <thead class="bg-gray-50/50">
+                                    <tr>
+                                        <th class="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-50">No Kunjungan</th>
+                                        <th class="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-50">Pasien</th>
+                                        <th class="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-50">Poli & Dokter</th>
+                                        <th class="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-50">Asuransi</th>
+                                        <th class="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-50">Status</th>
+                                        <th class="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-50 text-center">Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-50">
+                                    @forelse($this->pendaftaranList as $item)
+                                    <tr wire:key="daftar-{{ $item->id }}" class="custom-row transition-all duration-200">
+                                        <td class="px-6 py-4 whitespace-nowrap"><span class="font-mono font-bold text-[#405189] text-xs px-2 py-1 bg-[#405189]/5 rounded">{{ $item->nomor_kunjungan }}</span></td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="font-bold text-[#2c3e50] text-sm">{{ $item->pasien->nama_pasien ?? '-' }}</div>
+                                            <span class="text-[11px] font-mono text-gray-400 mt-0.5 inline-block">{{ $item->pasien->no_rm ?? '' }}</span>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="font-bold text-[#495057] text-sm">{{ $item->poli->nama_poli ?? '-' }}</div>
+                                            <div class="text-[10px] text-gray-400 font-medium italic mt-0.5"><i class="ri-user-star-line mr-0.5"></i> {{ $item->dokter->nama_dokter ?? '-' }}</div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-gray-600">{{ $item->asuransi?->nama_asuransi ?? 'Umum' }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            @php $sc = ['terdaftar'=>'bg-info-subtle text-info','menunggu_screening'=>'bg-warning-subtle text-amber-600','selesai'=>'bg-success-subtle text-emerald-600']; @endphp
+                                            <span class="px-2.5 py-1.5 rounded-lg text-xs font-bold w-max gap-1.5 flex items-center {{ $sc[$item->status] ?? 'bg-secondary-subtle' }}">
+                                                {{ ucfirst(str_replace('_',' ',$item->status)) }}
+                                            </span>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="flex items-center justify-center gap-2">
+                                                <button wire:click="editPendaftaran({{ $item->id }})" class="w-8 h-8 rounded-full flex items-center justify-center bg-orange-50 text-orange-500 hover:bg-orange-500 hover:text-white transition-all shadow-sm" title="Edit"><i class="ri-edit-line"></i></button>
+                                                <a href="{{ route('pendaftaran.print', $item->id) }}" target="_blank" class="w-8 h-8 rounded-full flex items-center justify-center bg-indigo-50 text-[#405189] hover:bg-[#405189] hover:text-white transition-all shadow-sm" title="Cetak"><i class="ri-printer-line"></i></a>
+                                                <button @click="
+                                                    Swal.fire({
+                                                        title: 'Konfirmasi',
+                                                        text: 'Apakah Anda yakin ingin membatalkan pendaftaran pasien ini?',
+                                                        icon: 'warning',
+                                                        showCancelButton: true,
+                                                        confirmButtonColor: '#f06548',
+                                                        cancelButtonColor: '#6c757d',
+                                                        confirmButtonText: 'Ya, Batalkan!',
+                                                        cancelButtonText: 'Kembali',
+                                                        reverseButtons: true
+                                                    }).then((result) => {
+                                                        if (result.isConfirmed) {
+                                                            $wire.deletePendaftaran({{ $item->id }})
+                                                        }
+                                                    })
+                                                " class="w-8 h-8 rounded-full flex items-center justify-center bg-rose-50 text-rose-500 hover:bg-rose-500 hover:text-white transition-all shadow-sm" title="Batal/Hapus"><i class="ri-delete-bin-line"></i></button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    @empty
+                                    <tr>
+                                        <td colspan="7" class="py-16 text-center">
+                                            <div class="flex flex-col items-center justify-center">
+                                                <div class="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-4">
+                                                    <i class="ri-file-add-line text-4xl text-gray-300"></i>
+                                                </div>
+                                                <p class="text-base font-bold text-gray-500">Belum ada pendaftaran</p>
+                                                <p class="text-xs text-gray-400 mt-1">Belum ada pasien yang melakukan registrasi hari ini.</p>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    @endforelse
+                                </tbody>
+                            </table>
+                            @if($this->pendaftaranList->hasPages())
+                            <div class="px-6 py-5 sm:px-8 sm:py-6 bg-gray-50/50 border-t border-gray-100 pagination-custom">
+                                <div class="flex flex-col sm:flex-row items-center justify-between gap-5">
+                                    <div class="text-[11px] font-bold text-[#878a99] tracking-tight text-center sm:text-left">
+                                        <span class="hidden sm:inline">Menampilkan</span> 
+                                        <span class="text-[#405189] font-black">{{ $this->pendaftaranList->firstItem() }} - {{ $this->pendaftaranList->lastItem() }}</span> 
+                                        dari <span class="text-[#405189] font-black">{{ number_format($this->pendaftaranList->total()) }}</span> 
+                                        <span class="hidden sm:inline">pendaftaran</span>
+                                    </div>
+                                    {{ $this->pendaftaranList->links() }}
+                                </div>
+                            </div>
+                            @endif
                         </div></div>
                     </div>
                 </div>
