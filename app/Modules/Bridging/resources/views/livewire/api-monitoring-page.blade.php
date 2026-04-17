@@ -20,35 +20,38 @@
     </div>
 
     {{-- TAB NAVIGATION --}}
-    <div class="mt-6 flex items-center gap-3 flex-wrap">
-        <button wire:click="switchTab('satusehat')"
-            class="group relative px-6 py-3 rounded-xl text-sm font-extrabold uppercase tracking-widest transition-all duration-300 shadow-sm
-            {{ $activeTab === 'satusehat' ? 'bg-gradient-to-r from-[#0ab39c] to-[#099885] text-white shadow-lg shadow-[#0ab39c]/30 scale-[1.02]' : 'bg-white text-[#495057] hover:bg-[#f3f6f9] border border-gray-200' }}">
-            <i class="ri-heart-pulse-line mr-2"></i> SatuSehat
-            @if($satusehatResult && $satusehatResult['is_up'])
-                <span class="inline-block w-2.5 h-2.5 rounded-full bg-green-400 ml-2 animate-pulse shadow-sm shadow-green-400/50"></span>
-            @elseif($satusehatResult && !$satusehatResult['is_up'])
-                <span class="inline-block w-2.5 h-2.5 rounded-full bg-red-400 ml-2 animate-pulse shadow-sm shadow-red-400/50"></span>
-            @else
-                <span class="inline-block w-2.5 h-2.5 rounded-full bg-gray-300 ml-2"></span>
-            @endif
-        </button>
-        <button wire:click="switchTab('bpjs')"
-            class="group relative px-6 py-3 rounded-xl text-sm font-extrabold uppercase tracking-widest transition-all duration-300 shadow-sm
-            {{ $activeTab === 'bpjs' ? 'bg-gradient-to-r from-[#0d6efd] to-[#0b5ed7] text-white shadow-lg shadow-[#0d6efd]/30 scale-[1.02]' : 'bg-white text-[#495057] hover:bg-[#f3f6f9] border border-gray-200' }}">
-            <i class="ri-shield-user-line mr-2"></i> BPJS
-            @if($bpjsResult && $bpjsResult['is_up'])
-                <span class="inline-block w-2.5 h-2.5 rounded-full bg-green-400 ml-2 animate-pulse shadow-sm shadow-green-400/50"></span>
-            @elseif($bpjsResult && !$bpjsResult['is_up'])
-                <span class="inline-block w-2.5 h-2.5 rounded-full bg-red-400 ml-2 animate-pulse shadow-sm shadow-red-400/50"></span>
-            @else
-                <span class="inline-block w-2.5 h-2.5 rounded-full bg-gray-300 ml-2"></span>
-            @endif
-        </button>
+    {{-- TAB NAVIGATION --}}
+    <div class="mt-6 flex items-center justify-between gap-3 flex-wrap">
+        <div class="flex items-center gap-1 p-1 bg-gray-100 rounded-2xl w-fit">
+            <button wire:click="switchTab('satusehat')"
+                class="px-6 py-2.5 rounded-xl text-sm font-black transition-all duration-200 flex items-center gap-2
+                {{ $activeTab === 'satusehat' ? 'bg-white text-[#405189] shadow-sm' : 'text-gray-500 hover:text-gray-700' }}">
+                <i class="ri-heart-pulse-line"></i> SatuSehat
+                @if($satusehatResult && $satusehatResult['is_up'])
+                    <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                @elseif($satusehatResult && !$satusehatResult['is_up'])
+                    <span class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+                @else
+                    <span class="w-2 h-2 rounded-full bg-gray-300"></span>
+                @endif
+            </button>
+            <button wire:click="switchTab('bpjs')"
+                class="px-6 py-2.5 rounded-xl text-sm font-black transition-all duration-200 flex items-center gap-2
+                {{ $activeTab === 'bpjs' ? 'bg-white text-[#405189] shadow-sm' : 'text-gray-500 hover:text-gray-700' }}">
+                <i class="ri-shield-user-line"></i> BPJS
+                @if($bpjsResult && $bpjsResult['is_up'])
+                    <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                @elseif($bpjsResult && !$bpjsResult['is_up'])
+                    <span class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+                @else
+                    <span class="w-2 h-2 rounded-full bg-gray-300"></span>
+                @endif
+            </button>
+        </div>
 
-        <div class="ml-auto flex items-center gap-2">
+        <div class="flex items-center gap-2">
             <button wire:click="checkAll" wire:loading.attr="disabled"
-                class="px-5 py-3 rounded-xl text-xs font-extrabold uppercase tracking-widest bg-gradient-to-r from-violet-500 to-purple-600 text-white shadow-lg shadow-violet-500/30 hover:shadow-xl hover:translate-y-[-2px] transition-all duration-300 active:scale-95 disabled:opacity-60">
+                class="px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest bg-[#405189] text-white shadow-md hover:shadow-lg hover:translate-y-[-1px] transition-all duration-300 active:scale-95 disabled:opacity-60">
                 <span wire:loading.remove wire:target="checkAll">
                     <i class="ri-refresh-line mr-1.5"></i> Cek Semua API
                 </span>

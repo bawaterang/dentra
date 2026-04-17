@@ -436,7 +436,7 @@ class SettingKlinikPage extends Component
                     <span class="sep">/</span>
                     <span>Pengaturan</span>
                     <span class="sep">/</span>
-                    <span>Klinik</span>
+                    <span class="text-[#405189] font-bold">Klinik</span>
                 </div>
             </div>
 

@@ -190,7 +190,7 @@ class BackupPage extends Component
                 <div class="page-header-breadcrumb">
                     <a href="/dashboard" wire:navigate><i class="ri-history-line"></i></a>
                     <span class="sep">/</span><a href="#">Setting</a>
-                    <span class="sep">/</span><span>Backup Database</span>
+                    <span class="sep">/</span><span class="text-[#405189] font-bold">Backup Database</span>
                 </div>
             </div>
 

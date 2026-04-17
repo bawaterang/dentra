@@ -213,7 +213,7 @@ class JadwalDokterPage extends Component
                 <div class="page-header-breadcrumb">
                     <a href="/dashboard" wire:navigate><i class="ri-database-2-line"></i></a>
                     <span class="sep">/</span><a href="#">Master</a>
-                    <span class="sep">/</span><span>Jadwal Dokter</span>
+                    <span class="sep">/</span><span class="text-[#405189] font-bold">Jadwal Dokter</span>
                 </div>
             </div>
 

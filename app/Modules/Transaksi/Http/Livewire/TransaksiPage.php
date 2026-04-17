@@ -996,7 +996,7 @@ class TransaksiPage extends Component
                 <div class="page-header-breadcrumb">
                     <a href="/dashboard" wire:navigate><i class="ri-home-line"></i></a>
                     <span class="sep">/</span>
-                    <span>Transaksi</span>
+                    <span class="text-[#405189] font-bold">Transaksi</span>
                 </div>
             </div>
 

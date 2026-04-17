@@ -231,7 +231,7 @@ class RoleUserPage extends Component
                 <div class="page-header-breadcrumb">
                     <a href="/dashboard" wire:navigate><i class="ri-database-2-line"></i></a>
                     <span class="sep">/</span><a href="#">Setting</a>
-                    <span class="sep">/</span><span>Role User</span>
+                    <span class="sep">/</span><span class="text-[#405189] font-bold">Role User</span>
                 </div>
             </div>
 

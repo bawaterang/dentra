@@ -313,7 +313,7 @@ class AntrianPage extends Component
                     z-index: 10 !important;
                 }
             </style>
-            <div class="page-header"><div class="page-header-title"><div class="page-header-icon"><i class="ri-list-ordered"></i></div><h1>Antrian</h1></div><div class="page-header-breadcrumb"><a href="/dashboard" wire:navigate><i class="ri-home-line"></i></a><span class="sep">/</span><span>Antrian</span></div></div>
+            <div class="page-header"><div class="page-header-title"><div class="page-header-icon"><i class="ri-list-ordered"></i></div><h1>Antrian</h1></div><div class="page-header-breadcrumb"><a href="/dashboard" wire:navigate><i class="ri-home-line"></i></a><span class="sep">/</span><span class="text-[#405189] font-bold">Antrian</span></div></div>
 
             <!-- Info Cards -->
             <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-5 mb-8">

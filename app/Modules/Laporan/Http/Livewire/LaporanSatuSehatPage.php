@@ -711,7 +711,7 @@ class LaporanSatuSehatPage extends Component
                     <span class="sep text-gray-300">/</span>
                     <span class="text-gray-400 font-medium">Laporan</span>
                     <span class="sep text-gray-300">/</span>
-                    <span class="text-[#10b981] font-bold">Satu Sehat</span>
+                    <span class="text-[#405189] font-bold">Satu Sehat</span>
                 </div>
             </div>
 
