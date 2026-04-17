@@ -3,14 +3,18 @@
 namespace App\Modules\Transaksi\Http\Livewire;
 
 use Livewire\Component;
+use Livewire\WithFileUploads;
 use App\Models\TrxPendaftaran;
 use App\Models\MstPoli;
 use App\Models\MstDiagnosis;
+use App\Models\TrxPenunjangDokumen;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class TransaksiPage extends Component
 {
+    use WithFileUploads;
     public $selectedDate;
     public $selectedPoli = 'all';
     public $searchPasien = '';
@@ -97,6 +101,20 @@ class TransaksiPage extends Component
     public $ohis_ci_31 = '';
     public $ohis_ci_46 = '';
 
+    // Screening Tab State
+    public $screeningData = [];
+
+    // Penunjang Tab State
+    public $penunjangs = [];
+    public $showPenunjangModal = false;
+    public $penunjang_jenis = '';
+    public $penunjang_nama = '';
+    public $penunjang_file;
+
+    // Riwayat Tab State
+    public $riwayatData = [];
+    public $expandedRiwayat = [];
+
     public function mount()
     {
         $this->selectedDate = now()->format('Y-m-d');
@@ -152,6 +170,9 @@ class TransaksiPage extends Component
         $this->loadBmhps();
         $this->loadOdontogram();
         $this->loadOhis();
+        $this->loadScreening();
+        $this->loadPenunjangs();
+        $this->loadRiwayat();
         
         $this->dispatch('patient-selected');
     }
@@ -709,6 +730,176 @@ class TransaksiPage extends Component
         return $b ? ['label' => $b->kode_bmhp.' - '.$b->nama_bmhp, 'icon' => 'ri-flask-line text-purple-500'] : null;
     }
 
+    // ─── Screening Tab Methods ───
+
+    public function loadScreening()
+    {
+        $this->screeningData = [];
+        if (!$this->selectedPendaftaran) return;
+
+        $this->screeningData = DB::table('trx_screening')
+            ->join('mst_survei', 'trx_screening.survei_id', '=', 'mst_survei.id')
+            ->where('trx_screening.pendaftaran_id', $this->selectedPendaftaran->id)
+            ->select('trx_screening.*', 'mst_survei.pertanyaan', 'mst_survei.jenis_survei')
+            ->orderBy('mst_survei.id', 'asc')
+            ->get()
+            ->toArray();
+    }
+
+    // ─── Penunjang Tab Methods ───
+
+    public function loadPenunjangs()
+    {
+        $this->penunjangs = [];
+        if (!$this->selectedPendaftaran?->nomor_kunjungan) return;
+
+        $this->penunjangs = DB::table('trx_penunjang_dokumen')
+            ->where('nomor_kunjungan', $this->selectedPendaftaran->nomor_kunjungan)
+            ->whereNull('deleted_at')
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(fn($p) => (array) $p)
+            ->toArray();
+    }
+
+    public function addPenunjang()
+    {
+        $this->reset(['penunjang_jenis', 'penunjang_nama', 'penunjang_file']);
+        $this->showPenunjangModal = true;
+    }
+
+    public function savePenunjang()
+    {
+        $this->validate([
+            'penunjang_nama' => 'required|string|max:255',
+            'penunjang_jenis' => 'required|string',
+            'penunjang_file' => 'required|file|mimes:pdf,jpg,jpeg,png|max:10240',
+        ], [
+            'penunjang_nama.required' => 'Nama dokumen wajib diisi.',
+            'penunjang_jenis.required' => 'Jenis penunjang wajib dipilih.',
+            'penunjang_file.required' => 'File wajib diunggah.',
+            'penunjang_file.mimes' => 'Format: PDF, JPG, PNG.',
+            'penunjang_file.max' => 'Maksimal 10MB.',
+        ]);
+
+        if (!$this->selectedPendaftaran) return;
+
+        $filePath = $this->penunjang_file->store('penunjang', 'public');
+
+        DB::table('trx_penunjang_dokumen')->insert([
+            'nomor_kunjungan' => $this->selectedPendaftaran->nomor_kunjungan,
+            'no_rm' => $this->selectedPendaftaran->pasien->no_rm ?? '',
+            'document_name' => $this->penunjang_nama,
+            'jenis' => $this->penunjang_jenis,
+            'file_path' => $filePath,
+            'created_by' => auth()->user()->username ?? 'System',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->showPenunjangModal = false;
+        $this->reset(['penunjang_jenis', 'penunjang_nama', 'penunjang_file']);
+        $this->loadPenunjangs();
+        $this->dispatch('alert', ['type' => 'success', 'message' => 'Dokumen penunjang berhasil diunggah.']);
+    }
+
+    public function removePenunjang($id)
+    {
+        $doc = DB::table('trx_penunjang_dokumen')->where('id', $id)->first();
+        if ($doc && $doc->file_path) {
+            Storage::disk('public')->delete($doc->file_path);
+        }
+        DB::table('trx_penunjang_dokumen')->where('id', $id)->update(['deleted_at' => now()]);
+        $this->loadPenunjangs();
+        $this->dispatch('alert', ['type' => 'success', 'message' => 'Dokumen berhasil dihapus.']);
+    }
+
+    // ─── Riwayat Tab Methods ───
+
+    public function loadRiwayat()
+    {
+        $this->riwayatData = [];
+        $this->expandedRiwayat = [];
+        if (!$this->selectedPendaftaran?->pasien_id) return;
+
+        $history = TrxPendaftaran::with(['dokter', 'asuransi', 'poli'])
+            ->where('pasien_id', $this->selectedPendaftaran->pasien_id)
+            ->whereNotNull('created_at')
+            ->orderBy('created_at', 'desc')
+            ->limit(50)
+            ->get();
+
+        foreach ($history as $item) {
+            $this->riwayatData[] = [
+                'id' => $item->id,
+                'nomor_kunjungan' => $item->nomor_kunjungan,
+                'tanggal' => $item->created_at?->format('d/m/Y H:i'),
+                'dokter' => $item->dokter?->nama_dokter ?? '-',
+                'poli' => $item->poli?->nama_poli ?? '-',
+                'asuransi' => $item->asuransi?->nama_asuransi ?? 'UMUM',
+                'status' => $item->status,
+                'clinical' => null, // lazy-load on expand
+            ];
+        }
+    }
+
+    public function toggleRiwayatDetail($index)
+    {
+        if (isset($this->expandedRiwayat[$index])) {
+            unset($this->expandedRiwayat[$index]);
+        } else {
+            // Lazy load clinical details
+            if (!isset($this->riwayatData[$index]['clinical']) || $this->riwayatData[$index]['clinical'] === null) {
+                $nk = $this->riwayatData[$index]['nomor_kunjungan'];
+                $this->riwayatData[$index]['clinical'] = $this->getClinicalDetailsForRiwayat($nk);
+            }
+            $this->expandedRiwayat[$index] = true;
+        }
+    }
+
+    public function getClinicalDetailsForRiwayat($nomorKunjungan)
+    {
+        $pendaftaran = TrxPendaftaran::where('nomor_kunjungan', $nomorKunjungan)->first();
+        $soap = DB::table('trx_pemeriksaan')->where('nomor_kunjungan', $nomorKunjungan)->first();
+
+        $diagnoses = DB::table('trx_diagnosis')
+            ->join('mst_diagnosis', 'trx_diagnosis.kode_diagnosa', '=', 'mst_diagnosis.kode_diagnosa')
+            ->where('trx_diagnosis.nomor_kunjungan', $nomorKunjungan)
+            ->whereNull('trx_diagnosis.deleted_at')
+            ->select('mst_diagnosis.nama_diagnosa', 'trx_diagnosis.kode_diagnosa', 'trx_diagnosis.jenis_icd')
+            ->get()
+            ->map(fn($item) => (array) $item)
+            ->toArray();
+
+        $obat = DB::table('trx_obat')
+            ->join('mst_obat', 'trx_obat.kode_obat', '=', 'mst_obat.kode_obat')
+            ->where('trx_obat.nomor_kunjungan', $nomorKunjungan)
+            ->whereNull('trx_obat.deleted_at')
+            ->select('mst_obat.nama_obat', 'trx_obat.dosis', 'trx_obat.aturan')
+            ->get()
+            ->map(fn($item) => (array) $item)
+            ->toArray();
+
+        return [
+            'vitals' => [
+                'kesadaran' => $pendaftaran?->kesadaran,
+                'td' => $pendaftaran?->tekanan_darah,
+                'nadi' => $pendaftaran?->nadi,
+                'suhu' => $pendaftaran?->suhu,
+                'bb' => $pendaftaran?->berat_badan,
+                'tb' => $pendaftaran?->tinggi_badan,
+            ],
+            'soap' => $soap ? [
+                'subjective' => $soap->subjective ?? '-',
+                'objective' => $soap->objective ?? '-',
+                'assessment' => $soap->assessment ?? '-',
+                'planning' => $soap->planning ?? '-',
+            ] : null,
+            'diagnoses' => $diagnoses,
+            'obat' => $obat,
+        ];
+    }
+
     public function render()
     {
         // Filter Poli based on User Mapping (trx_user_poli -> mst_poli)
@@ -776,6 +967,7 @@ class TransaksiPage extends Component
         return <<<'HTML'
         <div x-data="{ 
             activeTab: 'soap',
+            mainTab: 'pemeriksaan',
             medicalTab: 'diagnosis',
             searchDiag: '',
             searchTind: '',
@@ -903,9 +1095,12 @@ class TransaksiPage extends Component
                                             </div>
                                             <div class="flex flex-wrap items-center gap-3 text-gray-500">
                                                 <span class="text-xs font-bold flex items-center gap-1.5"><i class="ri-barcode-line text-[#405189]"></i> RM: {{ $selectedPendaftaran->pasien->no_rm }}</span>
+                                                <span class="text-xs font-bold flex items-center gap-1.5"><i class="ri-fingerprint-line text-[#405189]"></i> NIK: {{ $selectedPendaftaran->pasien->nik ?? '-' }}</span>
                                                 <span class="text-xs font-bold flex items-center gap-1.5"><i class="ri-shield-user-line text-[#405189]"></i> {{ $selectedPendaftaran->asuransi->nama_asuransi ?? 'UMUM / PRIBADI' }}</span>
                                                 <span class="text-xs font-bold flex items-center gap-1.5"><i class="ri-hospital-line text-[#405189]"></i> {{ $selectedPendaftaran->poli->nama_poli }}</span>
                                                 <span class="text-xs font-bold flex items-center gap-1.5"><i class="ri-heart-pulse-line text-[#405189]"></i> Agama: {{ $selectedPendaftaran->pasien->agama ?? '-' }}</span>
+                                                <span class="text-xs font-bold flex items-center gap-1.5"><i class="ri-phone-line text-[#405189]"></i> Telp: {{ $selectedPendaftaran->pasien->no_telepon ?? '-' }}</span>
+                                                <span class="text-xs font-bold flex items-center gap-1.5"><i class="ri-map-pin-line text-[#405189]"></i> Alamat : {{ $selectedPendaftaran->pasien->alamat ?? '-' }}</span>
                                             </div>
                                         </div>
                                     </div>
@@ -923,14 +1118,39 @@ class TransaksiPage extends Component
                                         </div>
                                         <div class="col-span-2 space-y-0.5">
                                             <p class="text-[9px] font-black text-gray-400 uppercase tracking-tighter">Nama Dokter</p>
-                                            <p class="text-xs font-black text-[#405189] m-0 flex items-center gap-1.5"><i class="ri-user-star-line text-amber-500"></i> {{ $selectedPendaftaran->dokter->name ?? '-' }}</p>
+                                            <p class="text-xs font-black text-[#405189] m-0 flex items-center gap-1.5"><i class="ri-user-star-line text-amber-500"></i> {{ $selectedPendaftaran->dokter->nama_dokter ?? '-' }}</p>
                                         </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Main Transaction Tabs / Cards -->
+                        <!-- ═══ MAIN TAB NAVIGATION ═══ -->
+                        <div class="flex items-center gap-1 p-1 bg-gray-100 rounded-2xl w-fit mt-2">
+                            <button @click="mainTab = 'pemeriksaan'" 
+                                    :class="mainTab === 'pemeriksaan' ? 'bg-white text-[#405189] shadow-sm' : 'text-gray-500 hover:text-gray-700'"
+                                    class="px-5 py-2.5 rounded-xl text-sm font-black transition-all duration-200 flex items-center gap-2">
+                                <i class="ri-stethoscope-line"></i> <span class="hidden sm:inline">Pemeriksaan</span>
+                            </button>
+                            <button @click="mainTab = 'screening'" 
+                                    :class="mainTab === 'screening' ? 'bg-white text-[#405189] shadow-sm' : 'text-gray-500 hover:text-gray-700'"
+                                    class="px-5 py-2.5 rounded-xl text-sm font-black transition-all duration-200 flex items-center gap-2">
+                                <i class="ri-survey-line"></i> <span class="hidden sm:inline">Screening</span>
+                            </button>
+                            <button @click="mainTab = 'penunjang'" 
+                                    :class="mainTab === 'penunjang' ? 'bg-white text-[#405189] shadow-sm' : 'text-gray-500 hover:text-gray-700'"
+                                    class="px-5 py-2.5 rounded-xl text-sm font-black transition-all duration-200 flex items-center gap-2">
+                                <i class="ri-file-search-line"></i> <span class="hidden sm:inline">Penunjang</span>
+                            </button>
+                            <button @click="mainTab = 'riwayat'" 
+                                    :class="mainTab === 'riwayat' ? 'bg-white text-[#405189] shadow-sm' : 'text-gray-500 hover:text-gray-700'"
+                                    class="px-5 py-2.5 rounded-xl text-sm font-black transition-all duration-200 flex items-center gap-2">
+                                <i class="ri-history-line"></i> <span class="hidden sm:inline">Riwayat</span>
+                            </button>
+                        </div>
+
+                        <!-- ═══ TAB CONTENT: PEMERIKSAAN ═══ -->
+                        <div x-show="mainTab === 'pemeriksaan'" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4" x-transition:enter-end="opacity-100 translate-y-0">
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <!-- Card: Anamnesis & SOAP -->
                             <div class="card shadow-sm border-t-4 border-[#405189] md:col-span-2 relative z-50" style="overflow: visible !important;">
@@ -1889,6 +2109,275 @@ class TransaksiPage extends Component
                             </div>
                         </div>
                         @endif
+                        </div> <!-- end mainTab pemeriksaan -->
+
+                        <!-- ═══ TAB CONTENT: SCREENING ═══ -->
+                        <div x-show="mainTab === 'screening'" x-cloak x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4" x-transition:enter-end="opacity-100 translate-y-0">
+                            <div class="card shadow-sm overflow-hidden border-t-2 border-[#0ab39c]">
+                                <div class="p-4 border-b border-[#eff2f7] bg-gray-50/50">
+                                    <div class="flex items-center gap-3">
+                                        <div class="p-2 bg-emerald-50 rounded-lg">
+                                            <i class="ri-survey-line text-[#0ab39c] text-xl"></i>
+                                        </div>
+                                        <div>
+                                            <h6 class="text-base font-bold text-[#405189] mb-0">Hasil Screening Pasien</h6>
+                                            <p class="text-[11px] text-gray-500 mb-0">Data screening yang telah diisi saat proses admisi</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="p-4">
+                                    <div class="space-y-3 min-h-[200px]">
+                                        @forelse($screeningData as $idx => $scr)
+                                            <div class="group relative flex items-start gap-4 p-4 rounded-2xl bg-white border border-gray-100 shadow-sm hover:shadow-md hover:border-[#0ab39c]/20 transition-all duration-300">
+                                                <div class="flex-none w-10 h-10 flex items-center justify-center rounded-xl bg-gray-50 text-gray-400 font-bold text-xs group-hover:bg-[#0ab39c] group-hover:text-white transition-all">
+                                                    {{ $idx + 1 }}
+                                                </div>
+                                                <div class="flex-grow min-w-0">
+                                                    <p class="text-sm font-bold text-[#2d3748] mb-2 leading-relaxed group-hover:text-[#405189] transition-colors">{{ $scr->pertanyaan }}</p>
+                                                    <div class="flex flex-wrap items-center gap-3">
+                                                        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider {{ $scr->jawaban === 'ya' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-rose-50 text-rose-600 border border-rose-100' }}">
+                                                            <i class="{{ $scr->jawaban === 'ya' ? 'ri-checkbox-circle-fill' : 'ri-close-circle-fill' }}"></i>
+                                                            {{ $scr->jawaban === 'ya' ? 'Ya' : 'Tidak' }}
+                                                        </span>
+                                                        @if(!empty($scr->keterangan))
+                                                            <span class="text-[11px] text-gray-500 italic flex items-center gap-1">
+                                                                <i class="ri-chat-quote-line text-gray-400"></i> {{ $scr->keterangan }}
+                                                            </span>
+                                                        @endif
+                                                        <span class="text-[9px] font-bold text-gray-400 uppercase tracking-widest px-2 py-0.5 bg-gray-50 rounded-full">{{ $scr->jenis_survei ?? 'Umum' }}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        @empty
+                                            <div class="flex flex-col items-center justify-center py-16 px-4 bg-gray-50/50 rounded-3xl border-2 border-dashed border-gray-200">
+                                                <div class="w-16 h-16 bg-white rounded-2xl shadow-sm flex items-center justify-center mb-4">
+                                                    <i class="ri-survey-line text-3xl text-gray-300"></i>
+                                                </div>
+                                                <h3 class="text-sm font-bold text-gray-500 mb-1">Belum Ada Data Screening</h3>
+                                                <p class="text-xs text-gray-400 text-center max-w-[220px]">Data screening akan tersedia setelah pasien menjalani proses admisi / screening.</p>
+                                            </div>
+                                        @endforelse
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ═══ TAB CONTENT: PENUNJANG ═══ -->
+                        <div x-show="mainTab === 'penunjang'" x-cloak x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4" x-transition:enter-end="opacity-100 translate-y-0">
+                            <div class="card shadow-sm overflow-hidden border-t-2 border-[#f7b84b]">
+                                <div class="p-4 border-b border-[#eff2f7] bg-gray-50/50">
+                                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                        <div class="flex items-center gap-3">
+                                            <div class="p-2 bg-amber-50 rounded-lg">
+                                                <i class="ri-file-search-line text-amber-500 text-xl"></i>
+                                            </div>
+                                            <div>
+                                                <h6 class="text-base font-bold text-[#405189] mb-0">Pemeriksaan Penunjang</h6>
+                                                <p class="text-[11px] text-gray-500 mb-0">Hasil radiologi, laboratorium PA/PK</p>
+                                            </div>
+                                        </div>
+                                        <button wire:click="addPenunjang" class="btn btn-primary text-white h-10 px-5 rounded-xl shadow-md flex items-center justify-center gap-2 transition-all hover:translate-y-[-2px] hover:shadow-lg active:scale-95 w-full sm:w-auto border-0">
+                                            <i class="ri-add-line text-lg"></i>
+                                            <span class="font-semibold text-xs uppercase tracking-wider">Upload Dokumen</span>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="p-4">
+                                    <div class="border-b border-dashed border-gray-200 mb-5"></div>
+                                    <div class="space-y-3 min-h-[200px]">
+                                        @forelse($penunjangs as $idx => $pnj)
+                                            <div class="group relative flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-2xl bg-white border border-gray-100 shadow-sm hover:shadow-md hover:border-[#f7b84b]/30 hover:bg-amber-50/20 transition-all duration-300">
+                                                <div class="flex-none w-10 h-10 flex items-center justify-center rounded-xl {{ ($pnj['jenis'] ?? '') === 'Radiologi' ? 'bg-blue-50 text-blue-500' : (str_contains($pnj['jenis'] ?? '', 'Lab') ? 'bg-purple-50 text-purple-500' : 'bg-amber-50 text-amber-500') }} font-bold text-lg">
+                                                    <i class="{{ ($pnj['jenis'] ?? '') === 'Radiologi' ? 'ri-scan-line' : (str_contains($pnj['jenis'] ?? '', 'Lab') ? 'ri-test-tube-line' : 'ri-file-text-line') }}"></i>
+                                                </div>
+                                                <div class="flex-grow min-w-0">
+                                                    <span class="text-sm font-bold text-[#2d3748] tracking-tight group-hover:text-[#405189] transition-colors block mb-1 truncate">{{ $pnj['document_name'] }}</span>
+                                                    <div class="flex flex-wrap items-center gap-3">
+                                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider {{ ($pnj['jenis'] ?? '') === 'Radiologi' ? 'bg-blue-50 text-blue-600 border border-blue-100' : (str_contains($pnj['jenis'] ?? '', 'Lab') ? 'bg-purple-50 text-purple-600 border border-purple-100' : 'bg-amber-50 text-amber-600 border border-amber-100') }}">
+                                                            {{ $pnj['jenis'] ?? '-' }}
+                                                        </span>
+                                                        @if(!empty($pnj['file_path']))
+                                                            @php $ext = pathinfo($pnj['file_path'], PATHINFO_EXTENSION); @endphp
+                                                            <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1">
+                                                                <i class="{{ in_array($ext, ['pdf']) ? 'ri-file-pdf-2-line text-red-400' : 'ri-image-line text-blue-400' }}"></i>
+                                                                {{ strtoupper($ext) }}
+                                                            </span>
+                                                        @endif
+                                                        <span class="text-[10px] text-gray-400">{{ \Carbon\Carbon::parse($pnj['created_at'])->format('d/m/Y H:i') }}</span>
+                                                    </div>
+                                                </div>
+                                                <div class="flex-none flex items-center gap-2 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-all transform sm:translate-x-2 group-hover:translate-x-0">
+                                                    @if(!empty($pnj['file_path']))
+                                                        <a href="{{ asset('storage/' . $pnj['file_path']) }}" target="_blank" class="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-blue-500 hover:bg-blue-500 hover:text-white transition-all shadow-sm" title="Lihat File">
+                                                            <i class="ri-eye-line text-lg"></i>
+                                                        </a>
+                                                    @endif
+                                                    <button @click="
+                                                        Swal.fire({
+                                                            title: 'Konfirmasi Hapus',
+                                                            text: 'Apakah Anda yakin ingin menghapus dokumen ini?',
+                                                            icon: 'warning',
+                                                            showCancelButton: true,
+                                                            confirmButtonColor: '#f06548',
+                                                            cancelButtonColor: '#6c757d',
+                                                            confirmButtonText: 'Ya, Hapus!',
+                                                            cancelButtonText: 'Batal',
+                                                            reverseButtons: true
+                                                        }).then((result) => {
+                                                            if (result.isConfirmed) {
+                                                                $wire.removePenunjang({{ $pnj['id'] }})
+                                                            }
+                                                        })
+                                                    " class="flex h-9 w-9 items-center justify-center rounded-xl bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition-all shadow-sm" title="Hapus">
+                                                        <i class="ri-delete-bin-line text-lg"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        @empty
+                                            <div class="flex flex-col items-center justify-center py-16 px-4 bg-gray-50/50 rounded-3xl border-2 border-dashed border-gray-200">
+                                                <div class="w-16 h-16 bg-white rounded-2xl shadow-sm flex items-center justify-center mb-4">
+                                                    <i class="ri-file-search-line text-3xl text-gray-300"></i>
+                                                </div>
+                                                <h3 class="text-sm font-bold text-gray-500 mb-1">Belum Ada Dokumen Penunjang</h3>
+                                                <p class="text-xs text-gray-400 text-center max-w-[220px]">Upload hasil radiologi atau laboratorium dengan klik tombol "Upload Dokumen".</p>
+                                            </div>
+                                        @endforelse
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ═══ TAB CONTENT: RIWAYAT ═══ -->
+                        <div x-show="mainTab === 'riwayat'" x-cloak x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4" x-transition:enter-end="opacity-100 translate-y-0">
+                            <div class="card shadow-sm overflow-hidden border-t-2 border-[#405189]">
+                                <div class="p-4 border-b border-[#eff2f7] bg-gray-50/50">
+                                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                        <div class="flex items-center gap-3">
+                                            <div class="p-2 bg-indigo-50 rounded-lg">
+                                                <i class="ri-history-line text-[#405189] text-xl"></i>
+                                            </div>
+                                            <div>
+                                                <h6 class="text-base font-bold text-[#405189] mb-0">Riwayat Rekam Medis</h6>
+                                                <p class="text-[11px] text-gray-500 mb-0">Daftar kunjungan dan pemeriksaan pasien sebelumnya</p>
+                                            </div>
+                                        </div>
+                                        @if($selectedPendaftaran?->pasien_id)
+                                            <a href="{{ route('laporan.kunjungan.print-riwayat', $selectedPendaftaran->pasien_id) }}" target="_blank" class="btn bg-indigo-50 text-indigo-600 h-10 px-5 rounded-xl font-bold text-sm shadow-sm hover:bg-indigo-600 hover:text-white transition-all flex items-center gap-2 w-full sm:w-auto justify-center">
+                                                <i class="ri-printer-line text-lg"></i>
+                                                <span class="font-semibold text-xs uppercase tracking-wider">Cetak Riwayat</span>
+                                            </a>
+                                        @endif
+                                    </div>
+                                </div>
+                                <div class="p-4">
+                                    <div class="space-y-3 min-h-[200px]">
+                                        @forelse($riwayatData as $idx => $rw)
+                                            <div class="group rounded-2xl bg-white border border-gray-100 shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden">
+                                                <!-- Riwayat Header -->
+                                                <button wire:click="toggleRiwayatDetail({{ $idx }})" class="w-full text-left p-4 flex items-center gap-4 hover:bg-gray-50/50 transition-colors">
+                                                    <div class="flex-none w-10 h-10 flex items-center justify-center rounded-xl {{ isset($expandedRiwayat[$idx]) ? 'bg-[#405189] text-white' : 'bg-gray-50 text-gray-400' }} font-bold text-xs transition-all">
+                                                        {{ $idx + 1 }}
+                                                    </div>
+                                                    <div class="flex-grow min-w-0">
+                                                        <div class="flex flex-wrap items-center gap-2 mb-1">
+                                                            <span class="text-sm font-bold text-[#2d3748] tracking-tight">{{ $rw['tanggal'] }}</span>
+                                                            <span class="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 text-[9px] font-black uppercase tracking-wider border border-indigo-100">{{ $rw['nomor_kunjungan'] }}</span>
+                                                            <span class="px-2 py-0.5 rounded bg-gray-50 text-gray-500 text-[9px] font-bold uppercase">{{ $rw['status'] }}</span>
+                                                        </div>
+                                                        <div class="flex flex-wrap items-center gap-3 text-[11px] text-gray-500">
+                                                            <span class="flex items-center gap-1"><i class="ri-user-star-line text-amber-500"></i> {{ $rw['dokter'] }}</span>
+                                                            <span class="flex items-center gap-1"><i class="ri-hospital-line text-blue-500"></i> {{ $rw['poli'] }}</span>
+                                                            <span class="flex items-center gap-1"><i class="ri-shield-user-line text-green-500"></i> {{ $rw['asuransi'] }}</span>
+                                                        </div>
+                                                    </div>
+                                                    <div class="flex-none">
+                                                        <i class="ri-arrow-{{ isset($expandedRiwayat[$idx]) ? 'up' : 'down' }}-s-line text-xl text-gray-400 transition-transform"></i>
+                                                    </div>
+                                                </button>
+
+                                                <!-- Riwayat Detail (Expandable) -->
+                                                @if(isset($expandedRiwayat[$idx]) && isset($rw['clinical']))
+                                                    <div class="px-4 pb-4 border-t border-gray-100 bg-gray-50/30">
+                                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                                                            <!-- Vitals -->
+                                                            @if($rw['clinical']['vitals'])
+                                                                <div class="bg-white rounded-xl border border-gray-100 p-4">
+                                                                    <h6 class="text-[10px] font-black text-[#405189] uppercase tracking-widest mb-3 flex items-center gap-1.5"><i class="ri-heart-pulse-line"></i> Pemeriksaan Awal</h6>
+                                                                    <div class="grid grid-cols-3 gap-2">
+                                                                        @foreach(['kesadaran' => 'Kesadaran', 'td' => 'TD (mmHg)', 'nadi' => 'Nadi', 'suhu' => 'Suhu (°C)', 'bb' => 'BB (kg)', 'tb' => 'TB (cm)'] as $k => $lbl)
+                                                                            <div class="p-2 bg-gray-50 rounded-lg">
+                                                                                <span class="text-[9px] font-bold text-gray-400 uppercase block">{{ $lbl }}</span>
+                                                                                <span class="text-xs font-black text-gray-700">{{ $rw['clinical']['vitals'][$k] ?: '-' }}</span>
+                                                                            </div>
+                                                                        @endforeach
+                                                                    </div>
+                                                                </div>
+                                                            @endif
+
+                                                            <!-- SOAP -->
+                                                            @if($rw['clinical']['soap'])
+                                                                <div class="bg-white rounded-xl border border-gray-100 p-4">
+                                                                    <h6 class="text-[10px] font-black text-[#405189] uppercase tracking-widest mb-3 flex items-center gap-1.5"><i class="ri-file-list-3-line"></i> Clinical Notes</h6>
+                                                                    <div class="space-y-2">
+                                                                        @foreach(['subjective' => 'S', 'objective' => 'O', 'assessment' => 'A', 'planning' => 'P'] as $k => $lbl)
+                                                                            <div class="flex gap-2">
+                                                                                <div class="w-5 h-5 rounded bg-gray-100 flex items-center justify-center text-[9px] font-black text-gray-500 shrink-0">{{ $lbl }}</div>
+                                                                                <p class="text-[11px] text-gray-600 leading-relaxed m-0">{{ $rw['clinical']['soap'][$k] ?? '-' }}</p>
+                                                                            </div>
+                                                                        @endforeach
+                                                                    </div>
+                                                                </div>
+                                                            @endif
+
+                                                            <!-- Diagnoses -->
+                                                            @if(!empty($rw['clinical']['diagnoses']))
+                                                                <div class="bg-white rounded-xl border border-gray-100 p-4">
+                                                                    <h6 class="text-[10px] font-black text-[#405189] uppercase tracking-widest mb-3 flex items-center gap-1.5"><i class="ri-microscope-line"></i> Diagnosis</h6>
+                                                                    <div class="space-y-2">
+                                                                        @foreach($rw['clinical']['diagnoses'] as $dg)
+                                                                            <div class="flex items-start gap-2 p-2 bg-orange-50/50 rounded-lg border border-orange-100">
+                                                                                <span class="text-[10px] font-black text-indigo-500 font-mono shrink-0 mt-0.5">{{ $dg['kode_diagnosa'] }}</span>
+                                                                                <span class="text-[11px] font-bold text-gray-700">{{ $dg['nama_diagnosa'] }}</span>
+                                                                            </div>
+                                                                        @endforeach
+                                                                    </div>
+                                                                </div>
+                                                            @endif
+
+                                                            <!-- Obat -->
+                                                            @if(!empty($rw['clinical']['obat']))
+                                                                <div class="bg-white rounded-xl border border-gray-100 p-4">
+                                                                    <h6 class="text-[10px] font-black text-[#405189] uppercase tracking-widest mb-3 flex items-center gap-1.5"><i class="ri-capsule-line"></i> Resep Obat</h6>
+                                                                    <div class="space-y-2">
+                                                                        @foreach($rw['clinical']['obat'] as $ob)
+                                                                            <div class="flex items-center gap-2 p-2 bg-emerald-50/50 rounded-lg border border-emerald-100">
+                                                                                <i class="ri-medicine-bottle-line text-emerald-500 text-sm"></i>
+                                                                                <div>
+                                                                                    <p class="text-[11px] font-bold text-gray-700 m-0">{{ $ob['nama_obat'] }}</p>
+                                                                                    <span class="text-[10px] text-gray-500">{{ $ob['dosis'] }} | {{ $ob['aturan'] }}</span>
+                                                                                </div>
+                                                                            </div>
+                                                                        @endforeach
+                                                                    </div>
+                                                                </div>
+                                                            @endif
+                                                        </div>
+                                                    </div>
+                                                @endif
+                                            </div>
+                                        @empty
+                                            <div class="flex flex-col items-center justify-center py-16 px-4 bg-gray-50/50 rounded-3xl border-2 border-dashed border-gray-200">
+                                                <div class="w-16 h-16 bg-white rounded-2xl shadow-sm flex items-center justify-center mb-4">
+                                                    <i class="ri-history-line text-3xl text-gray-300"></i>
+                                                </div>
+                                                <h3 class="text-sm font-bold text-gray-500 mb-1">Belum Ada Riwayat</h3>
+                                                <p class="text-xs text-gray-400 text-center max-w-[220px]">Belum ada data riwayat kunjungan untuk pasien ini.</p>
+                                            </div>
+                                        @endforelse
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
 
                     @else
                         <!-- Selection Call to Action -->
@@ -2189,6 +2678,80 @@ class TransaksiPage extends Component
                             <i wire:loading.remove wire:target="saveBmhp" class="ri-save-line"></i>
                             <span wire:loading.remove wire:target="saveBmhp">Simpan BMHP</span>
                             <span wire:loading wire:target="saveBmhp">Memproses...</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal: Upload Penunjang -->
+            <div x-show="$wire.showPenunjangModal" 
+                 class="fixed inset-0 z-[1050] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+                 x-transition.opacity
+                 style="display: none;">
+                <div x-show="$wire.showPenunjangModal"
+                     @click.away="$wire.set('showPenunjangModal', false)"
+                     x-transition.scale.95
+                     class="w-full max-w-2xl bg-white rounded-3xl shadow-2xl overflow-visible">
+                    
+                    <div class="px-6 py-4 rounded-t-3xl flex items-center justify-between border-b border-gray-100 bg-[#f3f6f9]/50">
+                        <h5 class="text-lg font-bold text-[#495057] flex items-center gap-2">
+                            <i class="ri-file-upload-line text-amber-500"></i> Upload Dokumen Penunjang
+                        </h5>
+                        <button @click="$wire.set('showPenunjangModal', false)" class="text-gray-400 hover:text-gray-600">
+                            <i class="ri-close-line text-2xl"></i>
+                        </button>
+                    </div>
+
+                    <div class="px-8 py-6 max-h-[75vh] overflow-visible">
+                        <div class="grid grid-cols-1 gap-6">
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-500 mb-1">Nama Dokumen <span class="text-red-500">*</span></label>
+                                <input type="text" wire:model="penunjang_nama" class="h-11 w-full rounded-xl border border-gray-200 px-4 text-sm font-bold outline-none focus:border-[#405189] focus:ring-4 focus:ring-[#405189]/5 transition-all bg-gray-50/50" placeholder="Contoh: Hasil Rontgen Thorax">
+                                @error('penunjang_nama') <span class="text-[11px] text-red-500 mt-1 italic">{{ $message }}</span> @enderror
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-500 mb-1">Jenis Penunjang <span class="text-red-500">*</span></label>
+                                <x-custom-dropdown 
+                                    model="penunjang_jenis" 
+                                    :options="[
+                                        ['value' => 'Radiologi', 'label' => 'Radiologi', 'icon' => 'ri-scan-line text-blue-500'],
+                                        ['value' => 'Lab PK', 'label' => 'Laboratorium PK (Patologi Klinik)', 'icon' => 'ri-test-tube-line text-purple-500'],
+                                        ['value' => 'Lab PA', 'label' => 'Laboratorium PA (Patologi Anatomi)', 'icon' => 'ri-test-tube-line text-indigo-500'],
+                                    ]"
+                                    placeholder="Pilih Jenis"
+                                />
+                                @error('penunjang_jenis') <span class="text-[11px] text-red-500 mt-1 italic">{{ $message }}</span> @enderror
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-500 mb-1">Upload File <span class="text-red-500">*</span></label>
+                                <div class="relative">
+                                    <input type="file" wire:model="penunjang_file" accept=".pdf,.jpg,.jpeg,.png" 
+                                           class="block w-full text-sm text-gray-500 file:mr-4 file:py-2.5 file:px-5 file:rounded-xl file:border-0 file:text-xs file:font-black file:bg-[#405189]/10 file:text-[#405189] hover:file:bg-[#405189]/20 file:transition-all file:uppercase file:tracking-wider cursor-pointer border border-gray-200 rounded-xl bg-gray-50/50 focus:ring-4 focus:ring-[#405189]/5 transition-all">
+                                    <div wire:loading wire:target="penunjang_file" class="absolute right-3 top-1/2 -translate-y-1/2">
+                                        <svg class="animate-spin h-5 w-5 text-[#405189]" fill="none" viewBox="0 0 24 24">
+                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                    </div>
+                                </div>
+                                <p class="text-[10px] text-gray-400 mt-1.5 flex items-center gap-1"><i class="ri-information-line"></i> Format: PDF, JPG, PNG — Maks. 10MB</p>
+                                @error('penunjang_file') <span class="text-[11px] text-red-500 mt-1 italic">{{ $message }}</span> @enderror
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="px-8 py-5 rounded-b-3xl bg-gray-50/80 flex justify-end gap-3 border-t border-gray-100">
+                        <button type="button" @click="$wire.set('showPenunjangModal', false)" class="btn bg-orange-500 text-white px-6 h-10 flex items-center gap-2 transition-all hover:bg-orange-600">
+                            <i class="ri-arrow-go-back-line"></i> Batal
+                        </button>
+                        <button type="button" wire:click="savePenunjang" wire:loading.attr="disabled" class="btn bg-[#0d6efd] text-white px-8 h-10 shadow-md flex items-center justify-center gap-2 transition-all hover:bg-[#0b5ed7] hover:translate-y-[-2px] disabled:opacity-70 disabled:cursor-not-allowed">
+                            <svg wire:loading wire:target="savePenunjang" class="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <i wire:loading.remove wire:target="savePenunjang" class="ri-upload-2-line"></i>
+                            <span wire:loading.remove wire:target="savePenunjang">Upload & Simpan</span>
+                            <span wire:loading wire:target="savePenunjang">Mengupload...</span>
                         </button>
                     </div>
                 </div>
