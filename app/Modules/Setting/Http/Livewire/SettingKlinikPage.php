@@ -432,10 +432,10 @@ class SettingKlinikPage extends Component
                     <h1>Informasi Klinik</h1>
                 </div>
                 <div class="page-header-breadcrumb">
-                    <a href="/dashboard" wire:navigate><i class="ri-home-line"></i></a>
-                    <span class="sep">/</span>
-                    <span>Pengaturan</span>
-                    <span class="sep">/</span>
+                    <a href="/dashboard" wire:navigate class="hover:text-[#405189] transition-colors"><i class="ri-home-4-line"></i></a>
+                    <span class="sep text-gray-300">/</span>
+                    <span class="text-gray-400 font-medium">Pengaturan</span>
+                    <span class="sep text-gray-300">/</span>
                     <span class="text-[#405189] font-bold">Klinik</span>
                 </div>
             </div>

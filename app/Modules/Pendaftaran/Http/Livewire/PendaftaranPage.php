@@ -228,7 +228,24 @@ class PendaftaranPage extends Component
                     z-index: 10 !important;
                 }
             </style>
-            <div class="page-header"><div class="page-header-title"><div class="page-header-icon"><i class="ri-file-add-line"></i></div><h1>Pendaftaran Pasien</h1></div><div class="page-header-breadcrumb"><a href="/dashboard" wire:navigate><i class="ri-home-line"></i></a><span class="sep">/</span><span>Pendaftaran</span></div></div>
+            <div class="page-header">
+                <div class="page-header-title">
+                    <div class="page-header-icon bg-gradient-to-br from-[#405189] to-[#2a3a6a] text-white shadow-lg animate-pulse" style="animation-duration: 3s;">
+                        <i class="ri-file-add-line"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-xl font-bold tracking-tight text-[#2c3e50]">Pendaftaran Pasien</h1>
+                        <p class="text-xs text-[#878a99] font-medium mt-0.5">Kelola pendaftaran kunjungan pasien baru dan lama.</p>
+                    </div>
+                </div>
+                <div class="page-header-breadcrumb">
+                    <a href="/dashboard" wire:navigate class="hover:text-[#405189] transition-colors"><i class="ri-home-4-line"></i></a>
+                    <span class="sep text-gray-300">/</span>
+                    <span class="text-gray-400 font-medium">Pendaftaran</span>
+                    <span class="sep text-gray-300">/</span>
+                    <span class="text-[#405189] font-bold">List Pendaftaran</span>
+                </div>
+            </div>
 
             <!-- Info Cards -->
             <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4 mb-8">

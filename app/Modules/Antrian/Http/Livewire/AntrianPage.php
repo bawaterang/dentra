@@ -313,7 +313,24 @@ class AntrianPage extends Component
                     z-index: 10 !important;
                 }
             </style>
-            <div class="page-header"><div class="page-header-title"><div class="page-header-icon"><i class="ri-list-ordered"></i></div><h1>Antrian</h1></div><div class="page-header-breadcrumb"><a href="/dashboard" wire:navigate><i class="ri-home-line"></i></a><span class="sep">/</span><span class="text-[#405189] font-bold">Antrian</span></div></div>
+            <div class="page-header">
+                <div class="page-header-title">
+                    <div class="page-header-icon bg-gradient-to-br from-[#405189] to-[#2a3a6a] text-white shadow-lg animate-pulse" style="animation-duration: 3s;">
+                        <i class="ri-list-ordered"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-xl font-bold tracking-tight text-[#2c3e50]">Antrian Pasien</h1>
+                        <p class="text-xs text-[#878a99] font-medium mt-0.5">Pantau dan kelola antrian kunjungan pasien secara real-time.</p>
+                    </div>
+                </div>
+                <div class="page-header-breadcrumb">
+                    <a href="/dashboard" wire:navigate class="hover:text-[#405189] transition-colors"><i class="ri-home-4-line"></i></a>
+                    <span class="sep text-gray-300">/</span>
+                    <span class="text-gray-400 font-medium">Antrian</span>
+                    <span class="sep text-gray-300">/</span>
+                    <span class="text-[#405189] font-bold">Daftar Antrian</span>
+                </div>
+            </div>
 
             <!-- Info Cards -->
             <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-5 mb-8">

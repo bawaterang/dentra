@@ -185,7 +185,17 @@ class ScreeningPage extends Component
                     z-index: 10 !important;
                 }
             </style>
-            <div class="page-header"><div class="page-header-title"><div class="page-header-icon"><i class="ri-shield-check-line"></i></div><h1>Screening Pasien</h1></div><div class="page-header-breadcrumb"><a href="/dashboard" wire:navigate><i class="ri-home-line"></i></a><span class="sep">/</span><span>Screening</span></div></div>
+            <div class="page-header">
+                <div class="page-header-title">
+                    <div class="page-header-icon"><i class="ri-shield-check-line"></i></div>
+                    <h1>Screening Pasien</h1>
+                </div>
+                <div class="page-header-breadcrumb">
+                    <a href="/dashboard" wire:navigate class="hover:text-[#405189] transition-colors"><i class="ri-home-4-line"></i></a>
+                    <span class="sep text-gray-300">/</span>
+                    <span class="text-[#405189] font-bold">Screening</span>
+                </div>
+            </div>
 
 
 

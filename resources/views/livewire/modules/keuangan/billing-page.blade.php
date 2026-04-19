@@ -1,20 +1,21 @@
 <div>
     <!-- Modern Page Header -->
-    <div class="page-header mb-6">
+    <div class="page-header mb-8">
         <div class="page-header-title">
-            <div class="page-header-icon">
+            <div class="page-header-icon bg-gradient-to-br from-[#405189] to-[#2a3a6a] text-white shadow-lg animate-pulse" style="animation-duration: 3s;">
                 <i class="ri-bank-card-2-line"></i>
             </div>
             <div>
-                <h1>Kasir & Billing</h1>
-                <div class="page-header-breadcrumb">
-                    <a href="{{ route('dashboard.index') }}">Dashboard</a>
-                    <span class="sep">/</span>
-                    <a href="#">Keuangan</a>
-                    <span class="sep">/</span>
-                    <span class="current">Billing</span>
-                </div>
+                <h1 class="text-xl font-bold tracking-tight text-[#2c3e50]">Kasir & Billing</h1>
+                <p class="text-xs text-[#878a99] font-medium mt-0.5">Kelola tagihan, pembayaran, dan kuitansi pasien.</p>
             </div>
+        </div>
+        <div class="page-header-breadcrumb">
+            <a href="/dashboard" wire:navigate class="hover:text-[#405189] transition-colors"><i class="ri-home-4-line"></i></a>
+            <span class="sep text-gray-300">/</span>
+            <span class="text-gray-400 font-medium">Keuangan</span>
+            <span class="sep text-gray-300">/</span>
+            <span class="text-[#405189] font-bold">Billing</span>
         </div>
     </div>
 

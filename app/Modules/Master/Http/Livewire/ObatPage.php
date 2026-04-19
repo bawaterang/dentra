@@ -406,7 +406,7 @@ class ObatPage extends Component
                     <span class="sep text-gray-300">/</span>
                     <span class="text-gray-400 font-medium">Master</span>
                     <span class="sep text-gray-300">/</span>
-                    <span class="text-[#405189] font-bold">Data Obat</span>
+                    <span class="text-[#405189] font-bold">Obat</span>
                 </div>
             </div>
 

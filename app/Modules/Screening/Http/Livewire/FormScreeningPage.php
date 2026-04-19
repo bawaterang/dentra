@@ -66,7 +66,19 @@ class FormScreeningPage extends Component
     {
         return <<<'HTML'
         <div>
-            <div class="page-header"><div class="page-header-title"><div class="page-header-icon"><i class="ri-shield-check-line"></i></div><h1>Form Screening</h1></div><div class="page-header-breadcrumb"><a href="/dashboard" wire:navigate><i class="ri-home-line"></i></a><span class="sep">/</span><a href="{{ route('screening.index') }}" wire:navigate>Screening</a><span class="sep">/</span><span>Form</span></div></div>
+            <div class="page-header">
+                <div class="page-header-title">
+                    <div class="page-header-icon"><i class="ri-shield-check-line"></i></div>
+                    <h1>Form Screening</h1>
+                </div>
+                <div class="page-header-breadcrumb">
+                    <a href="/dashboard" wire:navigate class="hover:text-[#405189] transition-colors"><i class="ri-home-4-line"></i></a>
+                    <span class="sep text-gray-300">/</span>
+                    <a href="{{ route('screening.index') }}" wire:navigate class="text-gray-400 font-medium hover:text-[#405189] transition-colors">Screening</a>
+                    <span class="sep text-gray-300">/</span>
+                    <span class="text-[#405189] font-bold">Form</span>
+                </div>
+            </div>
 
             <div class="max-w-4xl mx-auto">
                 <!-- Patient Info Card -->

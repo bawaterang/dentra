@@ -261,7 +261,7 @@ class InformasiPage extends Component
                 <div class="page-header-breadcrumb">
                     <a href="/dashboard" wire:navigate class="hover:text-[#405189] transition-colors"><i class="ri-home-4-line"></i></a>
                     <span class="sep text-gray-300">/</span>
-                    <span class="text-gray-400 font-medium">Setting</span>
+                    <span class="text-gray-400 font-medium">Pengaturan</span>
                     <span class="sep text-gray-300">/</span>
                     <span class="text-[#405189] font-bold">Informasi</span>
                 </div>

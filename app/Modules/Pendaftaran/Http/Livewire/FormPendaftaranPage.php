@@ -351,7 +351,24 @@ class FormPendaftaranPage extends Component
 
         return <<<'HTML'
         <div>
-            <div class="page-header"><div class="page-header-title"><div class="page-header-icon"><i class="ri-file-add-line"></i></div><h1>Form Pendaftaran</h1></div><div class="page-header-breadcrumb"><a href="/dashboard" wire:navigate><i class="ri-home-line"></i></a><span class="sep">/</span><a href="{{ route('pendaftaran.index') }}" wire:navigate>Pendaftaran</a><span class="sep">/</span><span>Buat Baru</span></div></div>
+            <div class="page-header">
+                <div class="page-header-title">
+                    <div class="page-header-icon bg-gradient-to-br from-[#405189] to-[#2a3a6a] text-white shadow-lg animate-pulse" style="animation-duration: 3s;">
+                        <i class="ri-file-add-line"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-xl font-bold tracking-tight text-[#2c3e50]">Form Pendaftaran</h1>
+                        <p class="text-xs text-[#878a99] font-medium mt-0.5">Formulir pendaftaran pasien untuk mendapatkan layanan kesehatan.</p>
+                    </div>
+                </div>
+                <div class="page-header-breadcrumb">
+                    <a href="/dashboard" wire:navigate class="hover:text-[#405189] transition-colors"><i class="ri-home-4-line"></i></a>
+                    <span class="sep text-gray-300">/</span>
+                    <a href="{{ route('pendaftaran.index') }}" wire:navigate class="hover:text-[#405189] transition-colors text-gray-400 font-medium">Pendaftaran</a>
+                    <span class="sep text-gray-300">/</span>
+                    <span class="text-[#405189] font-bold">Buat Baru</span>
+                </div>
+            </div>
 
             <div class="max-w-4xl mx-auto">
                 <form wire:submit.prevent="save">

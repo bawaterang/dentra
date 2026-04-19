@@ -308,15 +308,20 @@ class SettingAntrianPage extends Component
         <div>
             <div class="page-header">
                 <div class="page-header-title">
-                    <div class="page-header-icon"><i class="ri-settings-4-line"></i></div>
-                    <h1>Setting Antrian</h1>
+                    <div class="page-header-icon bg-gradient-to-br from-[#405189] to-[#2a3a6a] text-white shadow-lg animate-pulse" style="animation-duration: 3s;">
+                        <i class="ri-settings-4-line"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-xl font-bold tracking-tight text-[#2c3e50]">Pengaturan Antrian</h1>
+                        <p class="text-xs text-[#878a99] font-medium mt-0.5">Konfigurasi parameter sistem antrian, jam operasional, dan hari libur.</p>
+                    </div>
                 </div>
                 <div class="page-header-breadcrumb">
-                    <a href="/dashboard" wire:navigate><i class="ri-home-line"></i></a>
-                    <span class="sep">/</span>
-                    <a href="/antrian" wire:navigate>Antrian</a>
-                    <span class="sep">/</span>
-                    <span>Setting</span>
+                    <a href="/dashboard" wire:navigate class="hover:text-[#405189] transition-colors"><i class="ri-home-4-line"></i></a>
+                    <span class="sep text-gray-300">/</span>
+                    <a href="/antrian" wire:navigate class="hover:text-[#405189] transition-colors text-gray-400 font-medium">Antrian</a>
+                    <span class="sep text-gray-300">/</span>
+                    <span class="text-[#405189] font-bold">Pengaturan</span>
                 </div>
             </div>
 
