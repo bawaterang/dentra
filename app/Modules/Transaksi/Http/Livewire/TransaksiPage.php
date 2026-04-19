@@ -1936,6 +1936,29 @@ class TransaksiPage extends Component
                             </div>
                             </div> <!-- End Odontogram scroll wrapper -->
 
+                            <!-- Odontogram Legend -->
+                            <div class="mt-4 px-4 sm:px-5 lg:px-6 pb-6 border-t border-gray-100 pt-6">
+                                <h6 class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                    <i class="ri-information-fill text-indigo-500 text-sm"></i> Legenda Kondisi Gigi
+                                </h6>
+                                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">
+                                    <div class="flex items-center gap-3 p-2.5 rounded-2xl bg-gray-50/50 border border-gray-100/50 shadow-sm hover:shadow-md hover:bg-white hover:border-indigo-100 transition-all duration-300 group">
+                                        <div class="w-5 h-5 rounded-lg shadow-sm border border-black/5 flex-none transition-transform group-hover:scale-110 bg-white"></div>
+                                        <div class="min-w-0">
+                                            <span class="block text-[11px] font-bold text-gray-700 truncate leading-tight group-hover:text-indigo-600 transition-colors">Normal / Sehat</span>
+                                        </div>
+                                    </div>
+                                    @foreach($kategoriGigiOptions as $kat)
+                                        <div class="flex items-center gap-3 p-2.5 rounded-2xl bg-gray-50/50 border border-gray-100/50 shadow-sm hover:shadow-md hover:bg-white hover:border-indigo-100 transition-all duration-300 group">
+                                            <div class="w-5 h-5 rounded-lg shadow-sm border border-black/5 flex-none transition-transform group-hover:scale-110" style="background-color: {{ $kat->warna ?? '#ccc' }}"></div>
+                                            <div class="min-w-0">
+                                                <span class="block text-[11px] font-bold text-gray-700 truncate leading-tight group-hover:text-indigo-600 transition-colors">{{ $kat->nama_kategori }}</span>
+                                            </div>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            </div>
+
                             <!-- Save Odontogram Button -->
                             <div class="flex justify-end pt-4 mt-4 border-t border-gray-100 px-4 sm:px-5 lg:px-6 pb-4 mb-4">
                                 <button type="button" wire:click="saveOdontogram" wire:loading.attr="disabled" class="btn bg-[#0d6efd] text-white px-8 h-10 shadow-md flex items-center justify-center gap-2 transition-all hover:bg-[#0b5ed7] hover:translate-y-[-2px] disabled:opacity-70 disabled:cursor-not-allowed">
