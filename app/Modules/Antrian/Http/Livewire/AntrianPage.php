@@ -587,52 +587,53 @@ class AntrianPage extends Component
                                             
                                             <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
                                                 @foreach($items as $item)
-                                                    <div class="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm hover:shadow-lg transition-all duration-300 group relative overflow-hidden flex flex-col">
-                                                         @php 
-                                                            $statusColorsList = ['menunggu'=>'bg-warning-subtle text-amber-600','dipanggil'=>'bg-primary-subtle text-[#405189]','hadir'=>'bg-success-subtle text-emerald-600','tidak_hadir'=>'bg-danger-subtle text-rose-600','batal'=>'bg-secondary-subtle text-gray-600','selesai'=>'bg-success-subtle text-emerald-600']; 
-                                                            $borderColors = ['menunggu'=>'bg-amber-500','dipanggil'=>'bg-[#405189]','hadir'=>'bg-emerald-500','tidak_hadir'=>'bg-rose-500','batal'=>'bg-gray-400','selesai'=>'bg-emerald-500'];
-                                                         @endphp
-                                                         <div class="absolute left-0 top-0 bottom-0 w-1.5 {{ $borderColors[$item->status] ?? 'bg-gray-300' }}"></div>
-                                                         
-                                                         <div class="flex justify-between items-start mb-3 pl-2">
-                                                              <div class="flex items-center gap-2">
-                                                                 <span class="inline-flex items-center justify-center h-8 px-2.5 rounded-lg bg-gray-100 text-gray-700 font-bold text-sm">{{ $item->nomor_antrian }}</span>
-                                                                 @if($item->jenis_antrian === 'online')
-                                                                     <span class="px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest bg-info-subtle text-info border border-info/10"><i class="ri-global-line mr-0.5"></i>Online</span>
-                                                                 @elseif($item->jenis_antrian === 'mobile_jkn')
-                                                                     <span class="px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest bg-purple-100 text-purple-600 border border-purple-200"><i class="ri-smartphone-line mr-0.5"></i>JKN</span>
-                                                                 @else
-                                                                     <span class="px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest bg-gray-100 text-gray-500 border border-gray-200">Offline</span>
-                                                                 @endif
-                                                              </div>
-                                                              <span class="px-2.5 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1.5 {{ $statusColorsList[$item->status] ?? 'bg-secondary-subtle' }}">
-                                                                  <span class="h-1.5 w-1.5 rounded-full {{ str_contains($borderColors[$item->status] ?? '', '#405189') ? 'bg-current animate-ping' : 'bg-current' }}"></span>
-                                                                  {{ ucfirst(str_replace('_',' ',$item->status)) }}
-                                                              </span>
-                                                         </div>
-                                                         <div class="mb-4 pl-2 flex-grow">
-                                                              <h5 class="text-base font-black text-[#2c3e50] mb-1 leading-tight">{{ $item->pasien?->nama_pasien ?? $item->nama_pasien_input_manual ?? '-' }}</h5>
-                                                              @if($item->pasien_id)
-                                                                <div class="text-[11px] font-mono text-gray-400">RM: {{ $item->pasien?->no_rm }}</div>
-                                                              @else
-                                                                <div class="text-[10px] text-orange-500 font-bold"><i class="ri-alert-line mr-0.5"></i>Belum sinkron</div>
-                                                              @endif
-                                                         </div>
-                                                         
-                                                         <div class="pt-3 border-t border-gray-50 pl-2">
-                                                              <div class="flex items-center gap-3">
-                                                                  <div class="h-8 w-8 rounded-full bg-blue-50 text-blue-500 flex items-center justify-center shrink-0">
-                                                                      <i class="ri-stethoscope-line text-lg"></i>
-                                                                  </div>
-                                                                  <div>
-                                                                      <p class="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{{ $item->poli?->nama_poli ?? $item->kode_poli ?? '-' }}</p>
-                                                                      <p class="text-xs text-[#405189] font-semibold">{{ $item->dokter?->nama_dokter ?? 'Belum terhubung dokter' }}</p>
-                                                                  </div>
-                                                              </div>
-                                                         </div>
-                                                         
-                                                         <!-- Hover Actions Overlay -->
-                                                         <div class="absolute inset-0 bg-white rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-2 z-10">
+                                                     <div class="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm hover:shadow-lg transition-all duration-300 group relative overflow-hidden flex flex-col" style="{{ $item->dokter?->color ? 'background-color: ' . $item->dokter->color . '08;' : '' }}">
+                                                          @php 
+                                                             $statusColorsList = ['menunggu'=>'bg-warning-subtle text-amber-600','dipanggil'=>'bg-primary-subtle text-[#405189]','hadir'=>'bg-success-subtle text-emerald-600','tidak_hadir'=>'bg-danger-subtle text-rose-600','batal'=>'bg-secondary-subtle text-gray-600','selesai'=>'bg-success-subtle text-emerald-600']; 
+                                                             $borderColors = ['menunggu'=>'bg-amber-500','dipanggil'=>'bg-[#405189]','hadir'=>'bg-emerald-500','tidak_hadir'=>'bg-rose-500','batal'=>'bg-gray-400','selesai'=>'bg-emerald-500'];
+                                                             $doctorColor = $item->dokter?->color ?? '#405189';
+                                                          @endphp
+                                                          <div class="absolute left-0 top-0 bottom-0 w-1.5" style="background-color: {{ $doctorColor }}"></div>
+                                                          
+                                                          <div class="flex justify-between items-start mb-3 pl-2">
+                                                               <div class="flex items-center gap-2">
+                                                                  <span class="inline-flex items-center justify-center h-8 px-2.5 rounded-lg bg-gray-100 text-gray-700 font-bold text-sm">{{ $item->nomor_antrian }}</span>
+                                                                  @if($item->jenis_antrian === 'online')
+                                                                      <span class="px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest bg-info-subtle text-info border border-info/10"><i class="ri-global-line mr-0.5"></i>Online</span>
+                                                                  @elseif($item->jenis_antrian === 'mobile_jkn')
+                                                                      <span class="px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest bg-purple-100 text-purple-600 border border-purple-200"><i class="ri-smartphone-line mr-0.5"></i>JKN</span>
+                                                                  @else
+                                                                      <span class="px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest bg-gray-100 text-gray-500 border border-gray-200">Offline</span>
+                                                                  @endif
+                                                               </div>
+                                                               <span class="px-2.5 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1.5 {{ $statusColorsList[$item->status] ?? 'bg-secondary-subtle' }}">
+                                                                   <span class="h-1.5 w-1.5 rounded-full {{ str_contains($borderColors[$item->status] ?? '', '#405189') ? 'bg-current animate-ping' : 'bg-current' }}"></span>
+                                                                   {{ ucfirst(str_replace('_',' ',$item->status)) }}
+                                                               </span>
+                                                          </div>
+                                                          <div class="mb-4 pl-2 flex-grow">
+                                                               <h5 class="text-base font-black text-[#2c3e50] mb-1 leading-tight">{{ $item->pasien?->nama_pasien ?? $item->nama_pasien_input_manual ?? '-' }}</h5>
+                                                               @if($item->pasien_id)
+                                                                 <div class="text-[11px] font-mono text-gray-400">RM: {{ $item->pasien?->no_rm }}</div>
+                                                               @else
+                                                                 <div class="text-[10px] text-orange-500 font-bold"><i class="ri-alert-line mr-0.5"></i>Belum sinkron</div>
+                                                               @endif
+                                                          </div>
+                                                          
+                                                          <div class="pt-3 border-t border-gray-50 pl-2">
+                                                               <div class="flex items-center gap-3">
+                                                                   <div class="h-8 w-8 rounded-full flex items-center justify-center shrink-0" style="background-color: {{ $doctorColor }}15; color: {{ $doctorColor }}">
+                                                                       <i class="ri-stethoscope-line text-lg"></i>
+                                                                   </div>
+                                                                   <div>
+                                                                       <p class="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{{ $item->poli?->nama_poli ?? $item->kode_poli ?? '-' }}</p>
+                                                                       <p class="text-xs font-semibold" style="color: {{ $doctorColor }}">{{ $item->dokter?->nama_dokter ?? 'Belum terhubung dokter' }}</p>
+                                                                   </div>
+                                                               </div>
+                                                          </div>
+                                                          
+                                                          <!-- Hover Actions Overlay -->
+                                                          <div class="absolute inset-0 bg-white rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-2 z-10">
                                                               <a href="{{ route('antrian.cetak', $item->id) }}" target="_blank" class="w-10 h-10 rounded-full flex items-center justify-center bg-indigo-50 text-[#405189] hover:bg-[#405189] hover:text-white hover:-translate-y-1 transition-all shadow-sm" title="Cetak Tiket"><i class="ri-printer-line text-lg"></i></a>
                                                               @if(in_array($item->status, ['menunggu','dipanggil']))
                                                                   <button wire:click="editAntrian({{ $item->id }})" class="w-10 h-10 rounded-full flex items-center justify-center bg-orange-50 text-orange-500 hover:bg-orange-500 hover:text-white hover:-translate-y-1 transition-all shadow-sm" title="Edit"><i class="ri-edit-line text-lg"></i></button>
