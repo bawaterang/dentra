@@ -187,13 +187,20 @@ class ScreeningPage extends Component
             </style>
             <div class="page-header">
                 <div class="page-header-title">
-                    <div class="page-header-icon"><i class="ri-shield-check-line"></i></div>
-                    <h1>Screening Pasien</h1>
+                    <div class="page-header-icon bg-gradient-to-br from-[#405189] to-[#2a3a6a] text-white shadow-lg animate-pulse" style="animation-duration: 3s;">
+                        <i class="ri-shield-check-line"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-xl font-bold tracking-tight text-[#2c3e50]">Screening Pasien</h1>
+                        <p class="text-xs text-[#878a99] font-medium mt-0.5">Data hasil screening kesehatan awal pasien sebelum pemeriksaan.</p>
+                    </div>
                 </div>
                 <div class="page-header-breadcrumb">
                     <a href="/dashboard" wire:navigate class="hover:text-[#405189] transition-colors"><i class="ri-home-4-line"></i></a>
                     <span class="sep text-gray-300">/</span>
-                    <span class="text-[#405189] font-bold">Screening</span>
+                    <span class="text-gray-400 font-medium">Screening</span>
+                    <span class="sep text-gray-300">/</span>
+                    <span class="text-[#405189] font-bold">Layanan Screening</span>
                 </div>
             </div>
 

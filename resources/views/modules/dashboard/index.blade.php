@@ -2,27 +2,22 @@
     {{-- ══════════════════════════════════════════════════ --}}
     {{-- PAGE HEADER --}}
     {{-- ══════════════════════════════════════════════════ --}}
-    <div class="page-header">
+    <div class="page-header mb-8">
         <div class="page-header-title">
-            <div class="page-header-icon">
-                <i class="ri-dashboard-line"></i>
+            <div class="page-header-icon bg-gradient-to-br from-[#405189] to-[#2a3a6a] text-white shadow-lg animate-pulse" style="animation-duration: 3s;">
+                <i class="ri-dashboard-2-line"></i>
             </div>
-            <h1>Dashboard</h1>
+            <div>
+                <h1 class="text-xl font-bold tracking-tight text-[#2c3e50]">Dashboard Utama</h1>
+                <p class="text-xs text-[#878a99] font-medium mt-0.5">Ringkasan data operasional dan statistik klinik hari ini.</p>
+            </div>
         </div>
         <div class="page-header-breadcrumb">
-            <a href="{{ route('dashboard.index') }}">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
-                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <rect x="3" y="3" width="7" height="7" />
-                    <rect x="14" y="3" width="7" height="7" />
-                    <rect x="14" y="14" width="7" height="7" />
-                    <rect x="3" y="14" width="7" height="7" />
-                </svg>
-            </a>
-            <span class="sep">/</span>
-            <a href="#">SIGI Dental EMR</a>
-            <span class="sep">/</span>
-            <span>Dashboard</span>
+            <a href="/dashboard" wire:navigate class="hover:text-[#405189] transition-colors"><i class="ri-home-4-line"></i></a>
+            <span class="sep text-gray-300">/</span>
+            <span class="text-gray-400 font-medium">Dashboard</span>
+            <span class="sep text-gray-300">/</span>
+            <span class="text-[#405189] font-bold">Ringkasan</span>
         </div>
     </div>
 

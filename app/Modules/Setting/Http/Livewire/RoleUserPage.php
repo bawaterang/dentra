@@ -223,10 +223,13 @@ class RoleUserPage extends Component
             
             <div class="page-header">
                 <div class="page-header-title">
-                    <div class="page-header-icon">
+                    <div class="page-header-icon bg-gradient-to-br from-[#405189] to-[#2a3a6a] text-white shadow-lg animate-pulse" style="animation-duration: 3s;">
                         <i class="ri-shield-user-line"></i>
                     </div>
-                    <h1>Role User & Akses</h1>
+                    <div>
+                        <h1 class="text-xl font-bold tracking-tight text-[#2c3e50]">Role & Hak Akses</h1>
+                        <p class="text-xs text-[#878a99] font-medium mt-0.5">Definisikan peran pengguna dan batasan hak akses fitur sistem.</p>
+                    </div>
                 </div>
                 <div class="page-header-breadcrumb">
                     <a href="/dashboard" wire:navigate class="hover:text-[#405189] transition-colors"><i class="ri-home-4-line"></i></a>

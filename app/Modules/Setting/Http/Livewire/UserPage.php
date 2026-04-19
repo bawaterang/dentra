@@ -263,10 +263,13 @@ class UserPage extends Component
             
             <div class="page-header">
                 <div class="page-header-title">
-                    <div class="page-header-icon">
+                    <div class="page-header-icon bg-gradient-to-br from-[#405189] to-[#2a3a6a] text-white shadow-lg animate-pulse" style="animation-duration: 3s;">
                         <i class="ri-user-settings-line"></i>
                     </div>
-                    <h1>Setting User</h1>
+                    <div>
+                        <h1 class="text-xl font-bold tracking-tight text-[#2c3e50]">Data User & Hak Akses</h1>
+                        <p class="text-xs text-[#878a99] font-medium mt-0.5">Kelola data pengguna sistem dan pengaturan akun login.</p>
+                    </div>
                 </div>
                 <div class="page-header-breadcrumb">
                     <a href="/dashboard" wire:navigate class="hover:text-[#405189] transition-colors"><i class="ri-home-4-line"></i></a>
