@@ -16,6 +16,7 @@ class SettingApiPage extends Component
     public $bpjs_kd_aplikasi;
     public $bpjs_user_key;
     public $bpjs_base_url;
+    public $bpjs_bridging = false;
 
     // SATUSEHAT
     public $ss_client_id;
@@ -41,6 +42,7 @@ class SettingApiPage extends Component
             $this->bpjs_kd_aplikasi = $bpjs->kd_aplikasi;
             $this->bpjs_user_key = $bpjs->user_key;
             $this->bpjs_base_url = $bpjs->base_url;
+            $this->bpjs_bridging = ($bpjs->bridging === 'ON');
         }
 
         $ss = MstSettingSatusehat::first();
@@ -103,6 +105,7 @@ class SettingApiPage extends Component
             'kd_aplikasi' => $this->bpjs_kd_aplikasi,
             'user_key' => $this->bpjs_user_key,
             'base_url' => $this->bpjs_base_url,
+            'bridging' => $this->bpjs_bridging ? 'ON' : 'OFF',
         ]);
         $bpjs->save();
 

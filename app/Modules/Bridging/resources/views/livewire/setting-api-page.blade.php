@@ -16,10 +16,19 @@
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
         <!-- BPJS Configuration -->
         <div class="card shadow-sm rounded-xl border-t-4 border-[#0d6efd] overflow-hidden">
-            <div class="p-5 border-b border-gray-100 flex items-center justify-between bg-[#f3f6f9]/50">
-                <h5 class="text-sm font-extrabold text-[#495057] m-0 uppercase tracking-wider">
+            <div class="p-5 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#f3f6f9]/50">
+                <h5 class="text-sm font-extrabold text-[#495057] m-0 uppercase tracking-wider flex items-center">
                     <i class="ri-shield-user-line mr-2 text-[#0d6efd] text-lg"></i> Konfigurasi BPJS (V-Claim / P-Care)
                 </h5>
+                <div class="flex items-center justify-between sm:justify-start gap-3 bg-white px-4 py-2 rounded-xl sm:rounded-full border border-gray-100 shadow-sm transition-all duration-300 w-full sm:w-auto">
+                    <span class="text-[10px] font-bold {{ $bpjs_bridging ? 'text-[#0d6efd]' : 'text-gray-400' }} uppercase tracking-widest transition-colors duration-300">
+                        Bridging: <span class="ml-1">{{ $bpjs_bridging ? 'ON' : 'OFF' }}</span>
+                    </span>
+                    <label class="relative inline-flex items-center cursor-pointer group">
+                        <input type="checkbox" wire:model.live="bpjs_bridging" class="sr-only peer">
+                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#0d6efd] shadow-inner transition-all duration-300"></div>
+                    </label>
+                </div>
             </div>
             <form wire:submit.prevent="saveBpjs">
                 <div class="p-6 space-y-5">
@@ -73,7 +82,7 @@
 
         <!-- SATUSEHAT Configuration -->
         <div class="card shadow-sm rounded-xl border-t-4 border-[#0ab39c] overflow-hidden">
-            <div class="p-5 border-b border-gray-100 flex items-center justify-between bg-[#f3f6f9]/50">
+            <div class="p-5 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#f3f6f9]/50">
                 <h5 class="text-sm font-extrabold text-[#495057] m-0 uppercase tracking-wider">
                     <i class="ri-heart-pulse-line mr-2 text-[#0ab39c] text-lg"></i> Konfigurasi SATUSEHAT (Kemenkes)
                 </h5>
