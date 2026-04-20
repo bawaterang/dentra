@@ -3,14 +3,21 @@
 namespace App\Modules\Setting\Http\Livewire;
 
 use Livewire\Component;
+use Livewire\WithPagination;
+use Livewire\Attributes\Computed;
 use App\Models\MstRoleUser;
 use App\Models\User;
+use Illuminate\Support\Facades\Storage;
+
 
 class RoleUserPage extends Component
 {
+    use WithPagination;
+
     public $activeTab = 'roles'; // 'roles' or 'mapping'
 
     // Form Properties - Role
+
     public $roleId;
     public $nama_role, $deskripsi;
     public $is_active = true;
@@ -21,9 +28,41 @@ class RoleUserPage extends Component
     public $mappedUsers = [];
 
     public $isEdit = false;
-
-    // View Properties
+    public $search = '';
     public $selectedStatus = 'all';
+
+    protected $queryString = ['search', 'selectedStatus', 'activeTab'];
+
+    #[Computed]
+    public function roleList()
+    {
+        $query = MstRoleUser::withCount('users');
+
+        if ($this->selectedStatus === 'Aktif') {
+            $query->where('is_active', true);
+        } elseif ($this->selectedStatus === 'Tidak Aktif') {
+            $query->where('is_active', false);
+        }
+
+        if (! empty($this->search)) {
+            $query->where(function ($q) {
+                $q->where('nama_role', 'like', '%'.$this->search.'%')
+                    ->orWhere('deskripsi', 'like', '%'.$this->search.'%');
+            });
+        }
+
+        return $query->orderBy('nama_role')->paginate(10);
+    }
+
+    public function updatedSearch()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedSelectedStatus()
+    {
+        $this->resetPage();
+    }
 
     // View data as public properties
     public $roles = [];
@@ -47,8 +86,9 @@ class RoleUserPage extends Component
     public function setStatus($status)
     {
         $this->selectedStatus = $status;
-        $this->dispatch('refresh-table');
+        $this->resetPage();
     }
+
 
     public function updatedSelectedRoleId($value)
     {
@@ -68,8 +108,8 @@ class RoleUserPage extends Component
     public function switchTab($tab)
     {
         $this->activeTab = $tab;
-        $this->dispatch('refresh-table');
     }
+
 
     // --- Role Management Methods ---
     
@@ -117,9 +157,9 @@ class RoleUserPage extends Component
             $role->save();
 
             $this->dispatch('close-role-modal');
-            $this->dispatch('refresh-table');
             $this->dispatch('alert', ['type' => 'success', 'message' => $this->isEdit ? 'Role berhasil diperbarui!' : 'Role baru berhasil ditambahkan!']);
             $this->resetRoleForm();
+
         } catch (\Illuminate\Validation\ValidationException $e) {
             $this->dispatch('alert', ['type' => 'error', 'message' => 'Simpan Gagal: Data tidak valid.']);
             throw $e;
@@ -139,9 +179,9 @@ class RoleUserPage extends Component
         }
 
         $role->delete();
-        $this->dispatch('refresh-table');
         $this->dispatch('alert', ['type' => 'success', 'message' => 'Role berhasil dihapus!']);
     }
+
 
     // --- Mapping Methods ---
     
@@ -166,16 +206,6 @@ class RoleUserPage extends Component
 
     public function render()
     {
-        // For Roles Tab Data
-        $query = MstRoleUser::withCount('users');
-        if ($this->selectedStatus === 'Aktif') {
-            $query->where('is_active', true);
-        } elseif ($this->selectedStatus === 'Tidak Aktif') {
-            $query->where('is_active', false);
-        }
-
-        $this->roles = $query->get();
-
         // For Mapping Tab Data
         $this->allRoles = MstRoleUser::where('is_active', true)->get();
         $this->listUsers = User::where('is_active', true)->orderBy('full_name')->get();
@@ -186,40 +216,78 @@ class RoleUserPage extends Component
         $this->inactiveRolesCount = MstRoleUser::where('is_active', false)->count();
 
         return <<<'HTML'
-        <div x-data="{ 
-            showRoleModal: false,
-            initDataTable() {
-                const t='#roleTable';
-                if($.fn.DataTable.isDataTable(t)){$(t).DataTable().destroy()}
-                if($(t).length) {
-                    const tb=$(t).DataTable({
-                        scrollX:false,
-                        dom:'lrtip',
-                        language:{
-                            lengthMenu:'_MENU_',
-                            info:'Menampilkan _START_ sampai _END_ dari _TOTAL_ data',
-                            infoEmpty:'Menampilkan 0 sampai 0 dari 0 data',
-                            infoFiltered:'(disaring dari total _MAX_ data)',
-                            zeroRecords:'Tidak ada data yang ditemukan',
-                            emptyTable:'Tidak ada data dalam tabel',
-                            paginate:{
-                                previous:'<i class=ri-arrow-left-s-line></i>',
-                                next:'<i class=ri-arrow-right-s-line></i>'
-                            }
-                        }
-                    });
-                    $('#customSearchRole').off('keyup').on('keyup',function(){tb.search(this.value).draw()})
+        <div x-data="{ showRoleModal: false, init(){this.$watch('showRoleModal',v=>{if(v){$nextTick(()=>{this.$refs.roleInput&&this.$refs.roleInput.focus()})}})} }" @open-role-modal.window="showRoleModal=true" @close-role-modal.window="showRoleModal=false" x-init="init()">
+            <style>
+                .glass-header {
+                    background: rgba(255, 255, 255, 0.8) !important;
+                    backdrop-filter: blur(8px);
+                    -webkit-backdrop-filter: blur(8px);
                 }
-            },
-            init(){
-                this.$watch('showRoleModal',v=>{ if(v){$nextTick(()=>{this.$refs.roleInput&&this.$refs.roleInput.focus()})} $nextTick(()=>this.initDataTable())}); 
-                $nextTick(()=>this.initDataTable())
-            } 
-        }" 
-        @open-role-modal.window="showRoleModal = true" 
-        @close-role-modal.window="showRoleModal = false"
-        @refresh-table.window="$nextTick(()=>initDataTable())"
-        x-init="initDataTable()">
+                .role-row:hover {
+                    background-color: #d8dce1ff !important;
+                    transition: all 0.3s ease;
+                }
+                .action-btn-soft {
+                    width: 32px;
+                    height: 32px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    border-radius: 50%;
+                    transition: all 0.2s ease;
+                }
+                .search-focus-glow:focus {
+                    box-shadow: 0 0 0 4px rgba(64, 81, 137, 0.15);
+                    border-color: #f6f7fbff;
+                }
+                .pagination-custom nav span.relative.z-0 { 
+                    display: flex !important; 
+                    gap: 4px !important; 
+                    flex-wrap: wrap !important;
+                    justify-content: center !important;
+                }
+                .pagination-custom nav a, 
+                .pagination-custom nav span[aria-disabled="true"] span,
+                .pagination-custom nav span[aria-current="page"] span {
+                    display: inline-flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                    min-width: 38px !important;
+                    height: 38px !important;
+                    padding: 0 12px !important;
+                    border-radius: 8px !important;
+                    border: 1px solid #767070ff !important;
+                    font-size: 13px !important;
+                    font-weight: 700 !important;
+                    transition: all 0.2s ease-in-out !important;
+                    background-color: #ffffff !important;
+                    color: #475569 !important;
+                    text-decoration: none !important;
+                }
+                .pagination-custom nav a:hover {
+                    background-color: #f1f5f9 !important;
+                    border-color: #405189 !important;
+                    color: #405189 !important;
+                    transform: translateY(-1px) !important;
+                }
+                .pagination-custom nav p.text-sm {
+                    display: none !important;
+                }
+                .pagination-custom nav > div:last-child > div:first-child {
+                    display: none !important;
+                }
+                .pagination-custom [aria-current="page"], 
+                .pagination-custom [aria-current="page"] *,
+                .pagination-custom .active,
+                .pagination-custom .active * {
+                    background-color: #405189 !important;
+                    color: #ffffff !important;
+                    border-color: #405189 !important;
+                    box-shadow: 0 4px 10px rgba(64, 81, 137, 0.3) !important;
+                    z-index: 10 !important;
+                }
+            </style>
+
             
             <div class="page-header">
                 <div class="page-header-title">
@@ -328,100 +396,111 @@ class RoleUserPage extends Component
                             </ul>
                         </div>
                         
-                        <div class="flex flex-wrap items-center gap-3 justify-start lg:justify-end">
-                            <div class="relative flex-grow md:flex-none">
-                                <input type="text" id="customSearchRole" class="h-10 w-full md:w-64 rounded-lg border border-[#e9ecef] pl-10 pr-4 text-sm outline-none focus:border-[#405189] focus:bg-white transition-all placeholder:text-[#adb5bd]" placeholder="Cari nama role...">
-                                <i class="ri-search-line absolute left-3.5 top-1/2 -translate-y-1/2 text-[#878a99] text-base"></i>
+                        <div class="flex flex-wrap items-center gap-4 w-full lg:w-auto">
+                            <div class="relative flex-grow min-w-[280px]">
+                                <i class="ri-search-2-line absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg group-focus-within:text-[#405189]"></i>
+                                <input type="text" wire:model.live.debounce.300ms="search" 
+                                       class="w-full bg-gray-50/50 border border-gray-200 rounded-2xl py-2.5 pl-12 pr-4 text-sm font-medium outline-none transition-all search-focus-glow placeholder:text-gray-300" 
+                                       placeholder="Cari nama role atau deskripsi...">
                             </div>
 
-                            <!-- Export Group -->
-                            <div class="flex items-center gap-1.5 p-1 rounded-lg border border-[#e9ecef]">
-                                <a href="{{ route('setting.role_user.print', ['status' => $selectedStatus]) }}" target="_blank" class="h-8 w-8 rounded-md flex items-center justify-center text-indigo-500 hover:bg-indigo-50 hover:shadow-sm transition-all" title="Cetak PDF">
-                                    <i class="ri-printer-line text-lg"></i>
-                                </a>
-                                <div class="w-[1px] h-4 bg-[#e9ecef]"></div>
-                                <a href="{{ route('setting.role_user.export', ['status' => $selectedStatus]) }}" target="_blank" class="h-8 w-8 rounded-md flex items-center justify-center text-emerald-500 hover:bg-emerald-50 hover:shadow-sm transition-all" title="Unduh Excel">
-                                    <i class="ri-file-excel-2-line text-lg"></i>
-                                </a>
-                            </div>
-
-                            <div class="hidden lg:block h-6 w-[1px] bg-[#e9ecef] mx-1"></div>
-
-                            <button wire:click="createRole" class="btn btn-primary h-10 px-5 shadow-sm flex items-center justify-center gap-2 transition-all hover:translate-y-[-2px] hover:shadow-lg active:scale-95 w-full sm:w-auto">
-                                <i class="ri-add-line text-lg"></i><span class="font-semibold text-xs uppercase tracking-wider">Tambah Role</span>
+                            <button wire:click="createRole" class="btn btn-primary h-10 px-6 shadow-sm flex items-center justify-center gap-2 transition-all hover:translate-y-[-2px] hover:shadow-lg active:scale-95 w-full lg:w-auto">
+                                <i class="ri-add-line text-xl"></i>
+                                <span class="font-bold text-xs uppercase tracking-wider">Tambah Role</span>
                             </button>
                         </div>
+
                     </div>
                 </div>
 
-                <div class="card-body p-0">
-                    <div class="table-responsive">
-                        <table id="roleTable" class="table align-middle table-nowrap mb-0 w-full">
-                            <thead class="table-light text-muted">
-                                <tr>
-                                    <th width="5%">No</th>
-                                    <th class="font-semibold text-xs uppercase tracking-wider">Nama Role</th>
-                                    <th class="font-semibold text-xs uppercase tracking-wider">Deskripsi</th>
-                                    <th class="font-semibold text-xs uppercase tracking-wider">Status</th>
-                                    <th class="font-semibold text-xs uppercase tracking-wider">Pengguna Terhubung</th>
-                                    <th class="font-semibold text-xs uppercase tracking-wider !text-center">Aksi</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach($roles as $index => $role)
-                                <tr wire:key="role-row-{{ $role->id }}" class="hover:bg-gray-50/50 transition-colors">
-                                    <td>{{ $index + 1 }}</td>
-                                    <td>
-                                        <div class="flex items-center gap-2">
-                                            <div class="h-8 w-8 rounded-lg bg-[#405189]/10 text-[#405189] flex items-center justify-center"><i class="ri-shield-user-fill"></i></div>
-                                            <span class="text-sm font-bold text-[#495057]">{{ $role->nama_role }}</span>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-gray-50/50">
+                                <th class="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-50">Nama Role</th>
+                                <th class="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-50">Deskripsi</th>
+                                <th class="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-50 text-center">Status</th>
+                                <th class="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-50 text-center">Anggota</th>
+                                <th class="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-50 text-center">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-50">
+                            @forelse($this->roleList as $role)
+                            <tr wire:key="role-row-{{ $role->id }}" class="role-row transition-all duration-200">
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="flex items-center gap-3">
+                                        <div class="h-9 w-9 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center shadow-inner">
+                                            <i class="ri-shield-user-fill text-lg"></i>
                                         </div>
-                                    </td>
-                                    <td><span class="text-sm text-gray-500 whitespace-normal line-clamp-2 max-w-xs">{{ $role->deskripsi ?? '-' }}</span></td>
-                                    <td>
-                                        @if($role->is_active)
-                                            <span class="badge bg-success-subtle text-success">Aktif</span>
-                                        @else
-                                            <span class="badge bg-danger-subtle text-danger">Nonaktif</span>
-                                        @endif
-                                    </td>
-                                    <td>
-                                        <span class="badge bg-info-subtle text-info border border-info-subtle px-2.5 py-1 text-xs">
-                                            <i class="ri-group-line mr-1"></i> {{ $role->users_count }} Users
+                                        <span class="font-bold text-[#405189] text-sm">{{ $role->nama_role }}</span>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4">
+                                    <span class="text-xs text-gray-500 whitespace-normal line-clamp-2 max-w-xs">{{ $role->deskripsi ?? '-' }}</span>
+                                </td>
+                                <td class="px-6 py-4 text-center whitespace-nowrap">
+                                    @if($role->is_active)
+                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-600 text-[9px] font-black uppercase tracking-widest border border-emerald-100">
+                                            <span class="h-1 w-1 rounded-full bg-emerald-500"></span> Aktif
                                         </span>
-                                    </td>
-                                    <td class="text-center">
-                                        <div class="flex justify-center gap-2">
-                                            <button wire:click="editRole({{ $role->id }})" class="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white transition-all shadow-sm" title="Edit">
-                                                <i class="ri-edit-line"></i>
-                                            </button>
-                                            <button @click="
-                                                Swal.fire({
-                                                    title: 'Hapus Role?',
-                                                    text: 'Tindakan ini permanen. Pastikan tidak ada user yang terhubung.',
-                                                    icon: 'warning',
-                                                    showCancelButton: true,
-                                                    confirmButtonColor: '#f06548',
-                                                    cancelButtonColor: '#6c757d',
-                                                    confirmButtonText: 'Ya, Hapus!',
-                                                    cancelButtonText: 'Batal',
-                                                    reverseButtons: true
-                                                }).then((result) => {
-                                                    if (result.isConfirmed) {
-                                                        $wire.deleteRole({{ $role->id }})
-                                                    }
-                                                })
-                                            " class="flex h-8 w-8 items-center justify-center rounded-lg bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition-all shadow-sm" title="Hapus">
-                                                <i class="ri-delete-bin-line"></i>
-                                            </button>
+                                    @else
+                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-rose-50 text-rose-600 text-[9px] font-black uppercase tracking-widest border border-rose-100">
+                                            <span class="h-1 w-1 rounded-full bg-rose-500"></span> Nonaktif
+                                        </span>
+                                    @endif
+                                </td>
+                                <td class="px-6 py-4 text-center whitespace-nowrap">
+                                    <span class="inline-flex items-center px-2.5 py-1 rounded-lg bg-indigo-50 text-[#405189] text-[11px] font-black border border-indigo-100 uppercase tracking-tight">
+                                        <i class="ri-group-line mr-1"></i> {{ $role->users_count }} Users
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4">
+                                    <div class="flex items-center justify-center gap-2">
+                                        <button wire:click="editRole({{ $role->id }})" class="action-btn-soft bg-indigo-50 text-[#405189] hover:bg-[#405189] hover:text-white shadow-sm" title="Edit">
+                                            <i class="ri-edit-line text-sm"></i>
+                                        </button>
+                                        <button @click="Swal.fire({title:'Hapus Role?',text:'Tindakan ini tidak dapat dibatalkan!',icon:'warning',showCancelButton:true,confirmButtonColor:'#f06548',cancelButtonColor:'#6c757d',confirmButtonText:'Ya, Hapus!',cancelButtonText:'Batal',reverseButtons:true}).then((r)=>{if(r.isConfirmed){$wire.deleteRole({{ $role->id }})}})" 
+                                                class="action-btn-soft bg-rose-50 text-rose-500 hover:bg-rose-500 hover:text-white shadow-sm" title="Hapus">
+                                            <i class="ri-delete-bin-line text-sm"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            @empty
+                            <tr>
+                                <td colspan="5" class="py-20 text-center">
+                                    <div class="flex flex-col items-center justify-center">
+                                        <div class="w-32 h-32 bg-gray-50 rounded-full flex items-center justify-center mb-6 animate-bounce" style="animation-duration: 4s;">
+                                            <i class="ri-shield-keyhole-line text-6xl text-gray-200"></i>
                                         </div>
-                                    </td>
-                                </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
+                                        <p class="text-xl font-black text-gray-400">Role Tidak Ditemukan</p>
+                                        <p class="text-xs text-gray-300 mt-1 uppercase tracking-widest font-bold">Cobalah menyesuaikan filter atau kata kunci pencarian Anda</p>
+                                        <button @click="$wire.set('search', '')" class="mt-6 text-[#405189] font-bold text-xs uppercase tracking-wider hover:underline">
+                                            <i class="ri-refresh-line"></i> Reset Pencarian
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+
+                @if($this->roleList->hasPages())
+                <div class="px-6 py-5 sm:px-8 sm:py-6 bg-gray-50/50 border-t border-gray-100 pagination-custom">
+                    <div class="flex flex-col sm:flex-row items-center justify-between gap-5">
+                        <div class="text-[11px] font-bold text-[#878a99] tracking-tight text-center sm:text-left">
+                            <i class="ri-list-check-2 text-[#405189] mr-1 hidden sm:inline"></i>
+                            <span class="hidden sm:inline">Menampilkan</span> 
+                            <span class="text-[#405189] font-black">{{ $this->roleList->firstItem() }} - {{ $this->roleList->lastItem() }}</span> 
+                            dari <span class="text-[#405189] font-black">{{ number_format($this->roleList->total()) }}</span> 
+                            <span class="hidden sm:inline">role ditemukan</span>
+                            <span class="sm:hidden">total data</span>
+                        </div>
+                        {{ $this->roleList->links() }}
                     </div>
                 </div>
+                @endif
             </div>
             @endif
 

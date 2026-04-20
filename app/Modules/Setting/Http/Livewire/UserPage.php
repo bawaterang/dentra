@@ -3,34 +3,77 @@
 namespace App\Modules\Setting\Http\Livewire;
 
 use Livewire\Component;
+use Livewire\WithPagination;
+use Livewire\Attributes\Computed;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
+
 
 class UserPage extends Component
 {
+    use WithPagination;
+
     // Form Properties
+
     public $userId;
     public $username, $email, $password, $full_name, $phone;
     public $is_active = true;
     public $color = '#405189';
     public $user_code;
+    public $isEdit = false;
 
     // View Properties
-    public $selectedStatus = 'all';
-    public $isEdit = false;
     public $activeTab = 'users'; // 'users' or 'mapping'
+    public $search = '';
+    public $selectedStatus = 'all';
+
+    protected $queryString = ['search', 'selectedStatus', 'activeTab'];
+
+    #[Computed]
+    public function userList()
+    {
+        $query = User::query();
+
+        if ($this->selectedStatus === 'Aktif') {
+            $query->where('is_active', true);
+        } elseif ($this->selectedStatus === 'Tidak Aktif') {
+            $query->where('is_active', false);
+        }
+
+        if (! empty($this->search)) {
+            $query->where(function ($q) {
+                $q->where('username', 'like', '%'.$this->search.'%')
+                    ->orWhere('full_name', 'like', '%'.$this->search.'%')
+                    ->orWhere('email', 'like', '%'.$this->search.'%')
+                    ->orWhere('user_code', 'like', '%'.$this->search.'%');
+            });
+        }
+
+        return $query->orderBy('full_name')->paginate(10);
+    }
+
+    public function updatedSearch()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedSelectedStatus()
+    {
+        $this->resetPage();
+    }
 
     // Mapping Properties
     public $selectedUserId = '';
     public $mappedPolis = [];
 
     // View data as public properties
-    public $users = [];
     public $allUsers = [];
     public $allPolis = [];
     public $totalUsers = 0;
     public $activeUsers = 0;
     public $inactiveUsers = 0;
+
 
     protected function rules()
     {
@@ -53,14 +96,15 @@ class UserPage extends Component
     public function setStatus($status)
     {
         $this->selectedStatus = $status;
-        $this->dispatch('refresh-table');
+        $this->resetPage();
     }
+
 
     public function switchTab($tab)
     {
         $this->activeTab = $tab;
-        $this->dispatch('refresh-table');
     }
+
 
     public function updatedSelectedUserId($value)
     {
@@ -108,6 +152,7 @@ class UserPage extends Component
         $this->user_code = $this->generateUserCode();
         $this->dispatch('open-user-modal');
     }
+
 
     private function generateUserCode()
     {
@@ -167,9 +212,9 @@ class UserPage extends Component
             $user->save();
 
             $this->dispatch('close-user-modal');
-            $this->dispatch('refresh-table');
             $this->dispatch('alert', ['type' => 'success', 'message' => $this->isEdit ? 'Data User berhasil diperbarui!' : 'User baru berhasil ditambahkan!']);
             $this->resetForm();
+
         } catch (\Illuminate\Validation\ValidationException $e) {
             $this->dispatch('alert', ['type' => 'error', 'message' => 'Simpan Gagal: Data tidak valid.']);
             throw $e;
@@ -188,14 +233,13 @@ class UserPage extends Component
         $user = User::findOrFail($id);
         $user->delete();
         
-        $this->dispatch('refresh-table');
         $this->dispatch('alert', ['type' => 'success', 'message' => 'User berhasil dihapus!']);
     }
+
 
     public function toggleActive($id)
     {
         if ($id == auth()->id()) {
-            $this->dispatch('refresh-table');
             $this->dispatch('alert', ['type' => 'error', 'message' => 'Anda tidak dapat menonaktifkan akun Anda sendiri!']);
             return;
         }
@@ -204,21 +248,12 @@ class UserPage extends Component
         $user->is_active = !$user->is_active;
         $user->save();
 
-        $this->dispatch('refresh-table');
         $this->dispatch('alert', ['type' => 'success', 'message' => 'Status user berhasil diubah!']);
     }
 
+
     public function render()
     {
-        // For Users Tab
-        $query = User::query();
-        if ($this->selectedStatus === 'Aktif') {
-            $query->where('is_active', true);
-        } elseif ($this->selectedStatus === 'Tidak Aktif') {
-            $query->where('is_active', false);
-        }
-        $this->users = $query->orderBy('full_name')->get();
-
         // For Mapping Tab
         $this->allUsers = User::where('is_active', true)->orderBy('full_name')->get();
         $this->allPolis = \App\Models\MstPoli::whereNull('deleted_at')->get();
@@ -228,38 +263,78 @@ class UserPage extends Component
         $this->inactiveUsers = User::where('is_active', false)->count();
 
         return <<<'HTML'
-        <div x-data="{ 
-            showModal: false, 
-            initDataTable() {
-                const t='#userTable';
-                if($.fn.DataTable.isDataTable(t)){$(t).DataTable().destroy()}
-                const tb=$(t).DataTable({
-                    scrollX:false,
-                    dom:'lrtip',
-                    language:{
-                        lengthMenu:'_MENU_',
-                        info:'Menampilkan _START_ sampai _END_ dari _TOTAL_ data',
-                        infoEmpty:'Menampilkan 0 sampai 0 dari 0 data',
-                        infoFiltered:'(disaring dari total _MAX_ data)',
-                        zeroRecords:'Tidak ada data yang ditemukan',
-                        emptyTable:'Tidak ada data dalam tabel',
-                        paginate:{
-                            previous:'<i class=ri-arrow-left-s-line></i>',
-                            next:'<i class=ri-arrow-right-s-line></i>'
-                        }
-                    }
-                });
-                $('#customSearch').off('keyup').on('keyup',function(){tb.search(this.value).draw()})
-            },
-            init() {
-                this.$watch('showModal', v => { if(v){ $nextTick(()=>this.$refs.firstInput && this.$refs.firstInput.focus()) } $nextTick(()=>this.initDataTable()) });
-                $nextTick(()=>this.initDataTable());
-            }
-        }" 
-        @open-user-modal.window="showModal = true" 
-        @close-user-modal.window="showModal = false"
-        @refresh-table.window="$nextTick(()=>initDataTable())"
-        x-init="initDataTable()">
+        <div x-data="{ showModal: false, init(){this.$watch('showModal',v=>{if(v){$nextTick(()=>{this.$refs.firstInput&&this.$refs.firstInput.focus()})}})} }" @open-user-modal.window="showModal=true" @close-user-modal.window="showModal=false" x-init="init()">
+            <style>
+                .glass-header {
+                    background: rgba(255, 255, 255, 0.8) !important;
+                    backdrop-filter: blur(8px);
+                    -webkit-backdrop-filter: blur(8px);
+                }
+                .user-row:hover {
+                    background-color: #d8dce1ff !important;
+                    transition: all 0.3s ease;
+                }
+                .action-btn-soft {
+                    width: 32px;
+                    height: 32px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    border-radius: 50%;
+                    transition: all 0.2s ease;
+                }
+                .search-focus-glow:focus {
+                    box-shadow: 0 0 0 4px rgba(64, 81, 137, 0.15);
+                    border-color: #f6f7fbff;
+                }
+                .pagination-custom nav span.relative.z-0 { 
+                    display: flex !important; 
+                    gap: 4px !important; 
+                    flex-wrap: wrap !important;
+                    justify-content: center !important;
+                }
+                .pagination-custom nav a, 
+                .pagination-custom nav span[aria-disabled="true"] span,
+                .pagination-custom nav span[aria-current="page"] span {
+                    display: inline-flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                    min-width: 38px !important;
+                    height: 38px !important;
+                    padding: 0 12px !important;
+                    border-radius: 8px !important;
+                    border: 1px solid #767070ff !important;
+                    font-size: 13px !important;
+                    font-weight: 700 !important;
+                    transition: all 0.2s ease-in-out !important;
+                    background-color: #ffffff !important;
+                    color: #475569 !important;
+                    text-decoration: none !important;
+                }
+                .pagination-custom nav a:hover {
+                    background-color: #f1f5f9 !important;
+                    border-color: #405189 !important;
+                    color: #405189 !important;
+                    transform: translateY(-1px) !important;
+                }
+                .pagination-custom nav p.text-sm {
+                    display: none !important;
+                }
+                .pagination-custom nav > div:last-child > div:first-child {
+                    display: none !important;
+                }
+                .pagination-custom [aria-current="page"], 
+                .pagination-custom [aria-current="page"] *,
+                .pagination-custom .active,
+                .pagination-custom .active * {
+                    background-color: #405189 !important;
+                    color: #ffffff !important;
+                    border-color: #405189 !important;
+                    box-shadow: 0 4px 10px rgba(64, 81, 137, 0.3) !important;
+                    z-index: 10 !important;
+                }
+            </style>
+
             
             <div class="page-header">
                 <div class="page-header-title">
@@ -367,135 +442,129 @@ class UserPage extends Component
                             </ul>
                         </div>
 
-                        <div class="flex flex-wrap items-center gap-3 justify-start lg:justify-end">
-                            <!-- Search Input -->
-                            <div class="relative flex-grow md:flex-none">
-                                <input type="text" id="customSearch" class="h-10 w-full md:w-64 rounded-lg border border-[#e9ecef] pl-10 pr-4 text-sm outline-none focus:border-[#405189] focus:bg-white transition-all placeholder:text-[#adb5bd]" placeholder="Cari nama, username...">
-                                <i class="ri-search-line absolute left-3.5 top-1/2 -translate-y-1/2 text-[#878a99] text-base"></i>
+                        <div class="flex flex-wrap items-center gap-4 w-full lg:w-auto">
+                            <div class="relative flex-grow min-w-[280px]">
+                                <i class="ri-search-2-line absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg group-focus-within:text-[#405189]"></i>
+                                <input type="text" wire:model.live.debounce.300ms="search" 
+                                       class="w-full bg-gray-50/50 border border-gray-200 rounded-2xl py-2.5 pl-12 pr-4 text-sm font-medium outline-none transition-all search-focus-glow placeholder:text-gray-300" 
+                                       placeholder="Cari nama, user code, atau email...">
                             </div>
 
-                            <!-- Utility Actions (Print & Export) - Standard Layout -->
-                            <div class="flex items-center gap-1.5 p-1 rounded-lg border border-[#e9ecef]">
-                                <a href="{{ route('setting.user.print', ['status' => $selectedStatus]) }}" target="_blank" class="h-8 w-8 rounded-md flex items-center justify-center text-indigo-500 hover:bg-indigo-50 hover:shadow-sm transition-all" title="Cetak PDF">
-                                    <i class="ri-printer-line text-lg"></i>
-                                </a>
-                                <div class="w-[1px] h-4 bg-[#e9ecef]"></div>
-                                <a href="{{ route('setting.user.export', ['status' => $selectedStatus]) }}" target="_blank" class="h-8 w-8 rounded-md flex items-center justify-center text-emerald-500 hover:bg-emerald-50 hover:shadow-sm transition-all" title="Unduh Excel">
-                                    <i class="ri-file-excel-2-line text-lg"></i>
-                                </a>
-                            </div>
-
-                            <!-- Visual Divider -->
-                            <div class="hidden lg:block h-6 w-[1px] bg-[#e9ecef] mx-1"></div>
-
-                            <!-- Primary Action: Add Button (Standard Color) -->
-                            <button @click="$wire.create()" class="btn btn-primary h-10 px-5 shadow-sm flex items-center justify-center gap-2 transition-all hover:translate-y-[-2px] hover:shadow-lg active:scale-95 w-full sm:w-auto">
-                                <i class="ri-add-line text-lg"></i>
-                                <span class="font-semibold text-xs uppercase tracking-wider">Tambah User</span>
+                            <button @click="$wire.create()" class="btn btn-primary h-10 px-6 shadow-sm flex items-center justify-center gap-2 transition-all hover:translate-y-[-2px] hover:shadow-lg active:scale-95 w-full lg:w-auto">
+                                <i class="ri-add-line text-xl"></i>
+                                <span class="font-bold text-xs uppercase tracking-wider">Tambah User</span>
                             </button>
                         </div>
+
                     </div>
                 </div>
 
-                <div class="card-body p-0">
-                    <div class="table-responsive">
-                        <table id="userTable" class="table align-middle table-nowrap mb-0 w-full">
-                            <thead class="table-light text-muted">
-                                <tr>
-                                    <th width="5%">No</th>
-                                    <th class="font-semibold text-xs uppercase tracking-wider">Identitas User</th>
-                                    <th class="font-semibold text-xs uppercase tracking-wider">Username</th>
-                                    <th class="font-semibold text-xs uppercase tracking-wider text-center">Status</th>
-                                    <th class="font-semibold text-xs uppercase tracking-wider">Kontak</th>
-                                    <th class="font-semibold text-xs uppercase tracking-wider !text-center">Aksi</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach($users as $index => $user)
-                                <tr wire:key="user-row-{{ $user->id }}" class="hover:bg-gray-50/50 transition-colors">
-                                    <td>{{ $index + 1 }}</td>
-                                    <td>
-                                        <div class="flex items-center gap-3">
-                                            @if($user->avatar)
-                                                <img src="{{ Storage::url($user->avatar) }}" class="h-9 w-9 rounded-full object-cover border border-gray-200">
-                                            @else
-                                                <div class="h-9 w-9 flex items-center justify-center rounded-lg text-white font-bold text-xs shrink-0 shadow-sm" style="background-color: {{ $user->color ?? '#405189' }}">
-                                                    {{ strtoupper(substr($user->full_name, 0, 1)) }}
-                                                </div>
-                                            @endif
-                                            <div>
-                                                <h6 class="mb-0 text-sm font-bold text-[#495057]">{{ $user->full_name }}</h6>
-                                                <p class="text-[11px] text-[#878a99] font-medium uppercase tracking-tight">{{ $user->user_code }}</p>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-gray-50/50">
+                                <th class="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-50">Identitas User</th>
+                                <th class="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-50">Username</th>
+                                <th class="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-50 text-center">Status</th>
+                                <th class="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-50">Kontak</th>
+                                <th class="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-50 text-center">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-50">
+                            @forelse($this->userList as $user)
+                            <tr wire:key="user-row-{{ $user->id }}" class="user-row transition-all duration-200">
+                                <td class="px-6 py-4 min-w-[250px]">
+                                    <div class="flex items-center gap-4">
+                                        @if($user->avatar)
+                                            <img src="{{ Storage::url($user->avatar) }}" class="h-10 w-10 rounded-xl object-cover border border-gray-100 shadow-sm">
+                                        @else
+                                            <div class="h-10 w-10 flex items-center justify-center rounded-xl text-white font-black text-xs shadow-inner" style="background-color: {{ $user->color ?? '#405189' }}">
+                                                {{ strtoupper(substr($user->full_name, 0, 1)) }}
                                             </div>
+                                        @endif
+                                        <div>
+                                            <h6 class="text-sm font-bold text-[#2c3e50] mb-0">{{ $user->full_name }}</h6>
+                                            <p class="text-[10px] text-gray-400 font-black uppercase tracking-[0.1em] mt-0.5">{{ $user->user_code }}</p>
                                         </div>
-                                    </td>
-                                    <td>
-                                        <span class="badge bg-light text-[#405189] border border-gray-100 px-2 py-1 flex items-center gap-1 w-fit">
-                                            <i class="ri-user-follow-line"></i> {{ $user->username }}
-                                        </span>
-                                    </td>
-                                    <td class="text-center">
-                                        <div class="flex flex-col items-center gap-1">
-                                            <label class="relative inline-flex flex-col items-center cursor-pointer group">
-                                                <input type="checkbox" class="sr-only peer" 
-                                                    {{ $user->is_active ? 'checked' : '' }}
-                                                    wire:change="toggleActive({{ $user->id }})">
-                                                <div class="relative w-8 h-4 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-[#0ab39c] mb-1"></div>
-                                                <span class="text-[9px] font-extrabold {{ $user->is_active ? 'text-emerald-500' : 'text-red-400' }} uppercase tracking-widest group-hover:opacity-75 transition-opacity">
-                                                    {{ $user->is_active ? 'Aktif' : 'Nonaktif' }}
-                                                </span>
-                                            </label>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-50 text-[#405189] text-[11px] font-black border border-gray-100 uppercase tracking-tight">
+                                        <i class="ri-user-follow-line text-gray-400"></i> {{ $user->username }}
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-center">
+                                    <div class="flex flex-col items-center gap-1.5">
+                                        <label class="relative inline-flex flex-col items-center cursor-pointer group">
+                                            <input type="checkbox" class="sr-only peer" 
+                                                {{ $user->is_active ? 'checked' : '' }}
+                                                wire:change="toggleActive({{ $user->id }})">
+                                            <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#0ab39c]"></div>
+                                            <span class="text-[9px] font-black mt-1 {{ $user->is_active ? 'text-emerald-500' : 'text-rose-400' }} uppercase tracking-widest">
+                                                {{ $user->is_active ? 'AKTIF' : 'NONAKTIF' }}
+                                            </span>
+                                        </label>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="flex flex-col gap-1">
+                                        <div class="flex items-center gap-1.5 text-[11px] font-bold text-gray-500">
+                                            <i class="ri-mail-line text-indigo-400"></i> {{ $user->email }}
                                         </div>
-                                    </td>
-                                    <td>
-                                        <div class="flex flex-col gap-0.5">
-                                            <div class="flex items-center gap-1.5 text-xs text-gray-500">
-                                                <i class="ri-mail-line text-indigo-400"></i> {{ $user->email }}
-                                            </div>
-                                            @if($user->phone)
-                                            <div class="flex items-center gap-1.5 text-xs text-gray-500">
-                                                <i class="ri-phone-line text-emerald-400"></i> {{ $user->phone }}
-                                            </div>
-                                            @endif
+                                        @if($user->phone)
+                                        <div class="flex items-center gap-1.5 text-[11px] font-bold text-gray-500">
+                                            <i class="ri-phone-line text-emerald-400"></i> {{ $user->phone }}
                                         </div>
-                                    </td>
-                                    <td>
-                                        <div class="flex justify-center gap-2">
-                                            <button wire:click="edit({{ $user->id }})" class="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 hover:bg-[#405189] hover:text-white transition-all shadow-sm" title="Edit User">
-                                                <i class="ri-edit-line"></i>
-                                            </button>
-                                            <button @click="
-                                                Swal.fire({
-                                                    title: 'Hapus User?',
-                                                    text: 'Tindakan ini tidak dapat dibatalkan!',
-                                                    icon: 'warning',
-                                                    showCancelButton: true,
-                                                    confirmButtonColor: '#f06548',
-                                                    cancelButtonColor: '#6c757d',
-                                                    confirmButtonText: 'Ya, Hapus!',
-                                                    cancelButtonText: 'Batal',
-                                                    background: '#fff',
-                                                    customClass: {
-                                                        title: 'font-bold text-[#495057]',
-                                                        confirmButton: 'btn btn-danger px-4',
-                                                        cancelButton: 'btn btn-light px-4'
-                                                    }
-                                                }).then((result) => {
-                                                    if (result.isConfirmed) {
-                                                        $wire.delete({{ $user->id }})
-                                                    }
-                                                })
-                                            " class="flex h-8 w-8 items-center justify-center rounded-lg bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition-all shadow-sm" title="Hapus User">
-                                                <i class="ri-delete-bin-line"></i>
-                                            </button>
+                                        @endif
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4">
+                                    <div class="flex items-center justify-center gap-2">
+                                        <button wire:click="edit({{ $user->id }})" class="action-btn-soft bg-indigo-50 text-[#405189] hover:bg-[#405189] hover:text-white shadow-sm" title="Edit User">
+                                            <i class="ri-pencil-fill text-sm"></i>
+                                        </button>
+                                        <button @click="Swal.fire({title:'Hapus User?',text:'Tindakan ini tidak dapat dibatalkan!',icon:'warning',showCancelButton:true,confirmButtonColor:'#f06548',cancelButtonColor:'#6c757d',confirmButtonText:'Ya, Hapus!',cancelButtonText:'Batal',reverseButtons:true}).then((r)=>{if(r.isConfirmed){$wire.delete({{ $user->id }})}})" 
+                                                class="action-btn-soft bg-rose-50 text-rose-500 hover:bg-rose-500 hover:text-white shadow-sm" title="Hapus User">
+                                            <i class="ri-delete-bin-line text-sm"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            @empty
+                            <tr>
+                                <td colspan="5" class="py-20 text-center">
+                                    <div class="flex flex-col items-center justify-center">
+                                        <div class="w-32 h-32 bg-gray-50 rounded-full flex items-center justify-center mb-6 animate-bounce" style="animation-duration: 4s;">
+                                            <i class="ri-user-settings-line text-6xl text-gray-200"></i>
                                         </div>
-                                    </td>
-                                </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
+                                        <p class="text-xl font-black text-gray-400">User Tidak Ditemukan</p>
+                                        <p class="text-xs text-gray-300 mt-1 uppercase tracking-widest font-bold">Cobalah menyesuaikan filter atau kata kunci pencarian Anda</p>
+                                        <button @click="$wire.set('search', '')" class="mt-6 text-[#405189] font-bold text-xs uppercase tracking-wider hover:underline">
+                                            <i class="ri-refresh-line"></i> Reset Pencarian
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+
+                @if($this->userList->hasPages())
+                <div class="px-6 py-5 sm:px-8 sm:py-6 bg-gray-50/50 border-t border-gray-100 pagination-custom">
+                    <div class="flex flex-col sm:flex-row items-center justify-between gap-5">
+                        <div class="text-[11px] font-bold text-[#878a99] tracking-tight text-center sm:text-left">
+                            <i class="ri-list-check-2 text-[#405189] mr-1 hidden sm:inline"></i>
+                            <span class="hidden sm:inline">Menampilkan</span> 
+                            <span class="text-[#405189] font-black">{{ $this->userList->firstItem() }} - {{ $this->userList->lastItem() }}</span> 
+                            dari <span class="text-[#405189] font-black">{{ number_format($this->userList->total()) }}</span> 
+                            <span class="hidden sm:inline">user terdaftar</span>
+                            <span class="sm:hidden">total data</span>
+                        </div>
+                        {{ $this->userList->links() }}
                     </div>
                 </div>
+                @endif
             </div>
             @endif
 

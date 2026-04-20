@@ -3,30 +3,63 @@
 namespace App\Modules\Setting\Http\Livewire;
 
 use Livewire\Component;
+use Livewire\WithPagination;
+use Livewire\Attributes\Computed;
 use App\Models\MstJadwalDokter;
 use App\Models\MstDokter;
+use Carbon\Carbon;
+
 
 class JadwalDokterPage extends Component
 {
+    use WithPagination;
+
     // Form Properties
+
     public $jadwalId;
     public $kode_dokter, $hari, $jam_mulai, $jam_selesai, $status_kehadiran = 'Hadir';
     public $is_active = true;
-
-    // View Properties
-    public $jadwalList = [];
-    public $dokterList = [];
-    
-    public $selectedHari = 'all';
     public $isEdit = false;
 
     public $totalAktif = 0;
     public $totalLiburCuti = 0;
     public $totalJadwal = 0;
+    public $search = '';
+    public $selectedHari = 'all';
+
+    protected $queryString = ['search', 'selectedHari'];
+
+    #[Computed]
+    public function jadwals()
+    {
+        $query = MstJadwalDokter::with('dokter');
+
+        if ($this->selectedHari !== 'all') {
+            $query->where('hari', $this->selectedHari);
+        }
+
+        if (! empty($this->search)) {
+            $query->where(function ($q) {
+                $q->whereHas('dokter', function ($dq) {
+                    $dq->where('nama_dokter', 'like', '%'.$this->search.'%')
+                        ->orWhere('spesialisasi', 'like', '%'.$this->search.'%');
+                })->orWhere('hari', 'like', '%'.$this->search.'%');
+            });
+        }
+
+        return $query->orderByRaw("FIELD(hari, 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu')")->paginate(10);
+    }
+
+    public function updatedSearch()
+    {
+        $this->resetPage();
+    }
+
 
     public $hariOptions = [];
     public $statusOptions = [];
     public $dokterOptions = [];
+    public $dokterList = [];
 
     public function setHari($hari)
     {
@@ -63,8 +96,8 @@ class JadwalDokterPage extends Component
     {
         $this->resetForm();
         $this->dispatch('open-jadwal-modal');
-        $this->dispatch('refresh-table');
     }
+
 
     public function edit($id)
     {
@@ -106,9 +139,9 @@ class JadwalDokterPage extends Component
             $jadwal->save();
 
             $this->dispatch('close-jadwal-modal');
-            $this->dispatch('refresh-table');
             $this->dispatch('alert', ['type' => 'success', 'message' => $this->isEdit ? 'Jadwal dokter berhasil diperbarui!' : 'Jadwal dokter baru berhasil ditambahkan!']);
             $this->resetForm();
+
         } catch (\Illuminate\Validation\ValidationException $e) {
             $this->dispatch('alert', ['type' => 'error', 'message' => 'Simpan Gagal: Data yang Anda masukkan tidak valid. Silakan periksa kembali kolom yang bertanda merah.']);
             throw $e;
@@ -122,20 +155,12 @@ class JadwalDokterPage extends Component
         $jadwal = MstJadwalDokter::findOrFail($id);
         $jadwal->delete();
         
-        $this->dispatch('refresh-table');
         $this->dispatch('alert', ['type' => 'success', 'message' => 'Jadwal dokter berhasil dihapus!']);
     }
 
+
     public function render()
     {
-        $query = MstJadwalDokter::with('dokter');
-        
-        if ($this->selectedHari !== 'all') {
-            $query->where('hari', $this->selectedHari);
-        }
-        
-        $this->jadwalList = $query->orderByRaw("FIELD(hari, 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu')")->get();
-        
         $this->totalAktif = MstJadwalDokter::where('is_active', true)->where('status_kehadiran', 'Hadir')->count();
         $this->totalLiburCuti = MstJadwalDokter::whereIn('status_kehadiran', ['Libur', 'Cuti'])->count();
         $this->totalJadwal = MstJadwalDokter::count();
@@ -152,56 +177,86 @@ class JadwalDokterPage extends Component
             ['value' => 'Cuti', 'label' => 'Sedang Cuti/Izin', 'icon' => 'ri-user-unfollow-line'],
         ];
 
+        $this->dokterList = MstDokter::where('status', 'Aktif')->get()->toArray();
         $this->dokterOptions = collect($this->dokterList)->map(fn($d) => [
             'value' => $d['kode_dokter'],
             'label' => $d['nama_dokter'] . ' (' . ($d['spesialisasi'] ?? 'Umum') . ')',
             'icon' => 'ri-user-star-line'
         ])->toArray();
 
-        $hariList = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
-
         return <<<'HTML'
-        <div x-data="{ 
-            showModal: false,
-            initDataTable() {
-                const tableId = '#jadwalTable';
-                if ($.fn.DataTable.isDataTable(tableId)) {
-                    $(tableId).DataTable().destroy();
+        <div x-data="{ showModal: false, init(){this.$watch('showModal',v=>{if(v){$nextTick(()=>{this.$refs.firstInput&&this.$refs.firstInput.focus()})}})} }" @open-jadwal-modal.window="showModal=true" @close-jadwal-modal.window="showModal=false" x-init="init()">
+            <style>
+                .glass-header {
+                    background: rgba(255, 255, 255, 0.8) !important;
+                    backdrop-filter: blur(8px);
+                    -webkit-backdrop-filter: blur(8px);
                 }
-                const table = $(tableId).DataTable({
-                    scrollX: false,
-                    dom: 'lrtip',
-                    language: {
-                        lengthMenu: '_MENU_',
-                        info: 'Menampilkan _START_ sampai _END_ dari _TOTAL_ jadwal',
-                        infoEmpty: 'Menampilkan 0 sampai 0 dari 0 jadwal',
-                        infoFiltered: '(disaring dari total _MAX_ jadwal)',
-                        zeroRecords: 'Tidak ada jadwal yang ditemukan',
-                        emptyTable: 'Tidak ada jadwal dalam tabel',
-                        paginate: {
-                            previous: '<i class=ri-arrow-left-s-line></i>',
-                            next: '<i class=ri-arrow-right-s-line></i>'
-                        }
-                    }
-                });
-                $('#customSearch').off('keyup').on('keyup', function() {
-                    table.search(this.value).draw();
-                });
-            },
-            init() {
-                this.$watch('showModal', value => {
-                    if (value) {
-                        $nextTick(() => { this.$refs.firstInput.focus() });
-                    }
-                    $nextTick(() => this.initDataTable());
-                });
-                $nextTick(() => this.initDataTable());
-            }
-        }" 
-        @open-jadwal-modal.window="showModal = true"
-        @close-jadwal-modal.window="showModal = false"
-        @refresh-table.window="$nextTick(() => initDataTable())"
-        x-init="initDataTable()">
+                .jadwal-row:hover {
+                    background-color: #d8dce1ff !important;
+                    transition: all 0.3s ease;
+                }
+                .action-btn-soft {
+                    width: 32px;
+                    height: 32px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    border-radius: 50%;
+                    transition: all 0.2s ease;
+                }
+                .search-focus-glow:focus {
+                    box-shadow: 0 0 0 4px rgba(64, 81, 137, 0.15);
+                    border-color: #f6f7fbff;
+                }
+                .pagination-custom nav span.relative.z-0 { 
+                    display: flex !important; 
+                    gap: 4px !important; 
+                    flex-wrap: wrap !important;
+                    justify-content: center !important;
+                }
+                .pagination-custom nav a, 
+                .pagination-custom nav span[aria-disabled="true"] span,
+                .pagination-custom nav span[aria-current="page"] span {
+                    display: inline-flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                    min-width: 38px !important;
+                    height: 38px !important;
+                    padding: 0 12px !important;
+                    border-radius: 8px !important;
+                    border: 1px solid #767070ff !important;
+                    font-size: 13px !important;
+                    font-weight: 700 !important;
+                    transition: all 0.2s ease-in-out !important;
+                    background-color: #ffffff !important;
+                    color: #475569 !important;
+                    text-decoration: none !important;
+                }
+                .pagination-custom nav a:hover {
+                    background-color: #f1f5f9 !important;
+                    border-color: #405189 !important;
+                    color: #405189 !important;
+                    transform: translateY(-1px) !important;
+                }
+                .pagination-custom nav p.text-sm {
+                    display: none !important;
+                }
+                .pagination-custom nav > div:last-child > div:first-child {
+                    display: none !important;
+                }
+                .pagination-custom [aria-current="page"], 
+                .pagination-custom [aria-current="page"] *,
+                .pagination-custom .active,
+                .pagination-custom .active * {
+                    background-color: #405189 !important;
+                    color: #ffffff !important;
+                    border-color: #405189 !important;
+                    box-shadow: 0 4px 10px rgba(64, 81, 137, 0.3) !important;
+                    z-index: 10 !important;
+                }
+            </style>
+
             
             <div class="page-header">
                 <div class="page-header-title">
@@ -261,172 +316,224 @@ class JadwalDokterPage extends Component
                             </ul>
                         </div>
 
-                        <div class="flex flex-wrap items-center gap-3 justify-start lg:justify-end">
-                            <div class="relative flex-grow md:flex-none">
-                                <input type="text" id="customSearch" class="h-10 w-full md:w-64 rounded-lg border border-[#e9ecef] pl-10 pr-4 text-sm outline-none focus:border-[#405189] focus:bg-white transition-all placeholder:text-[#adb5bd]" placeholder="Cari jadwal...">
-                                <i class="ri-search-line absolute left-3.5 top-1/2 -translate-y-1/2 text-[#878a99] text-base"></i>
+                        <div class="flex flex-wrap items-center gap-4 w-full lg:w-auto">
+                            <div class="relative flex-grow min-w-[280px]">
+                                <i class="ri-search-2-line absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg group-focus-within:text-[#405189]"></i>
+                                <input type="text" wire:model.live.debounce.300ms="search" 
+                                       class="w-full bg-gray-50/50 border border-gray-200 rounded-2xl py-2.5 pl-12 pr-4 text-sm font-medium outline-none transition-all search-focus-glow placeholder:text-gray-300" 
+                                       placeholder="Cari dokter, spesialisasi, atau hari...">
                             </div>
 
-                            <div class="hidden lg:block h-6 w-[1px] bg-[#e9ecef] mx-1"></div>
-
-                            <button @click="$wire.create()" class="btn btn-primary h-10 px-5 shadow-sm flex items-center justify-center gap-2 transition-all hover:translate-y-[-2px] hover:shadow-lg active:scale-95 w-full sm:w-auto">
-                                <i class="ri-add-line text-lg"></i><span class="font-semibold text-xs uppercase tracking-wider">Tambah Jadwal</span>
+                            <button @click="$wire.create()" class="btn btn-primary h-10 px-6 shadow-sm flex items-center justify-center gap-2 transition-all hover:translate-y-[-2px] hover:shadow-lg active:scale-95 w-full lg:w-auto">
+                                <i class="ri-add-line text-xl"></i>
+                                <span class="font-bold text-xs uppercase tracking-wider">Tambah Jadwal</span>
                             </button>
                         </div>
+
                     </div>
                 </div>
 
-                <div class="card-body p-0">
-                    <div class="table-responsive dark:bg-transparent">
-                        <table id="jadwalTable" class="table align-middle table-nowrap w-full">
-                        <thead class="table-light text-muted">
-                            <tr>
-                                <th>Hari</th>
-                                <th>Nama Dokter</th>
-                                <th>Spesialisasi</th>
-                                <th>Jam Praktik</th>
-                                <th>Status/Kehadiran</th>
-                                <th class="!text-center" style="text-align: center !important;">Aksi</th>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-gray-50/50">
+                                <th class="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-50">Hari</th>
+                                <th class="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-50">Nama Dokter</th>
+                                <th class="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-50">Spesialisasi</th>
+                                <th class="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-50">Jam Praktik</th>
+                                <th class="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-50">Status/Kehadiran</th>
+                                <th class="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-50 text-center">Actions</th>
                             </tr>
                         </thead>
-                        <tbody>
-                            @foreach($jadwalList as $jadwal)
-                            <tr wire:key="jadwal-{{ $jadwal->id }}">
-                                <td><span class="font-semibold text-[#405189]">{{ $jadwal->hari }}</span></td>
-                                <td>
-                                    <div class="flex items-center gap-2">
-                                        <div class="h-8 w-8 rounded-full bg-[#405189]/10 text-[#405189] flex items-center justify-center font-bold text-xs">{{ substr($jadwal->dokter?->nama_dokter ?? '?', 0, 1) }}</div>
-                                        <div><h6 class="mb-0">{{ $jadwal->dokter?->nama_dokter ?? '-' }}</h6></div>
+                        <tbody class="divide-y divide-gray-50">
+                            @forelse($this->jadwals as $jadwal)
+                            <tr wire:key="jadwal-{{ $jadwal->id }}" class="jadwal-row transition-all duration-200">
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span class="font-bold text-[#405189] text-sm">{{ $jadwal->hari }}</span>
+                                </td>
+                                <td class="px-6 py-4 min-w-[200px]">
+                                    <div class="flex items-center gap-3">
+                                        <div class="h-9 w-9 rounded-xl bg-indigo-50 text-[#405189] flex items-center justify-center font-black text-xs shadow-inner">
+                                            {{ substr($jadwal->dokter?->nama_dokter ?? '?', 0, 1) }}
+                                        </div>
+                                        <div>
+                                            <h6 class="text-sm font-bold text-[#2c3e50] mb-0">{{ $jadwal->dokter?->nama_dokter ?? '-' }}</h6>
+                                        </div>
                                     </div>
                                 </td>
-                                <td>{{ $jadwal->dokter?->spesialisasi ?? '-' }}</td>
-                                <td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span class="text-sm text-gray-600">{{ $jadwal->dokter?->spesialisasi ?? '-' }}</span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
                                     @if($jadwal->jam_mulai && $jadwal->jam_selesai)
-                                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-blue-50 text-blue-700 text-xs font-semibold border border-blue-100">
-                                            <i class="ri-time-line text-blue-500"></i> {{ \Carbon\Carbon::parse($jadwal->jam_mulai)->format('H:i') }} - {{ \Carbon\Carbon::parse($jadwal->jam_selesai)->format('H:i') }}
+                                        <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 text-[11px] font-black border border-blue-100 uppercase tracking-tight">
+                                            <i class="ri-time-line"></i> {{ \Carbon\Carbon::parse($jadwal->jam_mulai)->format('H:i') }} - {{ \Carbon\Carbon::parse($jadwal->jam_selesai)->format('H:i') }}
                                         </span>
                                     @else
-                                        <span class="text-xs text-gray-500 italic">Tidak ada jam khusus</span>
+                                        <span class="text-[10px] text-gray-400 font-bold uppercase tracking-widest italic">Tidak terjadwal</span>
                                     @endif
                                 </td>
-                                <td>
-                                    <div class="flex flex-col gap-1 items-start">
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="flex flex-col gap-1.5">
                                         @if($jadwal->is_active)
-                                            <span class="badge bg-success-subtle text-success">Jadwal Aktif</span>
+                                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-600 text-[9px] font-black uppercase tracking-widest border border-emerald-100 w-fit">
+                                                <span class="h-1 w-1 rounded-full bg-emerald-500"></span> Aktif
+                                            </span>
                                         @else
-                                            <span class="badge bg-danger-subtle text-danger">Jadwal Nonaktif</span>
+                                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-rose-50 text-rose-600 text-[9px] font-black uppercase tracking-widest border border-rose-100 w-fit">
+                                                <span class="h-1 w-1 rounded-full bg-rose-500"></span> Nonaktif
+                                            </span>
                                         @endif
                                         
-                                        @if($jadwal->status_kehadiran == 'Hadir')
-                                            <span class="badge bg-primary-subtle text-primary">Status: Hadir</span>
-                                        @elseif($jadwal->status_kehadiran == 'Libur')
-                                            <span class="badge bg-secondary-subtle text-secondary">Status: Libur</span>
-                                        @else
-                                            <span class="badge bg-warning-subtle text-warning">Status: Cuti</span>
-                                        @endif
+                                        @php
+                                            $statusColors = [
+                                                'Hadir' => 'bg-blue-50 text-blue-600 border-blue-100',
+                                                'Libur' => 'bg-gray-50 text-gray-600 border-gray-100',
+                                                'Cuti' => 'bg-amber-50 text-amber-600 border-amber-100',
+                                            ];
+                                            $colorClass = $statusColors[$jadwal->status_kehadiran] ?? 'bg-gray-50 text-gray-600';
+                                        @endphp
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded-md {{ $colorClass }} text-[9px] font-black uppercase tracking-widest border w-fit">
+                                            {{ $jadwal->status_kehadiran }}
+                                        </span>
                                     </div>
                                 </td>
-                                <td class="text-center">
-                                    <div class="flex justify-center gap-2">
-                                        <button wire:click="edit({{ $jadwal->id }})" class="flex h-7 w-7 items-center justify-center rounded bg-[#405189]/10 text-[#405189] hover:bg-[#405189] hover:text-white transition-all"><i class="ri-edit-line"></i></button>
-                                        <button @click="
-                                            Swal.fire({
-                                                title: 'Hapus Jadwal?',
-                                                text: 'Tindakan ini akan menghapus jadwal secara permanen.',
-                                                icon: 'warning',
-                                                showCancelButton: true,
-                                                confirmButtonColor: '#f06548',
-                                                cancelButtonColor: '#6c757d',
-                                                confirmButtonText: 'Ya, Hapus!',
-                                                cancelButtonText: 'Batal',
-                                                reverseButtons: true
-                                            }).then((result) => {
-                                                if (result.isConfirmed) {
-                                                    $wire.delete({{ $jadwal->id }})
-                                                }
-                                            })
-                                        " class="flex h-7 w-7 items-center justify-center rounded bg-[#f06548]/10 text-[#f06548] hover:bg-[#f06548] hover:text-white transition-all"><i class="ri-delete-bin-line"></i></button>
+                                <td class="px-6 py-4">
+                                    <div class="flex items-center justify-center gap-2">
+                                        <button wire:click="edit({{ $jadwal->id }})" class="action-btn-soft bg-indigo-50 text-[#405189] hover:bg-[#405189] hover:text-white shadow-sm" title="Edit Data">
+                                            <i class="ri-pencil-fill text-sm"></i>
+                                        </button>
+                                        <button @click="Swal.fire({title:'Hapus Jadwal?',text:'Tindakan ini akan menghapus jadwal secara permanen.',icon:'warning',showCancelButton:true,confirmButtonColor:'#f06548',cancelButtonColor:'#6c757d',confirmButtonText:'Ya, Hapus!',cancelButtonText:'Batal',reverseButtons:true}).then((r)=>{if(r.isConfirmed){$wire.delete({{ $jadwal->id }})}})" 
+                                                class="action-btn-soft bg-rose-50 text-rose-500 hover:bg-rose-500 hover:text-white shadow-sm" title="Hapus Jadwal">
+                                            <i class="ri-delete-bin-line text-sm"></i>
+                                        </button>
                                     </div>
                                 </td>
                             </tr>
-                            @endforeach
+                            @empty
+                            <tr>
+                                <td colspan="6" class="py-20 text-center">
+                                    <div class="flex flex-col items-center justify-center">
+                                        <div class="w-32 h-32 bg-gray-50 rounded-full flex items-center justify-center mb-6 animate-bounce" style="animation-duration: 4s;">
+                                            <i class="ri-calendar-todo-line text-6xl text-gray-200"></i>
+                                        </div>
+                                        <p class="text-xl font-black text-gray-400">Jadwal Tidak Ditemukan</p>
+                                        <p class="text-xs text-gray-300 mt-1 uppercase tracking-widest font-bold">Cobalah menyesuaikan filter atau kata kunci pencarian Anda</p>
+                                        <button @click="$wire.set('search', '')" class="mt-6 text-[#405189] font-bold text-xs uppercase tracking-wider hover:underline">
+                                            <i class="ri-refresh-line"></i> Reset Pencarian
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            @endforelse
                         </tbody>
-                        </table>
+                    </table>
+                </div>
+
+                @if($this->jadwals->hasPages())
+                <div class="px-6 py-5 sm:px-8 sm:py-6 bg-gray-50/50 border-t border-gray-100 pagination-custom">
+                    <div class="flex flex-col sm:flex-row items-center justify-between gap-5">
+                        <div class="text-[11px] font-bold text-[#878a99] tracking-tight text-center sm:text-left">
+                            <i class="ri-list-check-2 text-[#405189] mr-1 hidden sm:inline"></i>
+                            <span class="hidden sm:inline">Menampilkan</span> 
+                            <span class="text-[#405189] font-black">{{ $this->jadwals->firstItem() }} - {{ $this->jadwals->lastItem() }}</span> 
+                            dari <span class="text-[#405189] font-black">{{ number_format($this->jadwals->total()) }}</span> 
+                            <span class="hidden sm:inline">jadwal ditemukan</span>
+                            <span class="sm:hidden">total data</span>
+                        </div>
+                        {{ $this->jadwals->links() }}
                     </div>
                 </div>
+                @endif
             </div>
+
 
             <!-- Modal: Tambah/Edit Jadwal -->
             <div x-show="showModal" class="fixed inset-0 z-[1050] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" x-transition.opacity style="display: none;">
                 <div x-show="showModal" x-transition.scale.95 class="w-full max-w-2xl bg-white rounded-xl shadow-2xl overflow-hidden">
-                    <div class="px-6 py-4 flex items-center justify-between border-b border-gray-100 bg-[#f3f6f9]/50">
-                        <h5 class="text-lg font-bold text-[#495057]">{{ $isEdit ? 'Ubah Jadwal Dokter' : 'Tambah Jadwal Dokter' }}</h5>
+                    <div class="px-5 py-4 sm:px-8 sm:py-6 bg-gradient-to-r from-gray-50 to-white border-b border-gray-100 flex items-center justify-between">
+                        <div class="flex items-center gap-2 sm:gap-3">
+                            <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-indigo-50 text-[#405189] flex items-center justify-center shadow-inner">
+                                <i class="ri-calendar-todo-line text-lg sm:text-xl"></i>
+                            </div>
+                            <div>
+                                <h5 class="text-sm sm:text-base font-black text-[#2c3e50] tracking-tight">{{ $isEdit ? 'Update Jadwal Dokter' : 'Tambah Jadwal Baru' }}</h5>
+                                <p class="text-[9px] sm:text-[10px] text-gray-400 font-bold uppercase tracking-widest hidden sm:block">Lengkapi informasi jadwal di bawah</p>
+                            </div>
+                        </div>
                         <button @click="showModal = false" class="text-gray-400 hover:text-gray-600"><i class="ri-close-line text-2xl"></i></button>
                     </div>
 
-                    <div class="px-8 py-6 max-h-[75vh] overflow-y-auto">
-                        <form wire:submit.prevent="save">
-                            <div class="space-y-4">
-                                <div>
-                                    <label class="block text-xs font-semibold text-gray-500 mb-1">Dokter <span class="text-red-500">*</span></label>
+                    <div class="px-5 py-6 sm:px-8 sm:py-8 max-h-[70vh] overflow-y-auto scrollbar-hide">
+                        <form wire:submit.prevent="save" class="space-y-5 sm:space-y-6">
+                            <div class="space-y-1.5">
+                                <label class="text-[9px] sm:text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Dokter <span class="text-rose-500">*</span></label>
+                                <x-custom-dropdown 
+                                    model="kode_dokter" 
+                                    :options="$dokterOptions" 
+                                    searchable="true" 
+                                    placeholder="Pilih Dokter" 
+                                    ref="firstInput"
+                                />
+                                @error('kode_dokter') <span class="text-[10px] text-rose-500 font-bold px-1">{{ $message }}</span> @enderror
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6">
+                                <div class="space-y-1.5">
+                                    <label class="text-[9px] sm:text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Hari Praktik <span class="text-rose-500">*</span></label>
                                     <x-custom-dropdown 
-                                        model="kode_dokter" 
-                                        :options="$dokterOptions" 
-                                        searchable="true" 
-                                        placeholder="-- Pilih Dokter --" 
-                                        icon="ri-user-star-line" 
+                                        model="hari" 
+                                        :options="$hariOptions" 
+                                        placeholder="Pilih Hari" 
+                                        icon="ri-calendar-event-line" 
                                     />
-                                    @error('kode_dokter') <span class="text-[11px] text-red-500 mt-1 italic">{{ $message }}</span> @enderror
+                                    @error('hari') <span class="text-[10px] text-rose-500 font-bold px-1">{{ $message }}</span> @enderror
                                 </div>
+                                <div class="space-y-1.5">
+                                    <label class="text-[9px] sm:text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Status Kehadiran <span class="text-rose-500">*</span></label>
+                                    <x-custom-dropdown 
+                                        model="status_kehadiran" 
+                                        :options="$statusOptions" 
+                                        icon="ri-checkbox-circle-line" 
+                                    />
+                                    @error('status_kehadiran') <span class="text-[10px] text-rose-500 font-bold px-1">{{ $message }}</span> @enderror
+                                </div>
+                            </div>
 
-                                <div class="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label class="block text-xs font-semibold text-gray-500 mb-1">Hari Praktik <span class="text-red-500">*</span></label>
-                                        <x-custom-dropdown 
-                                            model="hari" 
-                                            :options="$hariOptions" 
-                                            placeholder="-- Hari --" 
-                                            icon="ri-calendar-event-line" 
-                                        />
-                                        @error('hari') <span class="text-[11px] text-red-500 mt-1 italic">{{ $message }}</span> @enderror
-                                    </div>
-                                    <div>
-                                        <label class="block text-xs font-semibold text-gray-500 mb-1">Status Kehadiran <span class="text-red-500">*</span></label>
-                                        <x-custom-dropdown 
-                                            model="status_kehadiran" 
-                                            :options="$statusOptions" 
-                                            icon="ri-checkbox-circle-line" 
-                                        />
-                                        @error('status_kehadiran') <span class="text-[11px] text-red-500 mt-1 italic">{{ $message }}</span> @enderror
-                                    </div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6">
+                                <div class="space-y-1.5">
+                                    <label class="text-[9px] sm:text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Jam Mulai</label>
+                                    <input type="time" wire:model="jam_mulai" 
+                                           class="w-full bg-gray-50 border border-gray-100 rounded-xl sm:rounded-2xl py-2.5 sm:py-3 px-4 text-sm font-bold text-[#2c3e50] focus:bg-white focus:ring-4 focus:ring-indigo-100 focus:border-[#405189] transition-all outline-none">
+                                    @error('jam_mulai') <span class="text-[10px] text-rose-500 font-bold px-1">{{ $message }}</span> @enderror
                                 </div>
-
-                                <div class="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label class="block text-xs font-semibold text-gray-500 mb-1">Jam Mulai</label>
-                                        <input type="time" wire:model="jam_mulai" class="w-full rounded-lg border-gray-200 text-sm px-4 h-[42px] focus:border-[#405189] transition-all">
-                                        @error('jam_mulai') <span class="text-[11px] text-red-500 mt-1 italic">{{ $message }}</span> @enderror
-                                    </div>
-                                    <div>
-                                        <label class="block text-xs font-semibold text-gray-500 mb-1">Jam Selesai</label>
-                                        <input type="time" wire:model="jam_selesai" class="w-full rounded-lg border-gray-200 text-sm px-4 h-[42px] focus:border-[#405189] transition-all">
-                                        @error('jam_selesai') <span class="text-[11px] text-red-500 mt-1 italic">{{ $message }}</span> @enderror
-                                    </div>
+                                <div class="space-y-1.5">
+                                    <label class="text-[9px] sm:text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Jam Selesai</label>
+                                    <input type="time" wire:model="jam_selesai" 
+                                           class="w-full bg-gray-50 border border-gray-100 rounded-xl sm:rounded-2xl py-2.5 sm:py-3 px-4 text-sm font-bold text-[#2c3e50] focus:bg-white focus:ring-4 focus:ring-indigo-100 focus:border-[#405189] transition-all outline-none">
+                                    @error('jam_selesai') <span class="text-[10px] text-rose-500 font-bold px-1">{{ $message }}</span> @enderror
                                 </div>
-                                
-                                <div class="flex items-center gap-2 mt-2">
-                                    <input type="checkbox" id="isActiveCheck" wire:model="is_active" class="h-4 w-4 rounded border-gray-300 text-[#405189] focus:ring-[#405189]">
-                                    <label for="isActiveCheck" class="text-sm font-semibold text-gray-700">Jadwal Aktif (Tampilkan Jadwal Ini ke Sistem)</label>
-                                </div>
-                                @error('is_active') <span class="text-[11px] text-red-500 mt-1 italic">{{ $message }}</span> @enderror
+                            </div>
+                            
+                            <div class="flex items-center gap-3 p-4 bg-gray-50/50 rounded-2xl border border-dashed border-gray-200">
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" wire:model="is_active" class="sr-only peer">
+                                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#405189]"></div>
+                                </label>
+                                <span class="text-[10px] font-black text-gray-500 uppercase tracking-widest">Jadwal Aktif (Ditampilkan di Sistem)</span>
                             </div>
                         </form>
                     </div>
 
-                    <div class="px-8 py-5 bg-gray-50/80 flex justify-end gap-3 border-t border-gray-100">
-                        <button type="button" @click="showModal = false" class="btn bg-orange-500 text-white px-6 h-10 flex items-center gap-2 transition-all hover:bg-orange-600"><i class="ri-arrow-go-back-line"></i> Batal</button>
-                        <button type="button" wire:click="save" wire:loading.attr="disabled" class="btn bg-[#0d6efd] text-white px-8 h-10 shadow-md flex items-center justify-center gap-2 transition-all hover:bg-[#0b5ed7] hover:translate-y-[-2px] disabled:opacity-70"><svg wire:loading wire:target="save" class="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg><i wire:loading.remove wire:target="save" class="ri-save-line"></i><span wire:loading.remove wire:target="save">{{ $isEdit ? 'Simpan Perubahan' : 'Simpan Jadwal' }}</span><span wire:loading wire:target="save">Memproses...</span></button>
+                    <div class="px-5 py-4 sm:px-8 sm:py-6 bg-gray-50/80 flex justify-end gap-3 border-t border-gray-100">
+                        <button type="button" @click="showModal = false" class="btn bg-rose-50 text-rose-600 px-6 h-10 flex items-center gap-2 transition-all hover:bg-rose-600 hover:text-white font-bold text-xs uppercase tracking-widest">Batal</button>
+                        <button type="button" wire:click="save" wire:loading.attr="disabled" class="btn bg-[#405189] text-white px-8 h-10 shadow-md flex items-center justify-center gap-2 transition-all hover:translate-y-[-2px] disabled:opacity-70 font-bold text-xs uppercase tracking-widest">
+                            <i wire:loading.remove wire:target="save" class="ri-save-line"></i>
+                            <span wire:loading.remove wire:target="save">Simpan Jadwal</span>
+                            <span wire:loading wire:target="save">Memproses...</span>
+                        </button>
                     </div>
+
                 </div>
             </div>
         </div>
