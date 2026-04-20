@@ -20,9 +20,8 @@
     {{-- Chart.js CDN --}}
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 
-    {{-- jQuery & DataTables CDN --}}
+    {{-- jQuery CDN --}}
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-    <script src="https://cdn.datatables.net/2.1.8/js/dataTables.min.js"></script>
 
     {{-- SweetAlert2 CDN --}}
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -35,91 +34,6 @@
             /* ... (keep existing root) ... */
         }
 
-        /* ── DataTables Overrides ────────────────────────── */
-        .dt-container {
-            font-size: 13.5px;
-            color: var(--text-body);
-        }
-
-        .dt-search input {
-            background: var(--bg-body) !important;
-            border: 1px solid var(--border-color) !important;
-            border-radius: 8px !important;
-            padding: 6px 12px !important;
-            outline: none !important;
-        }
-
-        .dt-length select {
-            background: var(--bg-body) !important;
-            border: 1px solid var(--border-color) !important;
-            border-radius: 8px !important;
-            padding: 4px 8px !important;
-            outline: none !important;
-        }
-
-        .dt-paging {
-            margin-top: 16px !important;
-            display: flex !important;
-            justify-content: flex-end !important;
-            gap: 4px !important;
-        }
-
-        .dt-paging-button {
-            border: 1px solid var(--border-color) !important;
-            border-radius: 6px !important;
-            padding: 4px 12px !important;
-            cursor: pointer !important;
-            background: var(--bg-card) !important;
-            transition: all .2s !important;
-        }
-
-        .dt-paging-button.current {
-            background: #6691e7 !important;
-            color: white !important;
-            border-color: #6691e7 !important;
-        }
-
-        .dt-paging-button:hover:not(.current) {
-            background: var(--icon-hover) !important;
-        }
-
-        table.dataTable {
-            border-collapse: collapse !important;
-            width: 100%;
-            margin: 16px 0 !important;
-            border-bottom: none !important;
-        }
-
-        table.dataTable thead th {
-            background: var(--bg-body);
-            color: var(--text-heading);
-            font-weight: 600;
-            text-transform: uppercase;
-            font-size: 11px;
-            letter-spacing: 0.5px;
-            padding: 12px 16px !important;
-            border-bottom: 1px solid var(--border-color) !important;
-            white-space: nowrap;
-        }
-
-        table.dataTable td {
-            padding: 12px 16px !important;
-            border-bottom: 1px solid var(--border-color) !important;
-            color: var(--text-body);
-            white-space: nowrap;
-        }
-
-        table.dataTable tr:hover td {
-            background: var(--icon-hover);
-        }
-
-        .dt-info {
-            font-size: 13px;
-            color: var(--text-muted);
-            margin-top: 16px;
-        }
-
-        /* ── Velzon Original Components ─────────────────── */
         /* ── Modern Card Styling ────────────────────────── */
         .card {
             background: var(--bg-card);
@@ -1040,7 +954,6 @@
             background-color: #f8f9fa;
         }
 
-        /* ── DataTables Specific Overrides ──────────────── */
         .dataTables_wrapper .dataTables_length,
         .dataTables_wrapper .dataTables_filter,
         .dataTables_wrapper .dataTables_info,

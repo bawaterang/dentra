@@ -10,36 +10,6 @@
         'Segoe UI Symbol', 'Noto Color Emoji';
 }
 
-/* Global DataTables Dark Mode Fix */
-[data-bs-theme="dark"] .dataTables_wrapper .dataTables_length, 
-[data-bs-theme="dark"] .dataTables_wrapper .dataTables_filter, 
-[data-bs-theme="dark"] .dataTables_wrapper .dataTables_info, 
-[data-bs-theme="dark"] .dataTables_wrapper .dataTables_paginate {
-    color: var(--vz-body-color) !important;
-}
-[data-bs-theme="dark"] table.dataTable > tbody > tr.odd > *,
-[data-bs-theme="dark"] table.dataTable > tbody > tr.even > * {
-    background-color: transparent !important;
-    box-shadow: inset 0 0 0 9999px transparent !important;
-}
-[data-bs-theme="dark"] table.dataTable > tbody > tr:hover > * {
-    background-color: rgba(255,255,255,0.05) !important;
-}
-[data-bs-theme="dark"] .dataTables_wrapper .dataTables_paginate .paginate_button {
-    color: var(--vz-body-color) !important;
-}
-[data-bs-theme="dark"] .dataTables_wrapper .dataTables_paginate .paginate_button.disabled {
-    color: rgba(255,255,255,0.2) !important;
-}
-[data-bs-theme="dark"] table.dataTable > tbody > tr > td,
-[data-bs-theme="dark"] table.dataTable.display > tbody > tr > td {
-    border-top: 1px solid var(--vz-border-color) !important;
-}
-[data-bs-theme="dark"] table.dataTable > thead > tr > th,
-[data-bs-theme="dark"] table.dataTable.display > thead > tr > th {
-    border-bottom: 1px solid var(--vz-border-color) !important;
-    color: var(--vz-body-color) !important;
-}
 
 /* ═══════════════════════════════════════════════════════════════ */
 /* Dark Mode: x-custom-dropdown component                        */

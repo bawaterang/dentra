@@ -49,8 +49,11 @@ class BackupPage extends Component
             $dbConnection = config('database.default');
             $dbConfig = config("database.connections.{$dbConnection}");
 
+            $mysqldumpPath = env('DB_MYSQLDUMP_PATH', 'mysqldump');
+            
             $command = sprintf(
-                'mysqldump --user=%s --password=%s --host=%s %s > %s',
+                '%s --user=%s --password=%s --host=%s %s > %s',
+                $mysqldumpPath,
                 escapeshellarg($dbConfig['username']),
                 escapeshellarg($dbConfig['password']),
                 escapeshellarg($dbConfig['host']),
@@ -114,8 +117,11 @@ class BackupPage extends Component
             $dbConnection = config('database.default');
             $dbConfig = config("database.connections.{$dbConnection}");
 
+            $mysqlPath = env('DB_MYSQL_PATH', 'mysql');
+
             $command = sprintf(
-                'mysql --user=%s --password=%s --host=%s %s < %s',
+                '%s --user=%s --password=%s --host=%s %s < %s',
+                $mysqlPath,
                 escapeshellarg($dbConfig['username']),
                 escapeshellarg($dbConfig['password']),
                 escapeshellarg($dbConfig['host']),
@@ -165,11 +171,7 @@ class BackupPage extends Component
     public function render()
     {
         return <<<'HTML'
-        <div x-data="{ 
-            initDataTable() {
-                // No longer needed for DataTables, but kept for compatibility if any other JS is needed
-            }
-        }">
+        <div x-data="{}">
             <style>
                 .glass-header {
                     background: rgba(255, 255, 255, 0.8) !important;

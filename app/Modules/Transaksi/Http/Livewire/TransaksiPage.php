@@ -2,7 +2,9 @@
 
 namespace App\Modules\Transaksi\Http\Livewire;
 
+use Livewire\Attributes\Computed;
 use Livewire\Component;
+use Livewire\WithPagination;
 use Livewire\WithFileUploads;
 use App\Models\TrxPendaftaran;
 use App\Models\MstPoli;
@@ -14,14 +16,13 @@ use Illuminate\Support\Facades\Storage;
 
 class TransaksiPage extends Component
 {
-    use WithFileUploads;
+    use WithFileUploads, WithPagination;
     public $selectedDate;
     public $selectedPoli = 'all';
     public $searchPasien = '';
     public $selectedPendaftaranId;
     public $selectedPendaftaran;
     public $poliList = [];
-    public $pasienList = [];
     public $poliListOptions = [];
     public $kesadaranList = [];
 
@@ -900,6 +901,50 @@ class TransaksiPage extends Component
         ];
     }
 
+    public function updatedSearchPasien()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedSelectedDate()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedSelectedPoli()
+    {
+        $this->resetPage();
+    }
+
+    #[Computed]
+    public function pasienList()
+    {
+        $isAdmin = auth()->user()->roles()->wherePivot('role_id', 1)->exists();
+        $query = TrxPendaftaran::with(['pasien', 'poli', 'dokter'])
+            ->whereDate('created_at', $this->selectedDate)
+            ->whereIn('status', ['terdaftar', 'menunggu_screening', 'selesai']);
+
+        if (!$isAdmin) {
+            $user = auth()->user();
+            if ($user->dokter) {
+                $query->where('dokter_id', $user->dokter->id);
+            }
+        }
+
+        if ($this->selectedPoli !== 'all') {
+            $query->where('poli_id', $this->selectedPoli);
+        }
+
+        if ($this->searchPasien) {
+            $query->whereHas('pasien', function($q) {
+                $q->where('nama_pasien', 'like', '%' . $this->searchPasien . '%')
+                  ->orWhere('no_rm', 'like', '%' . $this->searchPasien . '%');
+            });
+        }
+
+        return $query->orderBy('created_at', 'asc')->paginate(10);
+    }
+
     public function render()
     {
         // Filter Poli based on User Mapping (trx_user_poli -> mst_poli)
@@ -936,34 +981,6 @@ class TransaksiPage extends Component
         // NOTE: diagnosisListOptions, tindakanListOptions, obatListOptions, bmhpListOptions
         // are now loaded on-demand via searchDiagnosis(), searchTindakan(), searchObat(), searchBmhp()
 
-        $query = TrxPendaftaran::with(['pasien', 'poli', 'dokter'])
-            ->whereDate('created_at', $this->selectedDate)
-            ->whereIn('status', ['terdaftar', 'menunggu_screening', 'selesai']);
-
-        if (!$isAdmin) {
-            // Personalized filtering for doctors
-            $user = auth()->user();
-            // Check if user is linked to a doctor
-            if ($user->dokter) {
-                // If linked, only show patients assigned to this doctor
-                $query->where('dokter_id', $user->dokter->id);
-            }
-            // Add other role-based overrides if necessary here
-        }
-
-        if ($this->selectedPoli !== 'all') {
-            $query->where('poli_id', $this->selectedPoli);
-        }
-
-        if ($this->searchPasien) {
-            $query->whereHas('pasien', function($q) {
-                $q->where('nama_pasien', 'like', '%' . $this->searchPasien . '%')
-                  ->orWhere('no_rm', 'like', '%' . $this->searchPasien . '%');
-            });
-        }
-
-        $this->pasienList = $query->orderBy('created_at', 'asc')->get();
-
         return <<<'HTML'
         <div x-data="{ 
             activeTab: 'soap',
@@ -972,21 +989,8 @@ class TransaksiPage extends Component
             searchDiag: '',
             searchTind: '',
             searchObat: '',
-            searchBmhp: '',
-            initDataTable() { 
-                const t='#patientTable'; 
-                if($.fn.DataTable.isDataTable(t)){$(t).DataTable().destroy()} 
-                $(t).DataTable({scrollX:false,dom:'rtp',pageLength:10,language:{zeroRecords:'Tidak ada pasien',emptyTable:'Belum ada pendaftaran',paginate:{previous:'<i class=ri-arrow-left-s-line></i>',next:'<i class=ri-arrow-right-s-line></i>'}}});
-            },
-            init(){ 
-                $nextTick(()=>{ this.initDataTable(); });
-                if (window.Livewire) {
-                    Livewire.hook('morph.updated', () => {
-                        $nextTick(() => { this.initDataTable(); });
-                    });
-                }
-            }
-        }" @patient-selected.window="$nextTick(()=>{ initDataTable(); })" @refresh-table.window="$nextTick(()=>{ initDataTable(); })" x-init="initDataTable()">
+            searchBmhp: ''
+        }">
             
             <div class="page-header">
                 <div class="page-header-title">
@@ -1048,14 +1052,14 @@ class TransaksiPage extends Component
                             <h6 class="text-xs font-bold text-[#405189] uppercase tracking-widest mb-0 flex items-center gap-2">
                                 <i class="ri-group-line"></i> Daftar Pasien
                             </h6>
-                            <span class="badge bg-[#405189] text-white rounded-full px-2 text-[10px]">{{ $this->pasienList->count() }}</span>
+                            <span class="badge bg-[#405189] text-white rounded-full px-2 text-[10px]">{{ $this->pasienList->total() }}</span>
                         </div>
                         <div class="p-4 bg-white">
                             <div class="relative mb-3">
                                 <input type="text" wire:model.live.debounce.300ms="searchPasien" class="form-control text-xs h-9 pl-8 border-gray-200 rounded-lg w-full focus:border-[#405189] transition-all" placeholder="Cari nama/RM...">
                                 <i class="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
                             </div>
-                            <div class="max-h-[500px] overflow-y-auto space-y-2 p-1">
+                            <div class="max-h-[600px] overflow-y-auto space-y-2 p-1">
                                 @forelse($this->pasienList as $item)
                                     <button wire:click="selectPendaftaran({{ $item->id }})" 
                                         class="w-full text-left p-3 rounded-xl border transition-all duration-200 group {{ $selectedPendaftaranId == $item->id ? 'bg-[#405189] border-[#405189] shadow-md ring-2 ring-[#405189]/20' : 'bg-white border-gray-100 hover:border-[#405189] hover:bg-gray-50 shadow-sm' }}">
@@ -1073,10 +1077,16 @@ class TransaksiPage extends Component
                                 @empty
                                     <div class="text-center py-10 opacity-40">
                                         <i class="ri-user-search-line text-4xl block mb-2"></i>
-                                        <p class="text-xs font-bold">Tidak ada pasien</p>
+                                        <p class="text-xs font-bold">Pasien tidak ditemukan</p>
                                     </div>
                                 @endforelse
                             </div>
+
+                            @if($this->pasienList->hasPages())
+                            <div class="mt-4 pt-4 border-t border-gray-100 pagination-sidebar">
+                                {{ $this->pasienList->links() }}
+                            </div>
+                            @endif
                         </div>
                     </div>
                 </div>
@@ -2806,6 +2816,20 @@ class TransaksiPage extends Component
                     background: rgba(255, 255, 255, 0.85);
                     backdrop-filter: blur(8px);
                     -webkit-backdrop-filter: blur(8px);
+                }
+
+                /* Compact Pagination for Sidebar */
+                .pagination-sidebar nav > div:first-child { display: none !important; }
+                .pagination-sidebar nav > div:last-child { justify-content: center !important; }
+                .pagination-sidebar nav span.relative.z-0 { gap: 4px !important; }
+                .pagination-sidebar nav a, 
+                .pagination-sidebar nav span[aria-disabled="true"] span,
+                .pagination-sidebar nav span[aria-current="page"] span {
+                    min-width: 32px !important;
+                    height: 32px !important;
+                    padding: 0 8px !important;
+                    font-size: 11px !important;
+                    border-radius: 6px !important;
                 }
             </style>
         </div>
