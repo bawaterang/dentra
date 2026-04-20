@@ -365,8 +365,8 @@ class TransaksiPage extends Component
             $color = is_array($data) ? ($data['color'] ?? null) : null;
             $kode = is_array($data) ? ($data['kode'] ?? null) : null;
 
-            // Only save entries that have a color assigned (not white/empty)
-            if ($color && $color !== 'white') {
+            // Only save entries that have a color assigned
+            if ($color) {
                 $records[] = [
                     'nomor_kunjungan' => $nomorKunjungan,
                     'pasien_id' => $this->selectedPendaftaran->pasien_id,
@@ -2889,11 +2889,7 @@ class TransaksiPage extends Component
 
                     applyCategory(kode, warna) {
                         let key = this.selectedTooth + '-' + this.selectedPart;
-                        if (!kode) {
-                            delete this.state[key];
-                        } else {
-                            this.state[key] = { kode: kode, color: warna };
-                        }
+                        this.state[key] = { kode: kode, color: warna || 'white' };
                         
                         this.state = {...this.state};
                         this.showMenu = false;
