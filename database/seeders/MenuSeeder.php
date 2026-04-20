@@ -529,5 +529,17 @@ class MenuSeeder extends Seeder
             'created_at' => $now,
             'updated_at' => $now,
         ]);
+
+        DB::table('mst_menu')->insert([
+            'id' => 40,
+            'menu_name' => 'Laporan Pendapatan',
+            'menu_link' => '/laporan/pendapatan',
+            'menu_icon' => 'ri-money-dollar-circle-line',
+            'parent_id' => 8,
+            'order_no' => 5,
+            'is_active' => true,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
     }
 }

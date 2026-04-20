@@ -30,4 +30,9 @@ Route::middleware(['web', 'auth'])->prefix('laporan')->name('laporan.')->group(f
     Route::get('/satu-sehat', \App\Modules\Laporan\Http\Livewire\LaporanSatuSehatPage::class)->name('satu-sehat');
     Route::get('/satu-sehat/print', [\App\Modules\Laporan\Http\Controllers\LaporanSatuSehatExportController::class, 'print'])->name('satu-sehat.print');
     Route::get('/satu-sehat/export-excel', [\App\Modules\Laporan\Http\Controllers\LaporanSatuSehatExportController::class, 'exportExcel'])->name('satu-sehat.export');
+
+    // Pendapatan
+    Route::get('/pendapatan', \App\Modules\Laporan\Http\Livewire\LaporanPendapatanPage::class)->name('pendapatan');
+    Route::get('/pendapatan/print', [\App\Modules\Laporan\Http\Controllers\LaporanPendapatanExportController::class, 'print'])->name('pendapatan.print');
+    Route::get('/pendapatan/export-excel', [\App\Modules\Laporan\Http\Controllers\LaporanPendapatanExportController::class, 'exportExcel'])->name('pendapatan.export');
 });
