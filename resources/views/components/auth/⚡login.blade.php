@@ -3,8 +3,7 @@
 use Livewire\Component;
 use Illuminate\Support\Facades\Auth;
 
-new class extends Component
-{
+new class extends Component {
     public $username = '';
     public $password = '';
     public $remember = false;
@@ -16,13 +15,15 @@ new class extends Component
             'password' => 'required',
         ]);
 
-        if (Auth::attempt(['username' => $this->username, 'password' => $this->password], $this->remember)) {
+        if (Auth::attempt(['username' => $this->username, 'password' => $this->password], (bool) $this->remember)) {
+            /** @var \App\Models\User $user */
             $user = Auth::user();
-            $user->login_terakhir = now();
+            $user->login_terakhir = \Illuminate\Support\Carbon::now();
             $user->save();
 
             session()->regenerate();
-            return redirect()->route('dashboard.index');
+
+            return redirect()->intended(route('dashboard.index'));
         }
 
         session()->flash('error', 'Username atau password salah.');
@@ -41,23 +42,38 @@ new class extends Component
         align-items: center;
         justify-content: center;
     }
+
     .loader-content {
         display: flex;
         flex-direction: column;
         align-items: center;
         gap: 12px;
     }
+
     .tooth-spinner {
         width: 48px;
         height: 48px;
         color: #6691e7;
         animation: pulseTooth 1s ease-in-out infinite;
     }
+
     @keyframes pulseTooth {
-        0% { transform: scale(0.9); opacity: 0.7; }
-        50% { transform: scale(1.15); opacity: 1; }
-        100% { transform: scale(0.9); opacity: 0.7; }
+        0% {
+            transform: scale(0.9);
+            opacity: 0.7;
+        }
+
+        50% {
+            transform: scale(1.15);
+            opacity: 1;
+        }
+
+        100% {
+            transform: scale(0.9);
+            opacity: 0.7;
+        }
     }
+
     .loader-text {
         font-size: 14px;
         font-weight: 600;
@@ -65,10 +81,110 @@ new class extends Component
         letter-spacing: 1px;
         animation: pulseText 1s ease-in-out infinite;
     }
+
     @keyframes pulseText {
-        0% { opacity: 0.5; }
-        50% { opacity: 1; }
-        100% { opacity: 0.5; }
+        0% {
+            opacity: 0.5;
+        }
+
+        50% {
+            opacity: 1;
+        }
+
+        100% {
+            opacity: 0.5;
+        }
+    }
+
+    /* Heart Rate Animation Styles */
+    .heart-rate-monitor {
+        display: flex;
+        align-items: center;
+        padding: 0;
+        border-radius: 0.75rem;
+        width: 100%;
+        max-width: 440px;
+        height: 60px;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .ecg-grid {
+        position: absolute;
+        inset: 0;
+        background-image:
+            linear-gradient(rgba(34, 197, 94, 0.08) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(34, 197, 94, 0.08) 1px, transparent 1px),
+            linear-gradient(rgba(34, 197, 94, 0.03) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(34, 197, 94, 0.03) 1px, transparent 1px);
+        background-size: 25px 25px, 25px 25px, 5px 5px, 5px 5px;
+        pointer-events: none;
+    }
+
+    .ecg-container {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+    }
+
+    .ecg-svg {
+        width: 100%;
+        height: 60%;
+        overflow: visible;
+    }
+
+    .ecg-path-active {
+        stroke: #22c55e;
+        fill: none;
+        stroke-width: 2.5;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        filter: drop-shadow(0 0 5px rgba(34, 197, 94, 0.8));
+    }
+
+    .ecg-path-ghost {
+        stroke: rgba(34, 197, 94, 0.15);
+        fill: none;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+    }
+
+    .ecg-head {
+        position: absolute;
+        top: 10%;
+        bottom: 10%;
+        width: 3px;
+        background: #22c55e;
+        box-shadow: 0 0 15px #22c55e, 0 0 5px #fff;
+        border-radius: 10px;
+        animation: head-sweep-new 4s linear infinite;
+        z-index: 10;
+        will-change: transform;
+    }
+
+    @keyframes head-sweep-new {
+        from {
+            transform: translateX(-10px);
+        }
+
+        to {
+            transform: translateX(calc(100% + 10px));
+        }
+    }
+
+    @keyframes blink {
+
+        0%,
+        100% {
+            opacity: 1;
+        }
+
+        50% {
+            opacity: 0.3;
+        }
     }
 </style>
 
@@ -78,7 +194,8 @@ new class extends Component
         <div class="loader-content">
             <svg class="tooth-spinner" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M2.26 10c.85-6.79 5-8 9.74-8s8.89 1.21 9.74 8c.55 4.39-1.32 8.52-4.14 11.2a2 2 0 0 1-2.82-.12l-2-2.13a1 1 0 0 0-1.46 0l-2 2.13a2 2 0 0 1-2.82.12C3.58 18.52 1.71 14.39 2.26 10Z" />
+                <path
+                    d="M2.26 10c.85-6.79 5-8 9.74-8s8.89 1.21 9.74 8c.55 4.39-1.32 8.52-4.14 11.2a2 2 0 0 1-2.82-.12l-2-2.13a1 1 0 0 0-1.46 0l-2 2.13a2 2 0 0 1-2.82.12C3.58 18.52 1.71 14.39 2.26 10Z" />
                 <path d="M12 11v11" />
             </svg>
             <div class="loader-text text-center tracking-[4px]">Memuat...</div>
@@ -107,17 +224,43 @@ new class extends Component
                     experience a unified, modern platform tailored for dental professionals.
                 </p>
 
-                <div class="mt-12 flex -space-x-2">
-                    <!-- Decorational user avatars to mimic "trusted by" -->
-                    <img class="inline-block h-10 w-10 rounded-full ring-2 ring-indigo-900"
-                        src="https://ui-avatars.com/api/?name=Dr.+Smith&background=E0E7FF&color=3730A3" alt="" />
-                    <img class="inline-block h-10 w-10 rounded-full ring-2 ring-indigo-900"
-                        src="https://ui-avatars.com/api/?name=Nurse+Jane&background=DBEAFE&color=1E40AF" alt="" />
-                    <img class="inline-block h-10 w-10 rounded-full ring-2 ring-indigo-900"
-                        src="https://ui-avatars.com/api/?name=Admin+Tom&background=BFDBFE&color=1E3A8A" alt="" />
-                    <div
-                        class="inline-flex items-center justify-center w-10 h-10 rounded-full ring-2 ring-indigo-900 bg-white/20 backdrop-blur-md text-sm font-medium">
-                        +5k
+                <div class="mt-12">
+                    <div class="heart-rate-monitor cursor-default">
+                        <div class="ecg-grid"></div>
+                        <div class="ecg-container">
+                            <svg class="ecg-svg" viewBox="0 0 400 40" preserveAspectRatio="none">
+                                <defs>
+                                    <mask id="sweepMask" maskUnits="userSpaceOnUse">
+                                        <!-- Moving white block reveals the active path -->
+                                        <rect x="0" y="0" width="100" height="40" fill="white">
+                                            <animate attributeName="x" from="-100" to="400" dur="4s"
+                                                repeatCount="indefinite" />
+                                        </rect>
+                                    </mask>
+                                </defs>
+                                @php
+                                    $waveform = "";
+                                    for ($i = 0; $i < 8; $i++) {
+                                        $x = $i * 50;
+                                        $waveform .= "M" . ($x + 0) . ",20 ";
+                                        $waveform .= "L" . ($x + 5) . ",18 ";
+                                        $waveform .= "L" . ($x + 10) . ",20 ";
+                                        $waveform .= "L" . ($x + 12) . ",22 ";
+                                        $waveform .= "L" . ($x + 15) . ",5 ";
+                                        $waveform .= "L" . ($x + 18) . ",30 ";
+                                        $waveform .= "L" . ($x + 25) . ",20 ";
+                                        $waveform .= "L" . ($x + 30) . ",15 ";
+                                        $waveform .= "L" . ($x + 35) . ",20 ";
+                                        $waveform .= "L" . ($x + 50) . ",20 ";
+                                    }
+                                @endphp
+                                <!-- Static ghosting path -->
+                                <path class="ecg-path-ghost" d="{{ $waveform }}" />
+                                <!-- Active glowing path (masked) -->
+                                <path class="ecg-path-active" mask="url(#sweepMask)" d="{{ $waveform }}" />
+                            </svg>
+                            <div class="ecg-head"></div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -153,24 +296,24 @@ new class extends Component
 
             <div class="mt-8">
                 @if (session()->has('message'))
-                <div
-                    class="mb-6 bg-green-50 text-green-700 p-4 rounded-xl flex items-center gap-3 border border-green-200">
-                    <svg class="w-5 h-5 text-green-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                    </svg>
-                    <span class="text-sm font-medium">{{ session('message') }}</span>
-                </div>
+                    <div
+                        class="mb-6 bg-green-50 text-green-700 p-4 rounded-xl flex items-center gap-3 border border-green-200">
+                        <svg class="w-5 h-5 text-green-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                        </svg>
+                        <span class="text-sm font-medium">{{ session('message') }}</span>
+                    </div>
                 @endif
 
                 @if (session()->has('error'))
-                <div class="mb-6 bg-red-50 text-red-700 p-4 rounded-xl flex items-center gap-3 border border-red-200">
-                    <svg class="w-5 h-5 text-red-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <circle cx="12" cy="12" r="10"></circle>
-                        <line x1="12" y1="8" x2="12" y2="12"></line>
-                        <line x1="12" y1="16" x2="12.01" y2="16"></line>
-                    </svg>
-                    <span class="text-sm font-medium">{{ session('error') }}</span>
-                </div>
+                    <div class="mb-6 bg-red-50 text-red-700 p-4 rounded-xl flex items-center gap-3 border border-red-200">
+                        <svg class="w-5 h-5 text-red-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="8" x2="12" y2="12"></line>
+                            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                        </svg>
+                        <span class="text-sm font-medium">{{ session('error') }}</span>
+                    </div>
                 @endif
 
                 <form wire:submit="login" class="space-y-6">
@@ -191,7 +334,7 @@ new class extends Component
                                 class="appearance-none block w-full pl-11 px-4 py-3 bg-gray-50/50 border border-gray-200 rounded-xl shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm transition-all focus:bg-white text-gray-900">
                         </div>
                         @error('username') <span class="text-red-500 text-xs mt-1.5 block font-medium">{{ $message
-                            }}</span> @enderror
+                        }}</span> @enderror
                     </div>
 
                     <div>
@@ -236,7 +379,7 @@ new class extends Component
                             </button>
                         </div>
                         @error('password') <span class="text-red-500 text-xs mt-1.5 block font-medium">{{ $message
-                            }}</span> @enderror
+                        }}</span> @enderror
                     </div>
 
                     <div class="flex items-center">
@@ -247,18 +390,17 @@ new class extends Component
                         </label>
                     </div>
 
-                        <button type="submit" 
-                            wire:loading.attr="disabled"
-                            class="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-xl shadow-md text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all transform active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed gap-2">
-                            <span wire:loading.remove wire:target="login">Sign In</span>
-                            <span wire:loading wire:target="login" class="flex items-center gap-2">
-                                <i class="ri-loader-4-line animate-spin text-lg"></i>
-                                Memproses...
-                            </span>
-                        </button>
-                    </div>
-                </form>
+                    <button type="submit" wire:loading.attr="disabled"
+                        class="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-xl shadow-md text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all transform active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed gap-2">
+                        <span wire:loading.remove wire:target="login">Sign In</span>
+                        <span wire:loading wire:target="login" class="flex items-center gap-2">
+                            <i class="ri-loader-4-line animate-spin text-lg"></i>
+                            Memproses...
+                        </span>
+                    </button>
             </div>
+            </form>
         </div>
     </div>
+</div>
 </div>
