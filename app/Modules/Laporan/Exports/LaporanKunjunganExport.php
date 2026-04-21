@@ -6,9 +6,12 @@ use App\Models\TrxPendaftaran;
 use Illuminate\Contracts\View\View;
 use Maatwebsite\Excel\Concerns\FromView;
 use Maatwebsite\Excel\Concerns\WithTitle;
+use Maatwebsite\Excel\Concerns\WithEvents;
+use App\Traits\HasExportHeader;
 
-class LaporanKunjunganExport implements FromView, WithTitle
+class LaporanKunjunganExport implements FromView, WithTitle, WithEvents
 {
+    use HasExportHeader;
     protected $periodType;
     protected $selectedDate;
     protected $selectedBulan;

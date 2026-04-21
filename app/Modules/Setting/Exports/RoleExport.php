@@ -6,9 +6,12 @@ use App\Models\MstRoleUser;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithMapping;
+use Maatwebsite\Excel\Concerns\WithEvents;
+use App\Traits\HasExportHeader;
 
-class RoleExport implements FromCollection, WithHeadings, WithMapping
+class RoleExport implements FromCollection, WithHeadings, WithMapping, WithEvents
 {
+    use HasExportHeader;
     protected $status;
 
     public function __construct($status = 'all')

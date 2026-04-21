@@ -1,16 +1,6 @@
 <table>
     <thead>
         <tr>
-            <th colspan="7" style="font-weight: bold; font-size: 14pt; text-align: center;">SIGI DENTAL EMR</th>
-        </tr>
-        <tr>
-            <th colspan="7" style="font-weight: bold; font-size: 12pt; text-align: center;">Laporan Pendapatan dan Pengeluaran BHP</th>
-        </tr>
-        <tr>
-            <th colspan="7" style="text-align: center;">Periode: {{ $bulan }} {{ $tahun }}</th>
-        </tr>
-        <tr></tr>
-        <tr>
             <th colspan="3" style="font-weight: bold;">Ringkasan</th>
             <th></th>
             <th></th>
@@ -19,7 +9,7 @@
         </tr>
         <tr>
             <td colspan="2">Total Pendapatan</td>
-            <td style="font-weight: bold;">Rp {{ number_format($summary['pendapatan'], 0, ',', '.') }}</td>
+            <td style="font-weight: bold;">Rp {{ $summary['pendapatan'] }}</td>
             <td></td>
             <td></td>
             <td></td>
@@ -27,7 +17,7 @@
         </tr>
         <tr>
             <td colspan="2">Total Pengeluaran BHP</td>
-            <td style="font-weight: bold;">Rp {{ number_format($summary['pengeluaran'], 0, ',', '.') }}</td>
+            <td style="font-weight: bold;">Rp {{ $summary['pengeluaran'] }}</td>
             <td></td>
             <td></td>
             <td></td>
@@ -35,7 +25,7 @@
         </tr>
         <tr>
             <td colspan="2">Total Piutang</td>
-            <td style="font-weight: bold;">Rp {{ number_format($summary['piutang'], 0, ',', '.') }}</td>
+            <td style="font-weight: bold;">Rp {{ $summary['piutang'] }}</td>
             <td></td>
             <td></td>
             <td></td>
@@ -43,7 +33,7 @@
         </tr>
         <tr>
             <td colspan="2">Laba Bersih</td>
-            <td style="font-weight: bold;">Rp {{ number_format($summary['laba_bersih'], 0, ',', '.') }}</td>
+            <td style="font-weight: bold;">Rp {{ $summary['laba_bersih'] }}</td>
             <td></td>
             <td></td>
             <td></td>
@@ -71,7 +61,7 @@
         <tr>
             <td style="border: 1px solid #000; text-align: center;">{{ $index + 1 }}</td>
             <td style="border: 1px solid #000;">{{ $item->no_faktur }}</td>
-            <td style="border: 1px solid #000;">{{ $item->nomor_kunjungan }}</td>
+            <td style="border: 1px solid #000;">{{ $item->nomor_kunjungan ? "'" . $item->nomor_kunjungan : '-' }}</td>
             <td style="border: 1px solid #000;">{{ $item->pasien ? $item->pasien->no_rm : '-' }}</td>
             <td style="border: 1px solid #000;">{{ $item->pasien ? $item->pasien->nama_pasien : '-' }}</td>
             <td style="border: 1px solid #000; text-align: center;">{{ $item->created_at ? $item->created_at->format('d/m/Y') : '-' }}</td>

@@ -7,9 +7,12 @@ use App\Models\TrxScreening;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithMapping;
+use Maatwebsite\Excel\Concerns\WithEvents;
+use App\Traits\HasExportHeader;
 
-class ScreeningExport implements FromCollection, WithHeadings, WithMapping
+class ScreeningExport implements FromCollection, WithHeadings, WithMapping, WithEvents
 {
+    use HasExportHeader;
     protected $date;
     public function __construct($date) { $this->date = $date; }
 

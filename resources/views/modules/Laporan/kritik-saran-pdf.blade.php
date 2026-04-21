@@ -1,41 +1,34 @@
-<!DOCTYPE html>
-<html lang="id">
-<head>
-    <meta charset="UTF-8">
-    <title>Laporan Kritik & Saran</title>
-    <style>
-        body { font-family: 'Helvetica', 'Arial', sans-serif; font-size: 10px; color: #333; }
-        .header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #2c3e50; padding-bottom: 10px; }
-        .clinic-name { font-size: 16px; font-weight: bold; color: #2c3e50; text-transform: uppercase; margin-bottom: 5px; }
-        .report-title { font-size: 14px; font-weight: bold; margin-bottom: 5px; }
-        .periode { font-size: 11px; color: #666; }
-        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-        th { background-color: #f8fafc; color: #2c3e50; padding: 8px 5px; text-align: left; border: 1px solid #cbd5e1; font-weight: bold; text-transform: uppercase; font-size: 9px; }
-        td { padding: 6px 5px; border: 1px solid #cbd5e1; vertical-align: top; }
-        .footer { text-align: right; margin-top: 30px; font-size: 9px; color: #666; }
-        .text-center { text-align: center; }
-        .text-right { text-align: right; }
-        .mb-2 { margin-bottom: 5px; }
-        .font-bold { font-weight: bold; }
-        .text-gray { color: #64748b; }
-        .text-xs { font-size: 8px; }
-    </style>
-</head>
-<body>
-    <div class="header">
-        <div class="clinic-name">SIGI DENTAL EMR</div>
-        <div class="report-title">LAPORAN KRITIK & SARAN</div>
-        <div class="periode">Periode: {{ $periode }}</div>
+@extends('layouts.pdf-base')
+
+@section('title', 'Laporan Kritik & Saran - ' . ($instansi->nama_instansi ?? 'SIGI Dental'))
+
+@section('styles')
+<style>
+    table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+    th { background-color: #f8fafc; color: #405189; padding: 8px 5px; text-align: left; border: 1px solid #cbd5e1; font-weight: bold; text-transform: uppercase; font-size: 8.5pt; }
+    td { padding: 8px 5px; border: 1px solid #cbd5e1; vertical-align: top; font-size: 8pt; }
+    .sender-info { font-weight: bold; color: #1e293b; }
+    .meta-text { font-size: 7.5pt; color: #64748b; margin-top: 3px; }
+    .status-badge { padding: 2px 5px; border-radius: 4px; font-size: 7pt; font-weight: bold; }
+    .status-terjawab { background: #dcfce7; color: #166534; }
+    .status-pending { background: #fef9c3; color: #854d0e; }
+</style>
+@endsection
+
+@section('content')
+    <div class="text-center mb-4">
+        <h2 style="margin:0; color: #405189;">LAPORAN KRITIK & SARAN</h2>
+        <p style="margin:5px 0; color: #666; font-size: 9pt;">Rekapitulasi Feedback dan Respon Layanan — Periode: {{ $periode }}</p>
     </div>
 
     <table>
         <thead>
             <tr>
                 <th width="5%" class="text-center">NO</th>
-                <th width="15%">PENGIRIM</th>
+                <th width="20%">PENGIRIM</th>
                 <th width="15%">KONTAK</th>
-                <th width="35%">PESAN</th>
-                <th width="30%">STATUS & JAWABAN</th>
+                <th width="30%">PESAN</th>
+                <th width="30%">STATUS & RESPONS</th>
             </tr>
         </thead>
         <tbody>
@@ -43,38 +36,32 @@
             <tr>
                 <td class="text-center">{{ $index + 1 }}</td>
                 <td>
-                    <div class="font-bold">{{ $item->nama ?: 'Anonim' }}</div>
-                    <div class="text-xs text-gray mt-1">{{ $item->created_at ? $item->created_at->format('d/m/Y H:i') : '-' }}</div>
+                    <div class="sender-info">{{ $item->nama ?: 'Anonim' }}</div>
+                    <div class="meta-text">{{ $item->created_at ? $item->created_at->format('d/m/Y H:i') : '-' }}</div>
                 </td>
                 <td>
-                    <div class="mb-2">Email: {{ $item->email ?: '-' }}</div>
+                    <div>E: {{ $item->email ?: '-' }}</div>
                     <div>HP: {{ $item->nomor_hp ?: '-' }}</div>
                 </td>
                 <td>
-                    <div style="font-style: italic;">"{{ $item->pesan }}"</div>
-                    <div class="text-xs text-gray mt-1">
-                        Platform: {{ $item->platform ?: '-' }} | IP: {{ $item->ip_address ?: '-' }}
-                    </div>
+                    <div style="font-style: italic; color: #334155;">"{{ $item->pesan }}"</div>
+                    <div class="meta-text">Platform: {{ $item->platform ?: '-' }}</div>
                 </td>
                 <td>
                     @if($item->jawaban)
-                        <div class="font-bold mb-2">Terjawab ({{ \Carbon\Carbon::parse($item->waktu_jawab)->format('d/m/Y H:i') }})</div>
-                        <div>{{ $item->jawaban }}</div>
+                        <div class="status-badge status-terjawab mb-1" style="display:inline-block;">Terjawab</div>
+                        <div class="meta-text mb-1">Oleh: {{ $item->penjawab ?: 'Sistem' }} ({{ \Carbon\Carbon::parse($item->waktu_jawab)->format('d/m/Y H:i') }})</div>
+                        <div style="color: #405189;">{{ $item->jawaban }}</div>
                     @else
-                        <div class="text-gray italic">Menunggu Jawaban</div>
+                        <div class="status-badge status-pending">Menunggu Jawaban</div>
                     @endif
                 </td>
             </tr>
             @empty
             <tr>
-                <td colspan="5" class="text-center" style="padding: 20px;">Tidak ada data kritik/saran pada periode ini.</td>
+                <td colspan="5" class="text-center" style="padding: 20px;">Tidak ada feedback pada periode ini.</td>
             </tr>
             @endforelse
         </tbody>
     </table>
-
-    <div class="footer">
-        Dicetak pada: {{ date('d/m/Y H:i') }} oleh {{ auth()->user() ? auth()->user()->username : 'System' }}
-    </div>
-</body>
-</html>
+@endsection

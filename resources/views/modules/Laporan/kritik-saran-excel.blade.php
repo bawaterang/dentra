@@ -1,12 +1,6 @@
 <table>
     <thead>
         <tr>
-            <th colspan="7" style="font-size: 14px; font-weight: bold; text-align: center;">LAPORAN PENGADUAN KRITIK &amp; SARAN</th>
-        </tr>
-        <tr>
-            <th colspan="7" style="font-size: 12px; font-style: italic; text-align: center;">Periode: {{ $periode }}</th>
-        </tr>
-        <tr>
             <th style="font-weight: bold; background-color: #f2f2f2; width: 60px;">NO</th>
             <th style="font-weight: bold; background-color: #f2f2f2; width: 150px;">TANGGAL</th>
             <th style="font-weight: bold; background-color: #f2f2f2; width: 200px;">NAMA PENGIRIM</th>

@@ -4,9 +4,12 @@ use App\Models\MstTindakan;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithMapping;
+use Maatwebsite\Excel\Concerns\WithEvents;
+use App\Traits\HasExportHeader;
 
-class TindakanExport implements FromCollection, WithHeadings, WithMapping
+class TindakanExport implements FromCollection, WithHeadings, WithMapping, WithEvents
 {
+    use HasExportHeader;
     protected $status;
     public function __construct($status = 'all') { $this->status = $status; }
     public function collection() { $q = MstTindakan::withTrashed(); if ($this->status !== 'all') { $q->where('status', $this->status); } return $q->get(); }

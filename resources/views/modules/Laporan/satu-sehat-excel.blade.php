@@ -1,12 +1,6 @@
 <table>
     <thead>
         <tr>
-            <th colspan="7" style="font-size: 14px; font-weight: bold; text-align: center;">LAPORAN SATU SEHAT</th>
-        </tr>
-        <tr>
-            <th colspan="7" style="font-size: 12px; font-style: italic; text-align: center;">Periode: {{ $periode }}</th>
-        </tr>
-        <tr>
             <th style="font-weight: bold; background-color: #f2f2f2; width: 60px;">NO</th>
             <th style="font-weight: bold; background-color: #f2f2f2; width: 150px;">NO. KUNJUNGAN</th>
             <th style="font-weight: bold; background-color: #f2f2f2; width: 200px;">NAMA PASIEN</th>
@@ -20,10 +14,10 @@
         @foreach($dataList as $index => $item)
         <tr>
             <td>{{ $index + 1 }}</td>
-            <td>{{ $item->nomor_kunjungan }}</td>
+            <td>{{ $item->nomor_kunjungan ? "'" . $item->nomor_kunjungan : '-' }}</td>
             <td>{{ $item->pasien ? $item->pasien->nama_pasien : '-' }}</td>
             <td>{{ $item->pasien ? $item->pasien->no_rm : '-' }}</td>
-            <td>{{ $item->pasien && $item->pasien->nik ? $item->pasien->nik : '-' }}</td>
+            <td>{{ $item->pasien && $item->pasien->nik ? "'" . $item->pasien->nik : '-' }}</td>
             @php
                 $statuses = \App\Models\TrxSatusehatLog::where('nomor_kunjungan', $item->nomor_kunjungan)->get();
                 $successCount = $statuses->where('status', 'Success')->count();

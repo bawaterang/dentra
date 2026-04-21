@@ -6,9 +6,12 @@ use App\Models\MstPoli;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithMapping;
+use Maatwebsite\Excel\Concerns\WithEvents;
+use App\Traits\HasExportHeader;
 
-class PoliExport implements FromCollection, WithHeadings, WithMapping
+class PoliExport implements FromCollection, WithHeadings, WithMapping, WithEvents
 {
+    use HasExportHeader;
     protected $status;
 
     public function __construct($status = 'all')

@@ -6,10 +6,13 @@ use App\Models\TrxInformasi;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithMapping;
+use Maatwebsite\Excel\Concerns\WithEvents;
+use App\Traits\HasExportHeader;
 use Carbon\Carbon;
 
-class InformasiExport implements FromCollection, WithHeadings, WithMapping
+class InformasiExport implements FromCollection, WithHeadings, WithMapping, WithEvents
 {
+    use HasExportHeader;
     protected $status;
 
     public function __construct($status = 'all')

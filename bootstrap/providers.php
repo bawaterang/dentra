@@ -14,6 +14,7 @@ use App\Providers\AppServiceProvider;
 
 return [
     AppServiceProvider::class,
+    App\Providers\ViewServiceProvider::class,
     DashboardServiceProvider::class,
     MasterServiceProvider::class,
     AntrianServiceProvider::class,

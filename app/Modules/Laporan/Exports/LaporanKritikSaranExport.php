@@ -6,11 +6,12 @@ use App\Models\TrxMessage;
 use Illuminate\Contracts\View\View;
 use Maatwebsite\Excel\Concerns\FromView;
 use Maatwebsite\Excel\Concerns\ShouldAutoSize;
-use Maatwebsite\Excel\Concerns\WithStyles;
-use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
+use Maatwebsite\Excel\Concerns\WithEvents;
+use App\Traits\HasExportHeader;
 
-class LaporanKritikSaranExport implements FromView, ShouldAutoSize, WithStyles
+class LaporanKritikSaranExport implements FromView, ShouldAutoSize, WithEvents
 {
+    use HasExportHeader;
     protected $periodType;
     protected $selectedDate;
     protected $selectedBulan;
@@ -71,12 +72,4 @@ class LaporanKritikSaranExport implements FromView, ShouldAutoSize, WithStyles
         ]);
     }
 
-    public function styles(Worksheet $sheet)
-    {
-        return [
-            1    => ['font' => ['bold' => true, 'size' => 14]],
-            2    => ['font' => ['italic' => true]],
-            4    => ['font' => ['bold' => true]],
-        ];
-    }
 }

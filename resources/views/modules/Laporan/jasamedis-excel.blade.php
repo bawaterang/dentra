@@ -1,14 +1,5 @@
 <table>
     <thead>
-        <tr>
-            <th colspan="6" style="background: #405189; color: white; text-align: center; font-size: 16pt; font-weight: bold;">LAPORAN JASA MEDIS</th>
-        </tr>
-        <tr>
-            <th colspan="6" style="background: #405189; color: white; text-align: center; font-size: 10pt;">Periode: {{ $bulan }} {{ $tahun }}</th>
-        </tr>
-        <tr>
-            <th colspan="6" style="background: #f3f6f9;">&nbsp;</th>
-        </tr>
         <tr style="background: #405189; color: white; font-weight: bold; text-align: center;">
             <th>No</th>
             <th>No. Kunjungan</th>
@@ -39,7 +30,7 @@
                 $satuanLower = strtolower($t->satuan ?? '');
                 if (in_array($satuanLower, ['rp', 'rupiah'])) {
                     $jasmedNominal = (float) $t->jasa_medis;
-                    $satuanDisplay = 'Rp ' . number_format($t->jasa_medis, 0, ',', '.');
+                    $satuanDisplay = 'Rp ' . $t->jasa_medis;
                 } else {
                     $jasmedNominal = (float) ($t->jasa_medis * $t->biaya / 100);
                     $satuanDisplay = $t->jasa_medis . '%';
@@ -61,7 +52,7 @@
             $satuanLower = strtolower($t->satuan ?? '');
             if (in_array($satuanLower, ['rp', 'rupiah'])) {
                 $jasmedNominal = (float) $t->jasa_medis;
-                $satuanDisplay = 'Rp ' . number_format($t->jasa_medis, 0, ',', '.');
+                $satuanDisplay = 'Rp ' . $t->jasa_medis;
             } else {
                 $jasmedNominal = (float) ($t->jasa_medis * $t->biaya / 100);
                 $satuanDisplay = $t->jasa_medis . '%';
@@ -70,7 +61,7 @@
         @endphp
         <tr>
             <td style="text-align: center;">{{ $tIndex == 0 ? ($index + 1) : '' }}</td>
-            <td>{{ $tIndex == 0 ? $item->nomor_kunjungan : '' }}</td>
+            <td>{{ $tIndex == 0 ? ($item->nomor_kunjungan ? "'" . $item->nomor_kunjungan : '-') : '' }}</td>
             <td>{{ $tIndex == 0 ? ($item->pasien ? $item->pasien->no_rm : '-') : '' }}</td>
             <td>{{ $tIndex == 0 ? ($item->pasien ? $item->pasien->nama_pasien : '-') : '' }}</td>
             <td>{{ $tIndex == 0 ? ($item->created_at ? $item->created_at->format('d/m/Y') : '-') : '' }}</td>
@@ -78,16 +69,16 @@
             <td>{{ $tIndex == 0 ? ($item->asuransi ? $item->asuransi->nama_asuransi : 'Pribadi') : '' }}</td>
             <td>{{ $t->tindakan ? $t->tindakan->nama_tindakan : '-' }}</td>
             <td>{{ $t->kode_tindakan }}</td>
-            <td style="text-align: right;">{{ number_format($t->biaya, 0, ',', '.') }}</td>
+            <td style="text-align: right;">{{ $t->biaya }}</td>
             <td style="text-align: center;">{{ $satuanDisplay }}</td>
-            <td style="text-align: right;">{{ number_format($jasmedNominal, 0, ',', '.') }}</td>
-            <td style="text-align: right;">{{ number_format($t->bhp, 0, ',', '.') }}</td>
-            <td style="text-align: right;">{{ number_format($subtotal, 0, ',', '.') }}</td>
+            <td style="text-align: right;">{{ $jasmedNominal }}</td>
+            <td style="text-align: right;">{{ $t->bhp }}</td>
+            <td style="text-align: right;">{{ $subtotal }}</td>
         </tr>
         @empty
         <tr>
             <td style="text-align: center;">{{ $index + 1 }}</td>
-            <td>{{ $item->nomor_kunjungan }}</td>
+            <td>{{ $item->nomor_kunjungan ? "'" . $item->nomor_kunjungan : '-' }}</td>
             <td>{{ $item->pasien ? $item->pasien->no_rm : '-' }}</td>
             <td>{{ $item->pasien ? $item->pasien->nama_pasien : '-' }}</td>
             <td>{{ $item->created_at ? $item->created_at->format('d/m/Y') : '-' }}</td>
@@ -100,10 +91,10 @@
         
         <tr style="background: #E8F5E9; font-weight: bold;">
             <td colspan="10" style="text-align: right;">GRAND TOTAL:</td>
-            <td style="text-align: right;">{{ number_format($grandTotalBiaya, 0, ',', '.') }}</td>
-            <td style="text-align: right;">{{ number_format($grandTotalJasaMedis, 0, ',', '.') }}</td>
-            <td style="text-align: right;">{{ number_format($grandTotalBhp, 0, ',', '.') }}</td>
-            <td style="text-align: right;">{{ number_format($grandTotalJasaMedis + $grandTotalBhp, 0, ',', '.') }}</td>
+            <td style="text-align: right;">{{ $grandTotalBiaya }}</td>
+            <td style="text-align: right;">{{ $grandTotalJasaMedis }}</td>
+            <td style="text-align: right;">{{ $grandTotalBhp }}</td>
+            <td style="text-align: right;">{{ $grandTotalJasaMedis + $grandTotalBhp }}</td>
         </tr>
     </tbody>
 </table>

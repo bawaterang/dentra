@@ -8,9 +8,12 @@ use App\Models\TrxTindakan;
 use Illuminate\Contracts\View\View;
 use Maatwebsite\Excel\Concerns\FromView;
 use Maatwebsite\Excel\Concerns\WithTitle;
+use Maatwebsite\Excel\Concerns\WithEvents;
+use App\Traits\HasExportHeader;
 
-class LaporanJasaMedisExport implements FromView, WithTitle
+class LaporanJasaMedisExport implements FromView, WithTitle, WithEvents
 {
+    use HasExportHeader;
     protected $bulan;
 
     protected $tahun;

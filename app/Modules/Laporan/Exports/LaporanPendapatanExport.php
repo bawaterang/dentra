@@ -7,9 +7,12 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Concerns\FromView;
 use Maatwebsite\Excel\Concerns\WithTitle;
+use Maatwebsite\Excel\Concerns\WithEvents;
+use App\Traits\HasExportHeader;
 
-class LaporanPendapatanExport implements FromView, WithTitle
+class LaporanPendapatanExport implements FromView, WithTitle, WithEvents
 {
+    use HasExportHeader;
     protected $periodType;
     protected $selectedDate;
     protected $selectedBulan;
