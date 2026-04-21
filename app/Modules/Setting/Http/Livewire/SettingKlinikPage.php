@@ -246,12 +246,13 @@ class SettingKlinikPage extends Component
         }
     }
 
-    public function selectSSOrg($id)
+    public function selectSSOrg($id, $name)
     {
         $this->organization_id = str_replace('http://sys-ids.kemkes.go.id/organization/', '', $id);
+        $this->nama_klinik = $name;
         $this->reset(['searchOrgQuery', 'foundOrganizations']);
         $this->dispatch('close-modal', 'search-org-modal');
-        $this->dispatch('alert', ['type' => 'success', 'message' => 'Organization ID dipilih! Silakan simpan.']);
+        $this->dispatch('alert', ['type' => 'success', 'message' => 'Organization ID dan Nama Klinik berhasil diperbarui! Silakan simpan.']);
     }
 
 
@@ -768,7 +769,7 @@ class SettingKlinikPage extends Component
                                     </div>
                                 </div>
                                 @if(isset($resource['id']))
-                                    <button type="button" wire:click="selectSSOrg('{{ $resource['id'] }}')" class="btn btn-sm bg-emerald-50 text-emerald-600 hover:bg-emerald-500 hover:text-white rounded-lg">Pilih</button>
+                                    <button type="button" wire:click="selectSSOrg('{{ $resource['id'] }}', '{{ addslashes($resource['name'] ?? '') }}')" class="btn btn-sm bg-emerald-50 text-emerald-600 hover:bg-emerald-500 hover:text-white rounded-lg">Pilih</button>
                                 @endif
                             </div>
 
