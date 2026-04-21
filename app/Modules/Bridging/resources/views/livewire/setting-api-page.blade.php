@@ -107,37 +107,15 @@
                         <h6 class="text-xs font-extrabold text-[#0ab39c] uppercase tracking-wider border-b border-gray-200 pb-2 mb-3">Konfigurasi URL & Endpoint</h6>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                             <div>
-                                <label class="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-tight">Organization ID <span class="text-red-500">*</span></label>
-                                <input type="text" wire:model="ss_organization_id" class="w-full rounded-lg border-gray-200 text-sm px-4 py-2.5 focus:border-[#0ab39c] transition-all shadow-sm @error('ss_organization_id') border-red-500 @enderror" placeholder="ID Organisasi">
-                                @error('ss_organization_id') <span class="text-red-500 text-[10px] mt-1 font-bold">{{ $message }}</span> @enderror
+                                <label class="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-tight">FHIR Base URL <span class="text-red-500">*</span></label>
+                                <input type="text" wire:model="ss_url" class="w-full rounded-lg border-gray-200 text-sm px-4 py-2.5 focus:border-[#0ab39c] transition-all shadow-sm @error('ss_url') border-red-500 @enderror" placeholder="https://api-satusehat.kemkes.go.id/fhir-r4/v1">
+                                @error('ss_url') <span class="text-red-500 text-[10px] mt-1 font-bold">{{ $message }}</span> @enderror
                             </div>
                             <div>
-                                <label class="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-tight">Organization Name <span class="text-red-500">*</span></label>
-                                <input type="text" wire:model="ss_organization_name" class="w-full rounded-lg border-gray-200 text-sm px-4 py-2.5 focus:border-[#0ab39c] transition-all shadow-sm @error('ss_organization_name') border-red-500 @enderror" placeholder="Nama Klinik">
-                                @error('ss_organization_name') <span class="text-red-500 text-[10px] mt-1 font-bold">{{ $message }}</span> @enderror
+                                <label class="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-tight">Auth Token URL <span class="text-red-500">*</span></label>
+                                <input type="text" wire:model="ss_token_url" class="w-full rounded-lg border-gray-200 text-sm px-4 py-2.5 focus:border-[#0ab39c] transition-all shadow-sm @error('ss_token_url') border-red-500 @enderror" placeholder="https://api-satusehat.kemkes.go.id/oauth2/v1/token">
+                                @error('ss_token_url') <span class="text-red-500 text-[10px] mt-1 font-bold">{{ $message }}</span> @enderror
                             </div>
-                        </div>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-                            <div>
-                                <label class="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-tight">Practitioner ID <span class="text-red-500">*</span></label>
-                                <input type="text" wire:model="ss_practitioner_id" class="w-full rounded-lg border-gray-200 text-sm px-4 py-2.5 focus:border-[#0ab39c] transition-all shadow-sm @error('ss_practitioner_id') border-red-500 @enderror" placeholder="ID Praktisi">
-                                @error('ss_practitioner_id') <span class="text-red-500 text-[10px] mt-1 font-bold">{{ $message }}</span> @enderror
-                            </div>
-                            <div>
-                                <label class="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-tight">Location ID <span class="text-red-500">*</span></label>
-                                <input type="text" wire:model="ss_location_id" class="w-full rounded-lg border-gray-200 text-sm px-4 py-2.5 focus:border-[#0ab39c] transition-all shadow-sm @error('ss_location_id') border-red-500 @enderror" placeholder="ID Lokasi">
-                                @error('ss_location_id') <span class="text-red-500 text-[10px] mt-1 font-bold">{{ $message }}</span> @enderror
-                            </div>
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-tight">FHIR Base URL <span class="text-red-500">*</span></label>
-                            <input type="text" wire:model="ss_url" class="w-full rounded-lg border-gray-200 text-sm px-4 py-2.5 focus:border-[#0ab39c] transition-all shadow-sm @error('ss_url') border-red-500 @enderror" placeholder="https://api-satusehat.kemkes.go.id/fhir-r4/v1">
-                            @error('ss_url') <span class="text-red-500 text-[10px] mt-1 font-bold">{{ $message }}</span> @enderror
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-tight">Auth Token URL <span class="text-red-500">*</span></label>
-                            <input type="text" wire:model="ss_token_url" class="w-full rounded-lg border-gray-200 text-sm px-4 py-2.5 focus:border-[#0ab39c] transition-all shadow-sm @error('ss_token_url') border-red-500 @enderror" placeholder="https://api-satusehat.kemkes.go.id/oauth2/v1/token">
-                            @error('ss_token_url') <span class="text-red-500 text-[10px] mt-1 font-bold">{{ $message }}</span> @enderror
                         </div>
                     </div>
 

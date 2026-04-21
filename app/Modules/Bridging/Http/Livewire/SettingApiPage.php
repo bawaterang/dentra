@@ -21,10 +21,6 @@ class SettingApiPage extends Component
     // SATUSEHAT
     public $ss_client_id;
     public $ss_client_secret;
-    public $ss_organization_id;
-    public $ss_practitioner_id;
-    public $ss_location_id;
-    public $ss_organization_name;
     public $ss_url;
     public $ss_token_url;
     public $ss_mode_bridging = 'klinik';
@@ -49,10 +45,6 @@ class SettingApiPage extends Component
         if ($ss) {
             $this->ss_client_id = $ss->client_id;
             $this->ss_client_secret = $ss->client_secret;
-            $this->ss_organization_id = $ss->organization_id;
-            $this->ss_practitioner_id = $ss->practitioner_id;
-            $this->ss_location_id = $ss->location_id;
-            $this->ss_organization_name = $ss->organization_name;
             $this->ss_url = $ss->url;
             $this->ss_token_url = $ss->token_url;
             $this->ss_mode_bridging = $ss->mode_bridging ?? 'klinik';
@@ -117,20 +109,12 @@ class SettingApiPage extends Component
         $this->validate([
             'ss_client_id' => 'required',
             'ss_client_secret' => 'required',
-            'ss_organization_id' => 'required',
-            'ss_practitioner_id' => 'required',
-            'ss_location_id' => 'required',
-            'ss_organization_name' => 'required',
             'ss_url' => 'required',
             'ss_token_url' => 'required',
             'ss_mode_bridging' => 'required',
         ], $this->message_rules, [
             'ss_client_id' => 'Client ID',
             'ss_client_secret' => 'Client Secret',
-            'ss_organization_id' => 'Organization ID',
-            'ss_practitioner_id' => 'Practitioner ID',
-            'ss_location_id' => 'Location ID',
-            'ss_organization_name' => 'Organization Name',
             'ss_url' => 'FHIR URL',
             'ss_token_url' => 'Token URL',
             'ss_mode_bridging' => 'Mode Bridging',
@@ -140,10 +124,6 @@ class SettingApiPage extends Component
         $ss->fill([
             'client_id' => $this->ss_client_id,
             'client_secret' => $this->ss_client_secret,
-            'organization_id' => $this->ss_organization_id,
-            'practitioner_id' => $this->ss_practitioner_id,
-            'location_id' => $this->ss_location_id,
-            'organization_name' => $this->ss_organization_name,
             'url' => $this->ss_url,
             'token_url' => $this->ss_token_url,
             'mode_bridging' => $this->ss_mode_bridging,

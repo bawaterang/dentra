@@ -84,7 +84,6 @@ class ApiMonitoringService
                     $testEndpoint = '';
                     if ($endpointType === 'organization') {
                         $orgId = \DB::table('mst_instansi')->whereNotNull('organization_id')->value('organization_id');
-                        if (!$orgId) $orgId = $settings->organization_id; // Fallback to setting
 
                         if ($orgId) {
                             $testEndpoint = $fhirUrl . '/Organization/' . $orgId;
