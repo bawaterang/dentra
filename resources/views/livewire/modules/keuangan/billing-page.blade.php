@@ -28,10 +28,22 @@
                     <h6 class="text-xs font-bold text-[#405189] uppercase tracking-widest mb-0"><i class="ri-calendar-line mr-1"></i>Pilih Tanggal</h6>
                 </div>
                 <div class="p-4">
-                    <input type="date" wire:model.live="selectedDate" class="w-full rounded-lg border-gray-200 text-sm px-4 h-[42px] focus:border-[#405189] transition-all text-center font-semibold">
-                    <div class="mt-3 text-center">
-                        <p class="text-xs text-[#878a99]">Tanggal dipilih:</p>
-                        <p class="font-bold text-[#405189] text-sm">{{ \Carbon\Carbon::parse($selectedDate)->translatedFormat('l, d F Y') }}</p>
+                    <div class="flex items-center gap-2">
+                        <button wire:click="prevDate" class="flex h-[42px] w-10 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 hover:border-[#405189] hover:text-[#405189] hover:bg-indigo-50 transition-all group" title="Hari Sebelumnya">
+                            <i class="ri-arrow-left-s-line text-xl group-hover:scale-110 transition-transform"></i>
+                        </button>
+                        
+                        <div class="relative flex-grow">
+                            <input type="date" wire:model.live="selectedDate" class="w-full rounded-lg border-gray-200 text-sm px-4 h-[42px] focus:border-[#405189] transition-all text-center font-bold text-[#405189] appearance-none cursor-pointer">
+                        </div>
+
+                        <button wire:click="nextDate" class="flex h-[42px] w-10 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 hover:border-[#405189] hover:text-[#405189] hover:bg-indigo-50 transition-all group" title="Hari Berikutnya">
+                            <i class="ri-arrow-right-s-line text-xl group-hover:scale-110 transition-transform"></i>
+                        </button>
+                    </div>
+                    <div class="mt-3 text-center p-2 bg-indigo-50/50 rounded-xl border border-indigo-100/50">
+                        <p class="text-[10px] text-[#878a99] font-bold uppercase tracking-widest mb-0.5">Tanggal Terpilih</p>
+                        <p class="font-black text-[#405189] text-xs">{{ \Carbon\Carbon::parse($selectedDate)->translatedFormat('l, d F Y') }}</p>
                     </div>
                 </div>
             </div>
@@ -42,11 +54,17 @@
                     <h6 class="text-xs font-bold text-[#405189] uppercase tracking-widest mb-0 flex items-center gap-2">
                         <i class="ri-group-line"></i> Daftar Pasien
                     </h6>
-                    <span class="badge bg-[#405189] text-white rounded-full px-2 text-[10px]">{{ count($pasienList) }}</span>
+                    <span class="badge bg-[#405189] text-white rounded-full px-2 text-[10px]">{{ $this->pasienList->total() }}</span>
                 </div>
                 <div class="p-4 bg-white">
+                    <!-- Search Input -->
+                    <div class="relative mb-3">
+                        <input type="text" wire:model.live.debounce.300ms="searchQuery" class="form-control text-xs h-9 pl-8 border-gray-200 rounded-lg w-full focus:border-[#405189] transition-all" placeholder="Cari nama/RM...">
+                        <i class="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                    </div>
+
                     <div class="max-h-[500px] overflow-y-auto space-y-2 p-1">
-                        @forelse($pasienList as $pasien)
+                        @forelse($this->pasienList as $pasien)
                             @php
                                 $isActive = $selectedPasien && $selectedPasien->nomor_kunjungan === $pasien->nomor_kunjungan;
                                 $isLunas = $pasien->billing_status === 'Lunas';
@@ -73,10 +91,17 @@
                         @empty
                             <div class="text-center py-10 opacity-40">
                                 <i class="ri-user-search-line text-4xl block mb-2"></i>
-                                <p class="text-xs font-bold">Tidak ada pasien di tanggal ini</p>
+                                <p class="text-xs font-bold">Pasien tidak ditemukan</p>
                             </div>
                         @endforelse
                     </div>
+
+                    <!-- Pagination Links -->
+                    @if($this->pasienList->hasPages())
+                        <div class="mt-4 pt-4 border-t border-gray-100 pagination-sidebar">
+                            {{ $this->pasienList->links() }}
+                        </div>
+                    @endif
                 </div>
             </div>
         </div>

@@ -3,15 +3,18 @@
 namespace App\Modules\Keuangan\Http\Livewire;
 
 use Livewire\Component;
+use Livewire\WithPagination;
 use Livewire\Attributes\Title;
+use Livewire\Attributes\Computed;
 use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
 
 class BillingPage extends Component
 {
+    use WithPagination;
     #[Title('Billing Pasien - EMR Klinik Gigi')]
 
     public $searchQuery = '';
-    public $pasienList = [];
     public $selectedPasien = null;
     public $tindakanList = [];
     
@@ -26,18 +29,35 @@ class BillingPage extends Component
 
     public function mount()
     {
-        $this->selectedDate = today()->format('Y-m-d');
-        $this->loadPasien();
+        $this->selectedDate = Carbon::today()->format('Y-m-d');
     }
 
     public function updatedSelectedDate()
     {
-        $this->loadPasien();
+        $this->resetPage();
     }
 
-    public function loadPasien()
+    public function updatedSearchQuery()
     {
-        $this->pasienList = DB::table('trx_pendaftaran')
+        $this->resetPage();
+    }
+
+    public function prevDate()
+    {
+        $this->selectedDate = Carbon::parse($this->selectedDate)->subDay()->format('Y-m-d');
+        $this->resetPage();
+    }
+
+    public function nextDate()
+    {
+        $this->selectedDate = Carbon::parse($this->selectedDate)->addDay()->format('Y-m-d');
+        $this->resetPage();
+    }
+
+    #[Computed]
+    public function pasienList()
+    {
+        $query = DB::table('trx_pendaftaran')
             ->join('mst_pasien', 'trx_pendaftaran.pasien_id', '=', 'mst_pasien.id')
             ->leftJoin('trx_billing', 'trx_pendaftaran.nomor_kunjungan', '=', 'trx_billing.nomor_kunjungan')
             ->whereDate('trx_pendaftaran.created_at', $this->selectedDate)
@@ -48,9 +68,18 @@ class BillingPage extends Component
                 'mst_pasien.no_rm', 
                 'mst_pasien.tanggal_lahir',
                 DB::raw("COALESCE(trx_billing.status, 'Belum Lunas') as billing_status")
-            )
-            ->orderBy('trx_pendaftaran.created_at', 'desc')
-            ->get();
+            );
+
+        if ($this->searchQuery) {
+            $query->where(function($q) {
+                $q->where('mst_pasien.nama_pasien', 'like', '%' . $this->searchQuery . '%')
+                  ->orWhere('mst_pasien.no_rm', 'like', '%' . $this->searchQuery . '%')
+                  ->orWhere('trx_pendaftaran.nomor_kunjungan', 'like', '%' . $this->searchQuery . '%');
+            });
+        }
+
+        return $query->orderBy('trx_pendaftaran.created_at', 'desc')
+            ->paginate(10);
     }
 
     public function selectPasien($nomor_kunjungan)
@@ -165,7 +194,6 @@ class BillingPage extends Component
 
             DB::commit();
             $this->dispatch('alert', ['type' => 'success', 'message' => 'Tagihan berhasil disimpan']);
-            $this->loadPasien();
         } catch (\Exception $e) {
             DB::rollBack();
             $this->dispatch('alert', ['type' => 'error', 'message' => 'Gagal menyimpan tagihan: ' . $e->getMessage()]);
