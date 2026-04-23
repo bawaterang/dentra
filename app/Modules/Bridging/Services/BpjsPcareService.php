@@ -543,7 +543,7 @@ class BpjsPcareService
      */
     public function getPesertaByNoKartu(string $noKartu): array
     {
-        return $this->get("peserta/noKartu/{$noKartu}");
+        return $this->get("peserta/{$noKartu}");
     }
 
     /**
@@ -670,19 +670,165 @@ class BpjsPcareService
      */
     public function getRujukan(string $noKunjungan): array
     {
-        return $this->get("rujukan/{$noKunjungan}");
+        return $this->get("kunjungan/rujukan/{$noKunjungan}");
     }
 
     /**
-     * Get data rujukan keluar
+     * Get data rujukan berdasarkan nomor kartu peserta
      *
-     * @param int $start Row data awal
-     * @param int $limit Limit jumlah data
+     * @param string $noKartu Nomor kartu BPJS
      * @return array
      */
-    public function getRujukanKeluar(int $start = 0, int $limit = 10): array
+    public function getRujukanByNoKartu(string $noKartu): array
     {
-        return $this->get("rujukan/keluar/{$start}/{$limit}");
+        return $this->get("kunjungan/peserta/{$noKartu}");
+    }
+
+    // ==========================================
+    // KUNJUNGAN CRUD
+    // ==========================================
+
+    /**
+     * Add kunjungan baru ke BPJS PCare
+     *
+     * Endpoint: POST {Base URL}/kunjungan
+     * Content-Type: text/plain
+     *
+     * @param array $data Data kunjungan sesuai format BPJS PCare
+     * @return array
+     */
+    public function addKunjungan(array $data): array
+    {
+        return $this->post('kunjungan', $data);
+    }
+
+    /**
+     * Edit kunjungan di BPJS PCare
+     *
+     * Endpoint: PUT {Base URL}/kunjungan
+     * Content-Type: text/plain
+     *
+     * @param array $data Data kunjungan yang akan diupdate (harus menyertakan noKunjungan)
+     * @return array
+     */
+    public function editKunjungan(array $data): array
+    {
+        return $this->put('kunjungan', $data);
+    }
+
+    /**
+     * Delete kunjungan di BPJS PCare
+     *
+     * Endpoint: DELETE {Base URL}/kunjungan/{noKunjungan}
+     * Content-Type: application/json; charset=utf-8
+     *
+     * @param string $noKunjungan Nomor Kunjungan BPJS yang akan dihapus
+     * @return array
+     */
+    public function deleteKunjungan(string $noKunjungan): array
+    {
+        return $this->delete("kunjungan/{$noKunjungan}");
+    }
+
+    /**
+     * Build body request kunjungan dari data transaksi internal aplikasi
+     *
+     * @param \App\Models\TrxPendaftaran $pendaftaran Data pendaftaran dari aplikasi
+     * @param string $jenisRujukan 'hemodialisa' atau 'spesialis'
+     * @param array $rujukanData Data rujukan tambahan
+     * @param string|null $noKunjunganBpjs Nomor kunjungan BPJS (untuk edit, null untuk create)
+     * @return array Body request format BPJS PCare
+     */
+    public function buildKunjunganBody(
+        \App\Models\TrxPendaftaran $pendaftaran,
+        string $jenisRujukan = 'spesialis',
+        array $rujukanData = [],
+        ?string $noKunjunganBpjs = null
+    ): array {
+        $pasien = $pendaftaran->pasien;
+        $dokter = $pendaftaran->dokter;
+        $poli = $pendaftaran->poli;
+
+        // Parse tekanan darah (format: "120/80")
+        $tekananDarah = explode('/', $pendaftaran->tekanan_darah ?? '0/0');
+        $sistole = (int) ($tekananDarah[0] ?? 0);
+        $diastole = (int) ($tekananDarah[1] ?? 0);
+
+        // Parse alergi
+        $alergiParts = explode(',', $pendaftaran->alergi ?? '');
+        $alergiMakan = trim($alergiParts[0] ?? '') ?: '00';
+        $alergiUdara = trim($alergiParts[1] ?? '') ?: '00';
+        $alergiObat = trim($alergiParts[2] ?? '') ?: '00';
+
+        // Get diagnosa utama dan sekunder
+        $diagnoses = $pendaftaran->diagnoses()->orderBy('id')->get();
+        $kdDiag1 = $diagnoses->get(0)->kode_diagnosa ?? null;
+        $kdDiag2 = $diagnoses->get(1)->kode_diagnosa ?? null;
+        $kdDiag3 = $diagnoses->get(2)->kode_diagnosa ?? null;
+
+        // Build rujukan lanjut berdasarkan jenis
+        $rujukLanjut = null;
+        if (!empty($rujukanData)) {
+            if ($jenisRujukan === 'hemodialisa') {
+                $rujukLanjut = [
+                    'tglEstRujuk' => $rujukanData['tglEstRujuk'] ?? now()->format('d-m-Y'),
+                    'kdppk' => $rujukanData['kdppk'] ?? null,
+                    'subSpesialis' => null,
+                    'khusus' => [
+                        'kdKhusus' => $rujukanData['kdKhusus'] ?? 'HDL',
+                        'kdSubSpesialis' => null,
+                        'catatan' => $rujukanData['catatan'] ?? '',
+                    ],
+                ];
+            } else {
+                $rujukLanjut = [
+                    'tglEstRujuk' => $rujukanData['tglEstRujuk'] ?? now()->format('d-m-Y'),
+                    'kdppk' => $rujukanData['kdppk'] ?? null,
+                    'subSpesialis' => [
+                        'kdSubSpesialis1' => $rujukanData['kdSubSpesialis1'] ?? null,
+                        'kdSarana' => $rujukanData['kdSarana'] ?? null,
+                    ],
+                    'khusus' => null,
+                ];
+            }
+        }
+
+        $body = [
+            'noKunjungan' => $noKunjunganBpjs,
+            'noKartu' => $pasien->no_penjamin ?? '',
+            'tglDaftar' => $pendaftaran->created_at ? $pendaftaran->created_at->format('d-m-Y') : now()->format('d-m-Y'),
+            'kdPoli' => $poli->poli_bpjs_id ?? null,
+            'keluhan' => $pendaftaran->riwayat_penyakit ?? 'keluhan',
+            'kdSadar' => $pendaftaran->kesadaran ?? '01',
+            'sistole' => $sistole,
+            'diastole' => $diastole,
+            'beratBadan' => (int) ($pendaftaran->berat_badan ?? 0),
+            'tinggiBadan' => (int) ($pendaftaran->tinggi_badan ?? 0),
+            'respRate' => 0,
+            'heartRate' => (int) ($pendaftaran->nadi ?? 0),
+            'lingkarPerut' => 0,
+            'kdStatusPulang' => $rujukanData['kdStatusPulang'] ?? '3',
+            'tglPulang' => $pendaftaran->created_at ? $pendaftaran->created_at->format('d-m-Y') : now()->format('d-m-Y'),
+            'kdDokter' => $dokter->dokter_bpjs_id ?? '',
+            'kdDiag1' => $kdDiag1,
+            'kdDiag2' => $kdDiag2,
+            'kdDiag3' => $kdDiag3,
+            'kdPoliRujukInternal' => null,
+            'rujukLanjut' => $rujukLanjut,
+            'kdTacc' => (int) ($rujukanData['kdTacc'] ?? 0),
+            'alasanTacc' => $rujukanData['alasanTacc'] ?? null,
+            'anamnesa' => $pendaftaran->riwayat_penyakit ?? 'anamnesa',
+            'alergiMakan' => $alergiMakan,
+            'alergiUdara' => $alergiUdara,
+            'alergiObat' => $alergiObat,
+            'kdPrognosa' => $rujukanData['kdPrognosa'] ?? '01',
+            'terapiObat' => $rujukanData['terapiObat'] ?? '',
+            'terapiNonObat' => $rujukanData['terapiNonObat'] ?? '',
+            'bmhp' => $rujukanData['bmhp'] ?? '',
+            'suhu' => str_replace('.', ',', (string) ($pendaftaran->suhu ?? '36,4')),
+        ];
+
+        return $body;
     }
 
     // ==========================================

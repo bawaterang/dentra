@@ -49,6 +49,13 @@
                                 <i class="{{ $ep['icon'] }} text-sm"></i>
                             </div>
                             <span class="truncate">{{ $ep['label'] }}</span>
+                            @if($ep['method'] !== 'GET')
+                            <span class="ml-auto text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded
+                                {{ $ep['method'] === 'POST' ? 'bg-emerald-100 text-emerald-600' : '' }}
+                                {{ $ep['method'] === 'PUT' ? 'bg-amber-100 text-amber-600' : '' }}
+                                {{ $ep['method'] === 'DELETE' ? 'bg-red-100 text-red-600' : '' }}
+                            ">{{ $ep['method'] }}</span>
+                            @endif
                             @if($selectedEndpoint === $key)
                             <i class="ri-arrow-right-s-line ml-auto text-[#0d6efd]"></i>
                             @endif
@@ -183,6 +190,103 @@
                             <label class="block text-[10px] font-bold text-gray-500 mb-1 uppercase tracking-tight">Tanggal</label>
                             <input type="date" wire:model="paramTanggal" class="w-full rounded-lg border-gray-200 text-sm px-3 py-2 focus:border-[#0d6efd] transition-all shadow-sm">
                         </div>
+                        @endif
+
+                        @if(in_array('noKunjunganBpjs', $ep['params']))
+                        <div class="flex-1 min-w-[250px]">
+                            <label class="block text-[10px] font-bold text-gray-500 mb-1 uppercase tracking-tight">No. Kunjungan BPJS</label>
+                            <input type="text" wire:model="paramNoKunjunganBpjs" class="w-full rounded-lg border-gray-200 text-sm px-3 py-2 focus:border-[#0d6efd] transition-all shadow-sm" placeholder="0114U1630316Y000001">
+                        </div>
+                        @endif
+
+                        @if(in_array('kunjungan_body', $ep['params']))
+                        </div>
+                        {{-- Kunjungan Body: Patient Search + JSON Textarea --}}
+                        <div class="mt-4 border-t border-gray-100 pt-4" x-data="{ showResults: false }">
+                            {{-- Patient Search --}}
+                            <div class="mb-4">
+                                <h6 class="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 flex items-center gap-2">
+                                    <i class="ri-user-search-line text-sm"></i> Cari Pasien dari Aplikasi
+                                </h6>
+                                <div class="flex gap-2 items-end relative">
+                                    <div class="flex-1 relative">
+                                        <input
+                                            type="text"
+                                            wire:model.live.debounce.300ms="searchPasienQuery"
+                                            wire:keyup="searchPasien"
+                                            @focus="showResults = true"
+                                            @click.away="setTimeout(() => showResults = false, 200)"
+                                            class="w-full rounded-lg border-gray-200 text-sm px-3 py-2 focus:border-[#0d6efd] transition-all shadow-sm pl-9"
+                                            placeholder="Cari nama pasien, No. RM, atau No. Kartu BPJS..."
+                                        >
+                                        <i class="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
+
+                                        {{-- Search Results Dropdown --}}
+                                        @if(count($foundPasiens) > 0)
+                                        <div
+                                            x-show="showResults"
+                                            x-transition:enter="transition ease-out duration-200"
+                                            x-transition:enter-start="opacity-0 translate-y-1"
+                                            x-transition:enter-end="opacity-100 translate-y-0"
+                                            class="absolute z-50 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-xl max-h-[280px] overflow-y-auto"
+                                        >
+                                            @foreach($foundPasiens as $p)
+                                            <button
+                                                wire:click="selectPasien({{ $p['id'] }})"
+                                                @click="showResults = false"
+                                                class="w-full text-left px-4 py-2.5 hover:bg-blue-50/80 border-b border-gray-50 last:border-0 transition-colors group"
+                                            >
+                                                <div class="flex items-center justify-between">
+                                                    <div class="flex-1 min-w-0">
+                                                        <div class="flex items-center gap-2">
+                                                            <span class="text-xs font-bold text-gray-800 truncate">{{ $p['nama_pasien'] }}</span>
+                                                            <span class="text-[9px] font-semibold text-blue-500 bg-blue-50 px-1.5 py-0.5 rounded">{{ $p['no_rm'] }}</span>
+                                                        </div>
+                                                        <div class="flex items-center gap-3 mt-0.5">
+                                                            <span class="text-[9px] text-gray-400"><i class="ri-bank-card-line mr-0.5"></i>{{ $p['no_kartu'] }}</span>
+                                                            <span class="text-[9px] text-gray-400"><i class="ri-hospital-line mr-0.5"></i>{{ $p['poli'] }}</span>
+                                                            <span class="text-[9px] text-gray-400"><i class="ri-stethoscope-line mr-0.5"></i>{{ $p['dokter'] }}</span>
+                                                        </div>
+                                                    </div>
+                                                    <div class="text-right flex-shrink-0 ml-3">
+                                                        <span class="text-[9px] text-gray-400 block">{{ $p['tanggal'] }}</span>
+                                                        <span class="text-[8px] font-mono text-gray-300">{{ $p['nomor_kunjungan'] }}</span>
+                                                    </div>
+                                                </div>
+                                            </button>
+                                            @endforeach
+                                        </div>
+                                        @endif
+                                    </div>
+                                </div>
+                                <p class="text-[9px] text-gray-400 mt-1.5 italic">
+                                    <i class="ri-information-line"></i> Pilih pasien untuk otomatis mengisi body request dari data kunjungan aplikasi
+                                </p>
+                            </div>
+
+                            {{-- JSON Body Editor --}}
+                            <div class="mb-3">
+                                <div class="flex items-center justify-between mb-2">
+                                    <h6 class="text-[10px] font-black text-gray-500 uppercase tracking-widest flex items-center gap-2">
+                                        <i class="ri-code-s-slash-line text-sm"></i> Body Request (JSON)
+                                    </h6>
+                                    <button
+                                        wire:click="generateDefaultBody"
+                                        class="text-[9px] font-bold text-indigo-500 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1 rounded-lg transition-all flex items-center gap-1"
+                                    >
+                                        <i class="ri-file-code-line text-xs"></i> Generate Template
+                                    </button>
+                                </div>
+                                <textarea
+                                    wire:model="kunjunganBodyJson"
+                                    rows="20"
+                                    class="w-full rounded-xl border-gray-200 text-xs px-4 py-3 font-mono leading-relaxed focus:border-[#0d6efd] transition-all shadow-sm bg-gray-50/50 resize-y"
+                                    placeholder='Klik "Generate Template" atau cari pasien untuk mengisi body JSON...'
+                                    spellcheck="false"
+                                ></textarea>
+                            </div>
+                        </div>
+                        <div class="flex flex-wrap items-end gap-3 mt-4">
                         @endif
 
                         @if(empty($ep['params']))

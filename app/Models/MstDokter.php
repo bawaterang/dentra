@@ -24,7 +24,7 @@ class MstDokter extends Model
         'agama',
         'nik',
         'practitioner_id',
-        'bpjs_id',
+        'dokter_bpjs_id',
         'spesialisasi',
 
         'no_sip',

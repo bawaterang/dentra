@@ -22,6 +22,14 @@ class DokumentasiApiPage extends Component
     public $paramTanggal = '';
     public $paramKodePoli = '';
 
+    // Kunjungan body (single JSON textarea)
+    public $kunjunganBodyJson = '';
+    public $paramNoKunjunganBpjs = '';
+
+    // Patient search for auto-fill
+    public $searchPasienQuery = '';
+    public $foundPasiens = [];
+
     // Response state
     public $responseData = [];
     public $responseColumns = [];
@@ -143,13 +151,13 @@ class DokumentasiApiPage extends Component
             ],
 
             // === PESERTA ===
-            'peserta_nokartu' => [
+            'peserta_no_kartu' => [
                 'label' => 'Peserta (No. Kartu)',
                 'category' => 'Peserta',
-                'icon' => 'ri-id-card-line',
+                'icon' => 'ri-user-heart-line',
                 'color' => '#405189',
                 'method' => 'GET',
-                'endpoint' => '{Base URL}/peserta/noKartu/{noKartu}',
+                'endpoint' => '{Base URL}/peserta/{noKartu}',
                 'description' => 'Mengambil data peserta BPJS berdasarkan nomor kartu.',
                 'params' => ['noKartu'],
                 'response_fields' => ['noKartu' => 'No. Kartu', 'nama' => 'Nama', 'nik' => 'NIK', 'sex' => 'L/P', 'tglLahir' => 'Tgl Lahir', 'kdProviderPst' => 'Kode Provider', 'nmProviderPst' => 'Provider', 'jnsPeserta' => 'Jenis Peserta', 'aktif' => 'Status'],
@@ -181,27 +189,63 @@ class DokumentasiApiPage extends Component
 
             // === RUJUKAN ===
             'rujukan' => [
-                'label' => 'Data Rujukan',
+                'label' => 'Rujukan (No. Kunjungan)',
                 'category' => 'Rujukan',
                 'icon' => 'ri-share-forward-line',
                 'color' => '#f672a7',
                 'method' => 'GET',
-                'endpoint' => '{Base URL}/rujukan/{noKunjungan}',
+                'endpoint' => '{Base URL}/kunjungan/rujukan/{noKunjungan}',
                 'description' => 'Mengambil data rujukan berdasarkan nomor kunjungan.',
                 'params' => ['noKunjungan'],
                 'response_fields' => ['noRujukan' => 'No. Rujukan', 'kdProviderTujuan' => 'Kd Provider Tujuan', 'nmProviderTujuan' => 'Provider Tujuan'],
             ],
-            'rujukan_keluar' => [
-                'label' => 'Rujukan Keluar',
+            'rujukan_peserta' => [
+                'label' => 'Rujukan (No. Kartu)',
                 'category' => 'Rujukan',
-                'icon' => 'ri-external-link-line',
-                'color' => '#f06548',
+                'icon' => 'ri-user-following-line',
+                'color' => '#299cdb',
                 'method' => 'GET',
-                'endpoint' => '{Base URL}/rujukan/keluar/{start}/{limit}',
-                'description' => 'Mengambil data rujukan keluar dari FKTP.',
-                'params' => ['start', 'limit'],
-                'response_fields' => ['noRujukan' => 'No. Rujukan', 'noKartu' => 'No. Kartu', 'nama' => 'Nama', 'kdProviderTujuan' => 'Kd Tujuan', 'nmProviderTujuan' => 'Provider Tujuan'],
+                'endpoint' => '{Base URL}/kunjungan/peserta/{noKartu}',
+                'description' => 'Mengambil data rujukan/kunjungan berdasarkan nomor kartu peserta.',
+                'params' => ['noKartu'],
+                'response_fields' => ['noKunjungan' => 'No. Kunjungan', 'tglKunjungan' => 'Tgl Kunjungan', 'noRujukan' => 'No. Rujukan', 'kdProviderTujuan' => 'Kd Tujuan'],
             ],
+
+            // === KUNJUNGAN CRUD ===
+            'add_kunjungan' => [
+                'label' => 'Tambah Kunjungan',
+                'category' => 'Kunjungan',
+                'icon' => 'ri-add-circle-line',
+                'color' => '#0ab39c',
+                'method' => 'POST',
+                'endpoint' => '{Base URL}/kunjungan',
+                'description' => 'Menambahkan data kunjungan baru ke PCare BPJS. Mendukung rujukan Hemodialisa dan Spesialis.',
+                'params' => ['kunjungan_body'],
+                'response_fields' => ['field' => 'Field', 'message' => 'No. Kunjungan BPJS'],
+            ],
+            'edit_kunjungan' => [
+                'label' => 'Edit Kunjungan',
+                'category' => 'Kunjungan',
+                'icon' => 'ri-edit-2-line',
+                'color' => '#f7b84b',
+                'method' => 'PUT',
+                'endpoint' => '{Base URL}/kunjungan',
+                'description' => 'Mengubah data kunjungan yang sudah terdaftar di PCare BPJS.',
+                'params' => ['kunjungan_body'],
+                'response_fields' => ['message' => 'Message'],
+            ],
+            'delete_kunjungan' => [
+                'label' => 'Hapus Kunjungan',
+                'category' => 'Kunjungan',
+                'icon' => 'ri-delete-bin-line',
+                'color' => '#f06548',
+                'method' => 'DELETE',
+                'endpoint' => '{Base URL}/kunjungan/{noKunjungan}',
+                'description' => 'Menghapus data kunjungan dari PCare BPJS berdasarkan nomor kunjungan.',
+                'params' => ['noKunjunganBpjs'],
+                'response_fields' => ['message' => 'Message'],
+            ],
+
 
             // === LAINNYA ===
             'mcu' => [
@@ -312,12 +356,15 @@ class DokumentasiApiPage extends Component
                 'tindakan' => $service->getTindakan($this->paramKdTkp, (int) $this->paramStart, (int) $this->paramLimit),
                 'obat' => $service->getObat($this->paramKeyword ?: 'PARAM', (int) $this->paramStart, (int) $this->paramLimit),
                 'provider' => $service->getProvider((int) $this->paramStart, (int) $this->paramLimit),
-                'peserta_nokartu' => $service->getPesertaByNoKartu($this->paramNoKartu),
+                'peserta_no_kartu' => $service->getPesertaByNoKartu($this->paramNoKartu),
                 'peserta_nik' => $service->getPesertaByNik($this->paramNik),
                 'riwayat_kunjungan' => $service->getRiwayatKunjungan($this->paramNoKartu),
                 'rujukan' => $service->getRujukan($this->paramNoKunjungan),
-                'rujukan_keluar' => $service->getRujukanKeluar((int) $this->paramStart, (int) $this->paramLimit),
+                'rujukan_peserta' => $service->getRujukanByNoKartu($this->paramNoKartu),
                 'mcu' => $service->getMcu($this->paramNoKunjungan),
+                'add_kunjungan' => $service->addKunjungan($this->parseKunjunganBody()),
+                'edit_kunjungan' => $service->editKunjungan($this->parseKunjunganBody()),
+                'delete_kunjungan' => $service->deleteKunjungan($this->paramNoKunjunganBpjs),
                 'antrean_poli' => $service->getRefPoliAntrean($this->paramTanggal ?: now()->format('Y-m-d')),
                 'antrean_dokter' => $service->getRefDokterAntrean($this->paramKodePoli, $this->paramTanggal ?: now()->format('Y-m-d')),
                 default => ['success' => false, 'data' => null, 'metadata' => ['code' => 400, 'message' => 'Endpoint tidak dikenali.'], 'raw' => null],
@@ -389,6 +436,169 @@ class DokumentasiApiPage extends Component
     {
         $this->paramStart = max(0, $this->paramStart - $this->paramLimit);
         $this->executeEndpoint();
+    }
+
+    /**
+     * Parse body request kunjungan dari JSON textarea
+     */
+    protected function parseKunjunganBody(): array
+    {
+        if (empty($this->kunjunganBodyJson)) {
+            return [];
+        }
+
+        $parsed = json_decode($this->kunjunganBodyJson, true);
+
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            $this->errorMessage = 'Format JSON body tidak valid: ' . json_last_error_msg();
+            $this->dispatch('alert', ['type' => 'error', 'message' => $this->errorMessage]);
+            return [];
+        }
+
+        return $parsed;
+    }
+
+    /**
+     * Search pasien dari aplikasi
+     */
+    public function searchPasien()
+    {
+        if (strlen($this->searchPasienQuery) < 2) {
+            $this->foundPasiens = [];
+            return;
+        }
+
+        $this->foundPasiens = \App\Models\TrxPendaftaran::with(['pasien', 'dokter', 'poli', 'diagnoses'])
+            ->whereHas('pasien', function ($q) {
+                $q->where('nama_pasien', 'like', '%' . $this->searchPasienQuery . '%')
+                  ->orWhere('no_rm', 'like', '%' . $this->searchPasienQuery . '%')
+                  ->orWhere('no_penjamin', 'like', '%' . $this->searchPasienQuery . '%');
+            })
+            ->orderByDesc('created_at')
+            ->limit(10)
+            ->get()
+            ->map(function ($p) {
+                return [
+                    'id' => $p->id,
+                    'nomor_kunjungan' => $p->nomor_kunjungan,
+                    'nama_pasien' => $p->pasien->nama_pasien ?? '-',
+                    'no_rm' => $p->pasien->no_rm ?? '-',
+                    'no_kartu' => $p->pasien->no_penjamin ?? '-',
+                    'poli' => $p->poli->nama_poli ?? '-',
+                    'dokter' => $p->dokter->nama_dokter ?? '-',
+                    'tanggal' => $p->created_at ? $p->created_at->format('d-m-Y') : '-',
+                ];
+            })
+            ->toArray();
+    }
+
+    /**
+     * Select pasien & auto-fill body JSON dari data kunjungan internal
+     */
+    public function selectPasien(int $pendaftaranId)
+    {
+        $pendaftaran = \App\Models\TrxPendaftaran::with(['pasien', 'dokter', 'poli', 'diagnoses'])->find($pendaftaranId);
+
+        if (!$pendaftaran) {
+            $this->dispatch('alert', ['type' => 'error', 'message' => 'Data pendaftaran tidak ditemukan.']);
+            return;
+        }
+
+        $pasien = $pendaftaran->pasien;
+        $dokter = $pendaftaran->dokter;
+        $poli = $pendaftaran->poli;
+
+        // Parse tekanan darah (format: "120/80")
+        $tekananDarah = explode('/', $pendaftaran->tekanan_darah ?? '0/0');
+        $sistole = (int) ($tekananDarah[0] ?? 0);
+        $diastole = (int) ($tekananDarah[1] ?? 0);
+
+        // Get diagnosa
+        $diagnoses = $pendaftaran->diagnoses()->orderBy('id')->get();
+
+        $body = [
+            'noKunjungan' => null,
+            'noKartu' => $pasien->no_penjamin ?? '',
+            'tglDaftar' => $pendaftaran->created_at ? $pendaftaran->created_at->format('d-m-Y') : now()->format('d-m-Y'),
+            'kdPoli' => $poli->poli_bpjs_id ?? null,
+            'keluhan' => $pendaftaran->riwayat_penyakit ?? 'keluhan',
+            'kdSadar' => $pendaftaran->kesadaran ?? '01',
+            'sistole' => $sistole,
+            'diastole' => $diastole,
+            'beratBadan' => (int) ($pendaftaran->berat_badan ?? 0),
+            'tinggiBadan' => (int) ($pendaftaran->tinggi_badan ?? 0),
+            'respRate' => 0,
+            'heartRate' => (int) ($pendaftaran->nadi ?? 0),
+            'lingkarPerut' => 0,
+            'kdStatusPulang' => '3',
+            'tglPulang' => $pendaftaran->created_at ? $pendaftaran->created_at->format('d-m-Y') : now()->format('d-m-Y'),
+            'kdDokter' => $dokter->dokter_bpjs_id ?? '',
+            'kdDiag1' => $diagnoses->get(0)->kode_diagnosa ?? null,
+            'kdDiag2' => $diagnoses->get(1)->kode_diagnosa ?? null,
+            'kdDiag3' => $diagnoses->get(2)->kode_diagnosa ?? null,
+            'kdPoliRujukInternal' => null,
+            'rujukLanjut' => null,
+            'kdTacc' => 0,
+            'alasanTacc' => null,
+            'anamnesa' => $pendaftaran->riwayat_penyakit ?? 'anamnesa',
+            'alergiMakan' => '00',
+            'alergiUdara' => '00',
+            'alergiObat' => '00',
+            'kdPrognosa' => '01',
+            'terapiObat' => '',
+            'terapiNonObat' => '',
+            'bmhp' => '',
+            'suhu' => str_replace('.', ',', (string) ($pendaftaran->suhu ?? '36,4')),
+        ];
+
+        $this->kunjunganBodyJson = json_encode($body, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+        $this->foundPasiens = [];
+        $this->searchPasienQuery = $pasien->nama_pasien . ' - ' . $pendaftaran->nomor_kunjungan;
+
+        $this->dispatch('alert', ['type' => 'success', 'message' => 'Data pasien ' . $pasien->nama_pasien . ' berhasil di-insert ke body request.']);
+    }
+
+    /**
+     * Generate default JSON template for kunjungan body
+     */
+    public function generateDefaultBody()
+    {
+        $body = [
+            'noKunjungan' => null,
+            'noKartu' => '0000043678034',
+            'tglDaftar' => now()->format('d-m-Y'),
+            'kdPoli' => null,
+            'keluhan' => 'keluhan',
+            'kdSadar' => '01',
+            'sistole' => 0,
+            'diastole' => 0,
+            'beratBadan' => 0,
+            'tinggiBadan' => 0,
+            'respRate' => 0,
+            'heartRate' => 0,
+            'lingkarPerut' => 0,
+            'kdStatusPulang' => '3',
+            'tglPulang' => now()->format('d-m-Y'),
+            'kdDokter' => '',
+            'kdDiag1' => 'A01.0',
+            'kdDiag2' => null,
+            'kdDiag3' => null,
+            'kdPoliRujukInternal' => null,
+            'rujukLanjut' => null,
+            'kdTacc' => 0,
+            'alasanTacc' => null,
+            'anamnesa' => 'anamnesa',
+            'alergiMakan' => '00',
+            'alergiUdara' => '00',
+            'alergiObat' => '00',
+            'kdPrognosa' => '01',
+            'terapiObat' => '',
+            'terapiNonObat' => '',
+            'bmhp' => '',
+            'suhu' => '36,4',
+        ];
+
+        $this->kunjunganBodyJson = json_encode($body, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
     }
 
     public function render()

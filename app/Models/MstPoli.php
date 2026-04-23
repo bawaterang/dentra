@@ -15,6 +15,7 @@ class MstPoli extends Model
     protected $fillable = [
         'kode_poli',
         'nama_poli',
+        'poli_bpjs_id',
         'status',
     ];
 

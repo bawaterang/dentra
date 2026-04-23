@@ -20,6 +20,8 @@ class PoliPage extends Component
 
     public $nama_poli;
 
+    public $poli_bpjs_id;
+
     public $status;
 
     public $totalPoli = 0;
@@ -37,9 +39,12 @@ class PoliPage extends Component
     public $kodeReadonly = false;
     public $activeTab = 'polis'; // 'polis' or 'mapping'
     public $selectedPoliId = '';
-    public $mappedDokters = [];
     public $allPolisMapping = [];
     public $allDokters = [];
+
+    // BPJS Search
+    public $searchBpjsPoliQuery = '';
+    public $foundBpjsPolis = [];
 
     protected $queryString = ['search', 'selectedStatus', 'activeTab'];
 
@@ -114,12 +119,13 @@ class PoliPage extends Component
         return [
             'kode_poli' => ['required', 'string', 'max:20', Rule::unique('mst_poli', 'kode_poli')->ignore($this->poliId)],
             'nama_poli' => 'required|string|max:100',
+            'poli_bpjs_id' => 'nullable|string|max:50',
         ];
     }
 
     public function resetForm()
     {
-        $this->reset(['poliId', 'kode_poli', 'nama_poli', 'isEdit']);
+        $this->reset(['poliId', 'kode_poli', 'nama_poli', 'poli_bpjs_id', 'isEdit']);
         $this->status = 'Aktif';
         $this->resetErrorBag();
     }
@@ -144,6 +150,7 @@ class PoliPage extends Component
         $this->poliId = $item->id;
         $this->kode_poli = $item->kode_poli;
         $this->nama_poli = $item->nama_poli;
+        $this->poli_bpjs_id = $item->poli_bpjs_id;
         $this->status = $item->status;
         $this->isEdit = true;
         $this->dispatch('open-modal');
@@ -154,7 +161,12 @@ class PoliPage extends Component
         try {
             $this->validate($this->rules());
             $item = $this->poliId ? MstPoli::findOrFail($this->poliId) : new MstPoli;
-            $item->fill(['kode_poli' => $this->kode_poli, 'nama_poli' => $this->nama_poli, 'status' => $this->status ?? 'Aktif']);
+            $item->fill([
+                'kode_poli' => $this->kode_poli, 
+                'nama_poli' => $this->nama_poli, 
+                'poli_bpjs_id' => $this->poli_bpjs_id,
+                'status' => $this->status ?? 'Aktif'
+            ]);
             $item->save();
             $this->dispatch('close-modal');
             $this->dispatch('alert', ['type' => 'success', 'message' => $this->isEdit ? 'Data poli berhasil diperbarui!' : 'Poli baru berhasil ditambahkan!']);
@@ -179,6 +191,41 @@ class PoliPage extends Component
         $this->dispatch('alert', ['type' => 'success', 'message' => 'Status poli diubah menjadi Tidak Aktif!']);
     }
 
+    public function searchBpjsPoli()
+    {
+        try {
+            $service = new \App\Modules\Bridging\Services\BpjsPcareService();
+            $response = $service->getPoli(0, 100);
+            
+            if ($response['success']) {
+                $data = $response['data'] ?? [];
+                $polis = $data['list'] ?? $data;
+                
+                if (!empty($this->searchBpjsPoliQuery)) {
+                    $polis = array_filter($polis, function($p) {
+                        return str_contains(strtolower($p['nmPoli'] ?? ''), strtolower($this->searchBpjsPoliQuery)) ||
+                               str_contains(strtolower($p['kdPoli'] ?? ''), strtolower($this->searchBpjsPoliQuery));
+                    });
+                }
+                
+                $this->foundBpjsPolis = $polis;
+                $this->dispatch('open-search-bpjs-poli-modal');
+            } else {
+                $msg = $response['metadata']['message'] ?? 'Gagal mengambil data dari BPJS.';
+                $this->dispatch('alert', ['type' => 'error', 'message' => $msg]);
+            }
+        } catch (\Exception $e) {
+            $this->dispatch('alert', ['type' => 'error', 'message' => 'Gagal mencari Poli BPJS: ' . $e->getMessage()]);
+        }
+    }
+
+    public function selectBpjsPoli($id)
+    {
+        $this->poli_bpjs_id = $id;
+        $this->dispatch('close-search-bpjs-poli-modal');
+        $this->dispatch('alert', ['type' => 'success', 'message' => 'Kode Poli BPJS dipilih!']);
+    }
+
     public function render()
     {
         $this->totalPoli = MstPoli::count();
@@ -190,7 +237,20 @@ class PoliPage extends Component
         $this->allDokters = \App\Models\MstDokter::where('status', 'Aktif')->orderBy('nama_dokter')->get();
 
         return <<<'HTML'
-        <div x-data="{ showModal: false, init(){this.$watch('showModal',v=>{if(v){$nextTick(()=>{this.$refs.firstInput&&this.$refs.firstInput.focus()})}})} }" @open-modal.window="showModal=true" @close-modal.window="showModal=false" x-init="init()">
+        <div x-data="{ 
+                showModal: false, 
+                searchBpjsPoliModal: false,
+                init(){
+                    this.$watch('showModal',v=>{
+                        if(v){$nextTick(()=>{this.$refs.firstInput&&this.$refs.firstInput.focus()})}
+                    })
+                } 
+            }" 
+            @open-modal.window="showModal=true" 
+            @close-modal.window="showModal=false" 
+            @open-search-bpjs-poli-modal.window="searchBpjsPoliModal = true" 
+            @close-search-bpjs-poli-modal.window="searchBpjsPoliModal = false"
+            x-init="init()">
             <style>
                 .glass-header {
                     background: rgba(255, 255, 255, 0.8) !important;
@@ -630,12 +690,26 @@ class PoliPage extends Component
                                 </div>
                             </div>
 
-                            <div class="space-y-1.5">
+                             <div class="space-y-1.5">
                                 <label class="text-[9px] sm:text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Nama Poli <span class="text-rose-500">*</span></label>
                                 <input type="text" wire:model="nama_poli" 
                                        class="w-full bg-gray-50 border border-gray-100 rounded-xl sm:rounded-2xl py-2.5 sm:py-3 px-4 text-sm font-bold text-[#2c3e50] focus:bg-white focus:ring-4 focus:ring-indigo-100 focus:border-[#405189] transition-all outline-none @error('nama_poli') border-rose-300 bg-rose-50/30 @enderror" 
                                        placeholder="Contoh: Poli Gigi & Mulut">
                                 @error('nama_poli') <span class="text-[10px] text-rose-500 font-bold px-1">{{ $message }}</span> @enderror
+                            </div>
+
+                            <div class="space-y-1.5">
+                                <label class="text-[9px] sm:text-[10px] font-black text-emerald-600 uppercase tracking-widest px-1">BPJS ID (Poli)</label>
+                                <div class="flex gap-2">
+                                    <div class="relative flex-1">
+                                        <i class="ri-hospital-line absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                                        <input type="text" wire:model="poli_bpjs_id" class="w-full pl-10 rounded-xl border-gray-200 text-sm py-2.5 focus:border-[#0ab39c] focus:ring focus:ring-[#0ab39c]/20 transition-all bg-emerald-50/30" placeholder="001">
+                                    </div>
+                                    <button type="button" wire:click="searchBpjsPoli" class="bg-[#0ab39c] text-white px-4 rounded-xl text-xs font-bold shadow-sm hover:bg-emerald-600 transition-colors">
+                                        <i class="ri-search-line"></i>
+                                    </button>
+                                </div>
+                                @error('poli_bpjs_id') <span class="text-[10px] text-rose-500 font-bold px-1">{{ $message }}</span> @enderror
                             </div>
                         </form>
                     </div>
@@ -653,6 +727,46 @@ class PoliPage extends Component
                             </span>
                             <span wire:loading wire:target="save" class="animate-pulse">Memproses...</span>
                         </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Search BPJS Poli Modal -->
+            <div x-show="searchBpjsPoliModal" class="fixed inset-0 z-[1100] flex items-center justify-center p-4" x-transition.opacity style="display: none;">
+                <div class="absolute inset-0 bg-[#0a192f]/80 backdrop-blur-sm"></div>
+                <div x-show="searchBpjsPoliModal" x-transition.scale.95 
+                     class="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in duration-300">
+                    <div class="px-8 py-6 bg-emerald-600 text-white flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <i class="ri-hospital-line text-2xl"></i>
+                            <div>
+                                <h5 class="text-lg font-black tracking-tight">Cari Poli BPJS</h5>
+                                <p class="text-[10px] text-emerald-100 font-bold uppercase tracking-widest">Referensi Poliklinik PCare BPJS</p>
+                            </div>
+                        </div>
+                        <button @click="searchBpjsPoliModal = false" class="text-white/50 hover:text-white transition-colors"><i class="ri-close-line text-2xl"></i></button>
+                    </div>
+                    <div class="p-8">
+                        <div class="relative mb-6">
+                            <input type="text" wire:model.live.debounce.300ms="searchBpjsPoliQuery" 
+                                   class="w-full bg-gray-50 border border-gray-100 rounded-2xl py-3 pl-12 pr-4 text-sm font-bold focus:bg-white transition-all outline-none" 
+                                   placeholder="Cari Nama atau Kode Poli...">
+                            <i class="ri-search-2-line absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                        </div>
+                        <div class="max-h-[400px] overflow-y-auto scrollbar-hide space-y-3">
+                            @forelse($foundBpjsPolis as $bpjsPoli)
+                            <div class="p-4 bg-gray-50 rounded-2xl border border-gray-100 flex items-center justify-between hover:bg-white hover:border-emerald-200 transition-all cursor-pointer"
+                                 wire:click="selectBpjsPoli('{{ $bpjsPoli['kdPoli'] ?? '' }}')">
+                                <div>
+                                    <h6 class="text-sm font-black text-gray-700">{{ $bpjsPoli['nmPoli'] ?? '-' }}</h6>
+                                    <p class="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Kode: {{ $bpjsPoli['kdPoli'] ?? '-' }}</p>
+                                </div>
+                                <button class="btn btn-sm bg-emerald-600 text-white px-4 rounded-xl text-[10px] font-bold">PILIH</button>
+                            </div>
+                            @empty
+                            <div class="py-12 text-center text-gray-400 italic">Belum ada hasil pencarian.</div>
+                            @endforelse
+                        </div>
                     </div>
                 </div>
             </div>

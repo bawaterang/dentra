@@ -46,11 +46,15 @@ class DokterPage extends Component
 
     // SatuSehat & BPJS
     public $practitioner_id;
-    public $bpjs_id;
+    public $dokter_bpjs_id;
 
     // Search SS Practitioner
     public $searchPracQuery = '';
     public $foundPractitioners = [];
+
+    // Search BPJS Dokter
+    public $searchBpjsQuery = '';
+    public $foundBpjsDokters = [];
 
 
     public $totalDokter = 0;
@@ -119,14 +123,14 @@ class DokterPage extends Component
             'color' => 'nullable|string|max:20',
             'user_id' => ['nullable', 'exists:mst_user,id'],
             'practitioner_id' => 'nullable|string|max:50',
-            'bpjs_id' => 'nullable|string|max:50',
+            'dokter_bpjs_id' => 'nullable|string|max:50',
         ];
     }
 
 
     public function resetForm()
     {
-        $this->reset(['dokterId', 'kode_dokter', 'nama_dokter', 'nik', 'jenis_kelamin', 'tempat_lahir', 'tanggal_lahir', 'alamat', 'no_telepon', 'agama', 'spesialisasi', 'no_sip', 'no_str', 'isEdit', 'user_id', 'practitioner_id', 'bpjs_id']);
+        $this->reset(['dokterId', 'kode_dokter', 'nama_dokter', 'nik', 'jenis_kelamin', 'tempat_lahir', 'tanggal_lahir', 'alamat', 'no_telepon', 'agama', 'spesialisasi', 'no_sip', 'no_str', 'isEdit', 'user_id', 'practitioner_id', 'dokter_bpjs_id']);
         $this->status = 'Aktif';
         $this->color = '#405189';
         $this->resetErrorBag();
@@ -173,7 +177,7 @@ class DokterPage extends Component
         $this->color = $dokter->color ?? '#405189';
         $this->user_id = $dokter->user_id;
         $this->practitioner_id = $dokter->practitioner_id;
-        $this->bpjs_id = $dokter->bpjs_id;
+        $this->dokter_bpjs_id = $dokter->dokter_bpjs_id;
 
         $this->isEdit = true;
         $this->dispatch('open-modal');
@@ -210,7 +214,7 @@ class DokterPage extends Component
                 'color' => $this->color,
                 'user_id' => $this->user_id || $this->user_id == '0' ? $this->user_id : null,
                 'practitioner_id' => $this->practitioner_id,
-                'bpjs_id' => $this->bpjs_id,
+                'dokter_bpjs_id' => $this->dokter_bpjs_id,
             ]);
 
 
@@ -299,7 +303,38 @@ class DokterPage extends Component
 
     public function searchBpjsPrac()
     {
-        $this->dispatch('alert', ['type' => 'info', 'message' => 'Fitur integrasi BPJS sedang dalam pengembangan.']);
+        try {
+            $service = new \App\Modules\Bridging\Services\BpjsPcareService();
+            $response = $service->getDokter(0, 100);
+            
+            if ($response['success']) {
+                $data = $response['data'] ?? [];
+                $doctors = $data['list'] ?? $data;
+                
+                // Filter if query is provided
+                if (!empty($this->searchBpjsQuery)) {
+                    $doctors = array_filter($doctors, function($d) {
+                        return str_contains(strtolower($d['nmDokter'] ?? ''), strtolower($this->searchBpjsQuery)) ||
+                               str_contains(strtolower($d['kdDokter'] ?? ''), strtolower($this->searchBpjsQuery));
+                    });
+                }
+                
+                $this->foundBpjsDokters = $doctors;
+                $this->dispatch('open-search-bpjs-modal');
+            } else {
+                $msg = $response['metadata']['message'] ?? 'Gagal mengambil data dari BPJS.';
+                $this->dispatch('alert', ['type' => 'error', 'message' => $msg]);
+            }
+        } catch (\Exception $e) {
+            $this->dispatch('alert', ['type' => 'error', 'message' => 'Gagal mencari Dokter BPJS: ' . $e->getMessage()]);
+        }
+    }
+
+    public function selectBpjsDokter($id)
+    {
+        $this->dokter_bpjs_id = $id;
+        $this->dispatch('close-search-bpjs-modal');
+        $this->dispatch('alert', ['type' => 'success', 'message' => 'Kode Dokter BPJS dipilih!']);
     }
 
 
@@ -322,6 +357,7 @@ class DokterPage extends Component
         <div x-data="{ 
                 showModal: false, 
                 searchPracModal: false,
+                searchBpjsModal: false,
                 init(){
                     this.$watch('showModal', v => {
                         if(v){ $nextTick(() => { this.$refs.firstInput && this.$refs.firstInput.focus() }) }
@@ -332,6 +368,8 @@ class DokterPage extends Component
             @close-modal.window="showModal=false" 
             @open-search-prac-modal.window="searchPracModal = true" 
             @close-search-prac-modal.window="searchPracModal = false"
+            @open-search-bpjs-modal.window="searchBpjsModal = true" 
+            @close-search-bpjs-modal.window="searchBpjsModal = false"
             x-init="init()">
 
             <style>
@@ -726,17 +764,17 @@ class DokterPage extends Component
                                     @error('practitioner_id') <span class="text-[10px] text-rose-500 font-bold px-1">{{ $message }}</span> @enderror
                                 </div>
                                 <div class="space-y-1.5">
-                                    <label class="text-[9px] sm:text-[10px] font-black text-emerald-600 uppercase tracking-widest px-1">BPJS ID / No. Kartu</label>
+                                    <label class="text-[9px] sm:text-[10px] font-black text-emerald-600 uppercase tracking-widest px-1">BPJS ID (Dokter)</label>
                                     <div class="flex gap-2">
                                         <div class="relative flex-1">
                                             <i class="ri-bank-card-line absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
-                                            <input type="text" wire:model="bpjs_id" class="w-full pl-10 rounded-xl border-gray-200 text-sm py-2.5 focus:border-[#0ab39c] focus:ring focus:ring-[#0ab39c]/20 transition-all bg-emerald-50/30" placeholder="00020...">
+                                            <input type="text" wire:model="dokter_bpjs_id" class="w-full pl-10 rounded-xl border-gray-200 text-sm py-2.5 focus:border-[#0ab39c] focus:ring focus:ring-[#0ab39c]/20 transition-all bg-emerald-50/30" placeholder="00020...">
                                         </div>
                                         <button type="button" wire:click="searchBpjsPrac" class="bg-[#0ab39c] text-white px-4 rounded-xl text-xs font-bold shadow-sm hover:bg-emerald-600 transition-colors">
                                             <i class="ri-file-search-line"></i>
                                         </button>
                                     </div>
-                                    @error('bpjs_id') <span class="text-[10px] text-rose-500 font-bold px-1">{{ $message }}</span> @enderror
+                                    @error('dokter_bpjs_id') <span class="text-[10px] text-rose-500 font-bold px-1">{{ $message }}</span> @enderror
                                 </div>
                             </div>
 
@@ -952,6 +990,106 @@ class DokterPage extends Component
                 </div>
             </div>
 
+            <!-- Search BPJS Modal -->
+            <div x-show="searchBpjsModal" class="fixed inset-0 z-[1100] flex items-center justify-center p-4" x-transition.opacity style="display: none;">
+                <div class="absolute inset-0 bg-[#0a192f]/80 backdrop-blur-sm"></div>
+                <div x-show="searchBpjsModal" x-transition.scale.95 
+                     class="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in duration-300">
+                    <div class="px-8 py-6 bg-emerald-600 text-white flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <i class="ri-bank-card-line text-2xl"></i>
+                            <div>
+                                <h5 class="text-lg font-black tracking-tight">Cari Dokter BPJS</h5>
+                                <p class="text-[10px] text-emerald-100 font-bold uppercase tracking-widest">Master Data Dokter dari PCare BPJS</p>
+                            </div>
+                        </div>
+                        <button @click="searchBpjsModal = false" class="text-white/50 hover:text-white transition-colors"><i class="ri-close-line text-2xl"></i></button>
+                    </div>
+                    <div class="p-8">
+                        <div class="relative mb-6">
+                            <input type="text" wire:model.live.debounce.300ms="searchBpjsQuery" 
+                                   class="w-full bg-gray-50 border border-gray-100 rounded-2xl py-3 pl-12 pr-4 text-sm font-bold focus:bg-white focus:ring-4 focus:ring-emerald-100 focus:border-emerald-600 transition-all outline-none" 
+                                   placeholder="Cari Nama atau Kode Dokter di BPJS...">
+                            <i class="ri-search-2-line absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg"></i>
+                        </div>
+
+                        <div class="max-h-[400px] overflow-y-auto scrollbar-hide space-y-3">
+                            @forelse($foundBpjsDokters as $bpjsDoc)
+                            <div class="p-4 bg-gray-50 rounded-2xl border border-gray-100 flex items-center justify-between group hover:bg-white hover:border-emerald-200 hover:shadow-lg hover:shadow-emerald-500/10 transition-all cursor-pointer"
+                                 wire:click="selectBpjsDokter('{{ $bpjsDoc['kdDokter'] ?? '' }}')">
+                                <div class="flex items-center gap-4">
+                                    <div class="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold">
+                                        {{ strtoupper(substr($bpjsDoc['nmDokter'] ?? '?', 0, 1)) }}
+                                    </div>
+                                    <div>
+                                        <h6 class="text-sm font-black text-gray-700 group-hover:text-emerald-600">{{ $bpjsDoc['nmDokter'] ?? '-' }}</h6>
+                                        <p class="text-[10px] text-gray-400 font-bold uppercase tracking-widest leading-none mt-1">Kode: {{ $bpjsDoc['kdDokter'] ?? '-' }}</p>
+                                    </div>
+                                </div>
+                                <button class="btn btn-sm bg-emerald-600 text-white px-4 rounded-xl text-[10px] font-bold">PILIH</button>
+                            </div>
+                            @empty
+                            <div class="py-12 text-center">
+                                <i class="ri-file-search-line text-5xl text-gray-200 mb-3 block"></i>
+                                <span class="text-sm text-gray-400 font-bold">Tidak ada data dokter ditemukan di BPJS.</span>
+                            </div>
+                            @endforelse
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Enhanced Practitioner Search Modal (SatuSehat) -->
+            <div x-show="searchPracModal" class="fixed inset-0 z-[1100] flex items-center justify-center p-4" x-transition.opacity style="display: none;">
+                <div class="absolute inset-0 bg-[#0a192f]/80 backdrop-blur-sm"></div>
+                <div x-show="searchPracModal" x-transition.scale.95 
+                     class="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in duration-300">
+                    <div class="px-8 py-6 bg-slate-900 text-white flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <i class="ri-fingerprint-line text-2xl"></i>
+                            <div>
+                                <h5 class="text-lg font-black tracking-tight">Cari Practitioner ID</h5>
+                                <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Integrasi SatuSehat Kementerian Kesehatan</p>
+                            </div>
+                        </div>
+                        <button @click="searchPracModal = false" class="text-white/50 hover:text-white transition-colors"><i class="ri-close-line text-2xl"></i></button>
+                    </div>
+
+                    <div class="p-8">
+                        <div class="flex gap-3 mb-6">
+                            <div class="relative flex-1">
+                                <input type="text" wire:model="searchPracQuery" 
+                                       class="w-full bg-gray-50 border border-gray-100 rounded-2xl py-3 px-4 text-sm font-bold focus:bg-white focus:ring-4 focus:ring-indigo-100 focus:border-[#405189] transition-all outline-none" 
+                                       placeholder="Masukkan NIK atau Nama Dokter...">
+                            </div>
+                            <button wire:click="searchSatuSehatPrac" class="btn btn-primary px-8 rounded-2xl font-bold">CARI</button>
+                        </div>
+
+                        <div class="max-h-[400px] overflow-y-auto scrollbar-hide space-y-3">
+                            @forelse($foundPractitioners as $prac)
+                            <div class="p-4 bg-gray-50 rounded-2xl border border-gray-100 flex items-center justify-between group hover:bg-white hover:border-indigo-200 hover:shadow-lg hover:shadow-indigo-500/10 transition-all cursor-pointer"
+                                 wire:click="selectPrac('{{ $prac['id'] ?? '' }}')">
+                                <div class="flex items-center gap-4">
+                                    <div class="w-10 h-10 rounded-xl bg-indigo-50 text-[#405189] flex items-center justify-center font-bold">
+                                        {{ strtoupper(substr($prac['name'] ?? '?', 0, 1)) }}
+                                    </div>
+                                    <div>
+                                        <h6 class="text-sm font-black text-gray-700 group-hover:text-[#405189]">{{ $prac['name'] ?? '-' }}</h6>
+                                        <p class="text-[10px] text-gray-400 font-bold uppercase tracking-widest leading-none mt-1">ID: {{ $prac['id'] ?? '-' }}</p>
+                                    </div>
+                                </div>
+                                <button class="btn btn-sm bg-indigo-600 text-white px-4 rounded-xl text-[10px] font-bold">PILIH</button>
+                            </div>
+                            @empty
+                            <div class="py-12 text-center">
+                                <i class="ri-file-search-line text-5xl text-gray-200 mb-3 block"></i>
+                                <span class="text-sm text-gray-400 font-bold">Pencarian untuk NIK atau Nama di database SatuSehat.</span>
+                            </div>
+                            @endforelse
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
         HTML;
     }
