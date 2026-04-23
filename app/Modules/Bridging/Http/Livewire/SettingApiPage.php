@@ -15,7 +15,8 @@ class SettingApiPage extends Component
     public $bpjs_password;
     public $bpjs_kd_aplikasi;
     public $bpjs_user_key;
-    public $bpjs_base_url;
+    public $bpjs_base_url_pcare;
+    public $bpjs_base_url_antrian;
     public $bpjs_bridging = false;
 
     // SATUSEHAT
@@ -37,7 +38,8 @@ class SettingApiPage extends Component
             $this->bpjs_password = $bpjs->password;
             $this->bpjs_kd_aplikasi = $bpjs->kd_aplikasi;
             $this->bpjs_user_key = $bpjs->user_key;
-            $this->bpjs_base_url = $bpjs->base_url;
+            $this->bpjs_base_url_pcare = $bpjs->base_url_pcare;
+            $this->bpjs_base_url_antrian = $bpjs->base_url_antrian;
             $this->bpjs_bridging = ($bpjs->bridging === 'ON');
         }
 
@@ -77,7 +79,8 @@ class SettingApiPage extends Component
             'bpjs_password' => 'required',
             'bpjs_kd_aplikasi' => 'required',
             'bpjs_user_key' => 'required',
-            'bpjs_base_url' => 'required',
+            'bpjs_base_url_pcare' => 'required',
+            'bpjs_base_url_antrian' => 'nullable',
         ], $this->message_rules, [
             'bpjs_consid' => 'ConsID',
             'bpjs_secret_key' => 'Secret Key',
@@ -85,7 +88,8 @@ class SettingApiPage extends Component
             'bpjs_password' => 'Password',
             'bpjs_kd_aplikasi' => 'Kode Aplikasi',
             'bpjs_user_key' => 'User Key',
-            'bpjs_base_url' => 'Base URL',
+            'bpjs_base_url_pcare' => 'Base URL PCARE',
+            'bpjs_base_url_antrian' => 'Base URL Antrian',
         ]);
 
         $bpjs = MstSettingBpjs::first() ?: new MstSettingBpjs();
@@ -96,7 +100,8 @@ class SettingApiPage extends Component
             'password' => $this->bpjs_password,
             'kd_aplikasi' => $this->bpjs_kd_aplikasi,
             'user_key' => $this->bpjs_user_key,
-            'base_url' => $this->bpjs_base_url,
+            'base_url_pcare' => $this->bpjs_base_url_pcare,
+            'base_url_antrian' => $this->bpjs_base_url_antrian,
             'bridging' => $this->bpjs_bridging ? 'ON' : 'OFF',
         ]);
         $bpjs->save();

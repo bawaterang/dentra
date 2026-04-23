@@ -67,9 +67,14 @@
                         @error('bpjs_user_key') <span class="text-red-500 text-[10px] mt-1 font-bold">{{ $message }}</span> @enderror
                     </div>
                     <div>
-                        <label class="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-tight">Base URL API <span class="text-red-500">*</span></label>
-                        <input type="text" wire:model="bpjs_base_url" class="w-full rounded-lg border-gray-200 text-sm px-4 py-2.5 focus:border-[#0d6efd] transition-all shadow-sm @error('bpjs_base_url') border-red-500 @enderror" placeholder="https://apijkn.bpjs-kesehatan.go.id/vclaim-rest/">
-                        @error('bpjs_base_url') <span class="text-red-500 text-[10px] mt-1 font-bold">{{ $message }}</span> @enderror
+                        <label class="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-tight">Base URL API PCARE <span class="text-red-500">*</span></label>
+                        <input type="text" wire:model="bpjs_base_url_pcare" class="w-full rounded-lg border-gray-200 text-sm px-4 py-2.5 focus:border-[#0d6efd] transition-all shadow-sm @error('bpjs_base_url_pcare') border-red-500 @enderror" placeholder="https://apijkn.bpjs-kesehatan.go.id/vclaim-rest/">
+                        @error('bpjs_base_url_pcare') <span class="text-red-500 text-[10px] mt-1 font-bold">{{ $message }}</span> @enderror
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-tight">BASE URL API ANTRIAN BPJS</label>
+                        <input type="text" wire:model="bpjs_base_url_antrian" class="w-full rounded-lg border-gray-200 text-sm px-4 py-2.5 focus:border-[#0d6efd] transition-all shadow-sm @error('bpjs_base_url_antrian') border-red-500 @enderror" placeholder="https://apijkn.bpjs-kesehatan.go.id/antrianrs/">
+                        @error('bpjs_base_url_antrian') <span class="text-red-500 text-[10px] mt-1 font-bold">{{ $message }}</span> @enderror
                     </div>
                 </div>
                 <div class="p-5 bg-gray-50/80 flex justify-end gap-3 border-t border-gray-100">
