@@ -4,6 +4,7 @@ namespace App\Modules\Bridging\Http\Livewire;
 
 use Livewire\Component;
 use App\Models\MstSettingBpjs;
+use App\Modules\Bridging\Services\BpjsPcareService;
 use App\Models\MstSettingSatusehat;
 
 class SettingApiPage extends Component
@@ -168,7 +169,43 @@ class SettingApiPage extends Component
         }
     }
 
+    public function testBpjsConnection()
+    {
+        try {
+            // Simpan dulu sebelum test
+            $this->saveBpjs();
 
+            $service = new BpjsPcareService();
+
+            if (!$service->isConfigured()) {
+                $this->dispatch('alert', [
+                    'type' => 'error',
+                    'message' => 'Konfigurasi BPJS belum lengkap. Pastikan ConsID, Secret Key, dan Base URL PCare sudah diisi.',
+                ]);
+                return;
+            }
+
+            // Test dengan endpoint dokter (paling sederhana)
+            $result = $service->getDokter(0, 1);
+
+            if ($result['success']) {
+                $this->dispatch('alert', [
+                    'type' => 'success',
+                    'message' => 'Koneksi PCare BPJS Berhasil! Response: ' . ($result['metadata']['message'] ?? 'OK'),
+                ]);
+            } else {
+                $this->dispatch('alert', [
+                    'type' => 'error',
+                    'message' => 'Gagal koneksi PCare: [' . ($result['metadata']['code'] ?? '?') . '] ' . ($result['metadata']['message'] ?? 'Unknown'),
+                ]);
+            }
+        } catch (\Exception $e) {
+            $this->dispatch('alert', [
+                'type' => 'error',
+                'message' => 'Error: ' . $e->getMessage(),
+            ]);
+        }
+    }
 
 
     public function render()

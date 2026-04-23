@@ -78,6 +78,14 @@
                     </div>
                 </div>
                 <div class="p-5 bg-gray-50/80 flex justify-end gap-3 border-t border-gray-100">
+                    <button type="button" wire:click="testBpjsConnection" wire:loading.attr="disabled" class="btn bg-white text-[#0d6efd] border-[#0d6efd] font-bold text-xs uppercase tracking-widest px-6 h-10 shadow-sm hover:bg-[#0d6efd] hover:text-white hover:translate-y-[-2px] transition-all active:scale-95">
+                        <span wire:loading.remove wire:target="testBpjsConnection">
+                            <i class="ri-signal-tower-line mr-2"></i> Test Koneksi PCare
+                        </span>
+                        <span wire:loading wire:target="testBpjsConnection">
+                            <i class="ri-loader-4-line mr-2 animate-spin"></i> Testing...
+                        </span>
+                    </button>
                     <button type="submit" class="btn bg-[#0d6efd] text-white font-bold text-xs uppercase tracking-widest px-6 h-10 shadow-md hover:bg-[#0b5ed7] hover:translate-y-[-2px] transition-all active:scale-95">
                         <i class="ri-save-line mr-2"></i> Simpan BPJS
                     </button>
