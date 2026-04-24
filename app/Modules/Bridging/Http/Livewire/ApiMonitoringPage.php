@@ -11,7 +11,7 @@ class ApiMonitoringPage extends Component
     public $activeTab = 'satusehat';
     
     public $ssEndpoint = 'organization';
-    public $bpjsEndpoint = 'referensi_poli';
+    public $bpjsEndpoint = 'poli';
 
     // Results from last check
     public $satusehatResult = null;
@@ -136,10 +136,12 @@ class ApiMonitoringPage extends Component
     {
         $satusehatLogs = TrxApiMonitoringLog::recentLogs('satusehat', 15);
         $bpjsLogs = TrxApiMonitoringLog::recentLogs('bpjs', 15);
+        $bpjsEndpoints = \App\Modules\Bridging\Services\BpjsPcareService::getEndpointRegistry();
 
         return view('bridging::livewire.api-monitoring-page', [
             'satusehatLogs' => $satusehatLogs,
             'bpjsLogs' => $bpjsLogs,
+            'bpjsEndpoints' => $bpjsEndpoints,
         ]);
     }
 }

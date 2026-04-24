@@ -213,50 +213,78 @@ class ApiMonitoringService
             return $result;
         }
 
-        // Build BPJS authentication headers
+        // Build BPJS authentication headers — SAME as BpjsPcareService
         $consid = trim($settings->consid);
         $secretKey = trim($settings->secret_key);
         $userKey = trim($settings->user_key ?? '');
-
-        // Construct timestamp & signature per BPJS spec
-        $timestamp = gmdate('U');
-        $signature = hash_hmac('sha256', $consid . '&' . $timestamp, $secretKey, true);
-        $encodedSignature = base64_encode($signature);
-
-        // Build auth string: base64(consid:pwd:timestamp)
         $username = trim($settings->username ?? '');
         $password = trim($settings->password ?? '');
         $kdAplikasi = trim($settings->kd_aplikasi ?? '');
+
+        // Timestamp: UTC unix timestamp (same formula as BpjsPcareService::generateTimestamp)
+        date_default_timezone_set('UTC');
+        $timestamp = strval(time() - strtotime('1970-01-01 00:00:00'));
+
+        // Signature: HMAC-SHA256(consid & timestamp, secretKey) → base64
+        $signature = hash_hmac('sha256', $consid . '&' . $timestamp, $secretKey, true);
+        $encodedSignature = base64_encode($signature);
+
+        // Authorization: Basic base64(username:password:kdAplikasi)
         $authString = base64_encode($username . ':' . $password . ':' . $kdAplikasi);
 
-        $baseUrl = rtrim($settings->base_url ?? 'https://apijkn.bpjs-kesehatan.go.id/vclaim-rest', '/');
+        // Determine if this is an Antrean endpoint
+        $isAntreanEndpoint = str_starts_with($endpointType, 'antrean_');
 
-        if ($endpointType === 'referensi_poli') {
-            $testEndpoint = $baseUrl . '/referensi/poli/1/10';
-        } elseif ($endpointType === 'referensi_faskes') {
-            $testEndpoint = $baseUrl . '/referensi/faskes/01140131/1';
-        } elseif ($endpointType === 'referensi_dokter') {
-            $testEndpoint = $baseUrl . '/referensi/dokter/pelayanan/1/tglPelayanan/' . date('Y-m-d');
-        } elseif ($endpointType === 'referensi_diagnosa') {
-            $testEndpoint = $baseUrl . '/referensi/diagnosa/A00';
+        // Use correct base URL
+        $baseUrlPcare = rtrim($settings->base_url_pcare ?? '', '/');
+        $baseUrlAntrean = rtrim($settings->base_url_antrian ?? '', '/');
+
+        // Resolve endpoint from registry
+        $registry = BpjsPcareService::getEndpointRegistry();
+        if (isset($registry[$endpointType])) {
+            $path = $registry[$endpointType]['endpoint'];
+
+            // Replace placeholders with generic test data
+            $finalPath = str_replace([
+                '{start}', '{limit}', '{keyword}', '{kdSpesialis}', '{kdSubSpesialis}',
+                '{kdSarana}', '{tglEstRujuk}', '{isRawatInap}', '{kdTkp}', '{kdJenis}',
+                '{noKartu}', '{nik}', '{noKunjungan}', '{noUrut}', '{tglDaftar}', '{tanggal}', '{kodepoli}',
+                '{noKartuOrNama}'
+            ], [
+                '0', '1', 'A', '001', '001',
+                '001', date('d-m-Y'), 'false', '10', '01',
+                '0001234567890', '3201234567890001', '12345', '1', date('d-m-Y'), date('Y-m-d'), '001',
+                '0001234567890'
+            ], $path);
+
+            // Route Antrean endpoints to Antrean base URL, others to PCare base URL
+            $testEndpoint = ($isAntreanEndpoint ? $baseUrlAntrean : $baseUrlPcare) . $finalPath;
         } else {
-            $testEndpoint = $baseUrl . '/referensi/poli/1/10';
+            $testEndpoint = $baseUrlPcare . '/poli/fktp/0/10';
         }
-        
+
         $result['endpoint_url'] = $testEndpoint;
 
+        // Build headers: PCare = 5 headers (with X-authorization), Antrean = 4 headers (without)
         $requestHeaders = [
-            'X-cons-id' => $consid,
-            'X-timestamp' => $timestamp,
-            'X-signature' => $encodedSignature,
-            'user_key' => $userKey,
+            'X-cons-id'    => $consid,
+            'X-timestamp'  => $timestamp,
+            'X-signature'  => $encodedSignature,
+            'user_key'     => $userKey,
             'Content-Type' => 'application/json',
+            'Accept'       => 'application/json',
         ];
+
+        if (!$isAntreanEndpoint) {
+            // PCare requires X-authorization
+            $requestHeaders['X-authorization'] = 'Basic ' . $authString;
+        }
 
         $result['request_headers'] = [
             'X-cons-id' => $this->maskString($consid),
             'X-timestamp' => $timestamp,
             'X-signature' => $this->maskString($encodedSignature, 8),
+            'X-authorization' => $isAntreanEndpoint ? '(tidak dikirim untuk Antrean)' : 'Basic ' . $this->maskString($authString, 8),
             'user_key' => $this->maskString($userKey),
             'Content-Type' => 'application/json',
         ];

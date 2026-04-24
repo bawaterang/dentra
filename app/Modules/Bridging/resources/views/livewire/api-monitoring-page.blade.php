@@ -563,10 +563,11 @@
                         <i class="ri-signal-wifi-line mr-1.5 text-[#0d6efd]"></i> Status & Konektivitas
                     </h5>
                     <select wire:model="bpjsEndpoint" class="text-[11px] font-bold bg-white border border-gray-200 text-gray-600 py-1.5 px-3 rounded-lg focus:ring-[#0d6efd] focus:border-[#0d6efd] outline-none shadow-sm cursor-pointer transition-all">
-                        <option value="referensi_poli">Referensi Poli</option>
-                        <option value="referensi_faskes">Referensi Faskes</option>
-                        <option value="referensi_dokter">Referensi Dokter</option>
-                        <option value="referensi_diagnosa">Referensi Diagnosa</option>
+                        @foreach($bpjsEndpoints as $key => $ep)
+                            @if(($ep['method'] ?? 'GET') === 'GET')
+                                <option value="{{ $key }}">{{ $ep['label'] }}</option>
+                            @endif
+                        @endforeach
                     </select>
                 </div>
                 <div class="p-5">
