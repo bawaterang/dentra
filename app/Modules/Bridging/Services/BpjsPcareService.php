@@ -591,6 +591,50 @@ class BpjsPcareService
     }
 
     /**
+     * Get data sub spesialis
+     *
+     * @param string $kdSpesialis Kode Spesialis
+     * @return array
+     */
+    public function getSubSpesialis(string $kdSpesialis): array
+    {
+        return $this->get("spesialis/{$kdSpesialis}/subspesialis");
+    }
+
+    /**
+     * Get data sarana (spesialis)
+     *
+     * @return array
+     */
+    public function getSarana(): array
+    {
+        return $this->get("spesialis/sarana");
+    }
+
+    /**
+     * Get data khusus (spesialis)
+     *
+     * @return array
+     */
+    public function getKhusus(): array
+    {
+        return $this->get("spesialis/khusus");
+    }
+
+    /**
+     * Get faskes rujukan sub spesialis
+     *
+     * @param string $kdSubSpesialis Kode Sub Spesialis
+     * @param string $kdSarana Kode Sarana
+     * @param string $tglEstRujuk Tanggal Estimasi Rujukan (dd-MM-yyyy)
+     * @return array
+     */
+    public function getFaskesRujukanSubSpesialis(string $kdSubSpesialis, string $kdSarana, string $tglEstRujuk): array
+    {
+        return $this->get("spesialis/rujuk/subspesialis/{$kdSubSpesialis}/sarana/{$kdSarana}/tglEstRujuk/{$tglEstRujuk}");
+    }
+
+    /**
      * Get data provider (faskes rujukan)
      *
      * @param int $start Row data awal
@@ -629,6 +673,51 @@ class BpjsPcareService
     }
 
     /**
+     * Get data tindakan by kunjungan
+     *
+     * @param string $noKunjungan Nomor Kunjungan
+     * @return array
+     */
+    public function getTindakanByKunjungan(string $noKunjungan): array
+    {
+        return $this->get("tindakan/kunjungan/{$noKunjungan}");
+    }
+
+    /**
+     * Add Tindakan
+     *
+     * @param array $data Body tindakan
+     * @return array
+     */
+    public function addTindakan(array $data): array
+    {
+        return $this->post('tindakan', $data);
+    }
+
+    /**
+     * Edit Tindakan
+     *
+     * @param array $data Body tindakan (harus menyertakan kdTindakanSK)
+     * @return array
+     */
+    public function editTindakan(array $data): array
+    {
+        return $this->put('tindakan', $data);
+    }
+
+    /**
+     * Delete Tindakan
+     *
+     * @param string $kdTindakanSK Kode Tindakan SK
+     * @param string $noKunjungan Nomor Kunjungan
+     * @return array
+     */
+    public function deleteTindakan(string $kdTindakanSK, string $noKunjungan): array
+    {
+        return $this->delete("tindakan/{$kdTindakanSK}/kunjungan/{$noKunjungan}");
+    }
+
+    /**
      * Get data status pulang
      *
      * @param bool $isRawatInap Jika rawat inap diisi true, sebaliknya false
@@ -638,6 +727,66 @@ class BpjsPcareService
     {
         $boolStr = $isRawatInap ? 'true' : 'false';
         return $this->get("statuspulang/rawatInap/{$boolStr}");
+    }
+
+    /**
+     * Get data alergi
+     *
+     * @param string $kdJenis 01:Makanan, 02:Udara, 03:Obat
+     * @return array
+     */
+    public function getAlergi(string $kdJenis): array
+    {
+        return $this->get("alergi/jenis/{$kdJenis}");
+    }
+
+    /**
+     * Get data prognosa
+     *
+     * @return array
+     */
+    public function getPrognosa(): array
+    {
+        return $this->get("prognosa");
+    }
+
+    /**
+     * Get rekapitulasi skrinning riwayat kesehatan per peserta
+     *
+     * @param string $noKartuOrNama Nomor atau Nama Peserta
+     * @param int $start Row data awal
+     * @param int $limit Limit data
+     * @return array
+     */
+    public function getSkrinningPeserta(string $noKartuOrNama, int $start = 0, int $limit = 10): array
+    {
+        return $this->get("skrinning/peserta/{$noKartuOrNama}/{$start}/{$limit}");
+    }
+
+    /**
+     * Get data peserta prolanis DM
+     *
+     * @param string $noKartuOrNama Nomor atau Nama Peserta
+     * @param int $start Row data awal
+     * @param int $limit Limit data
+     * @return array
+     */
+    public function getProlanisDM(string $noKartuOrNama, int $start = 0, int $limit = 10): array
+    {
+        return $this->get("skrinning/prolanis/dm/{$noKartuOrNama}/{$start}/{$limit}");
+    }
+
+    /**
+     * Get data peserta prolanis HT
+     *
+     * @param string $noKartuOrNama Nomor atau Nama Peserta
+     * @param int $start Row data awal
+     * @param int $limit Limit data
+     * @return array
+     */
+    public function getProlanisHT(string $noKartuOrNama, int $start = 0, int $limit = 10): array
+    {
+        return $this->get("skrinning/prolanis/ht/{$noKartuOrNama}/{$start}/{$limit}");
     }
 
     /**
@@ -728,6 +877,100 @@ class BpjsPcareService
     public function deleteKunjungan(string $noKunjungan): array
     {
         return $this->delete("kunjungan/{$noKunjungan}");
+    }
+
+    // ==========================================
+    // OBAT KUNJUNGAN
+    // ==========================================
+
+    /**
+     * Get obat by kunjungan
+     *
+     * @param string $noKunjungan Nomor Kunjungan
+     * @return array
+     */
+    public function getObatByKunjungan(string $noKunjungan): array
+    {
+        return $this->get("obat/kunjungan/{$noKunjungan}");
+    }
+
+    /**
+     * Add obat ke kunjungan
+     *
+     * @param array $data Body request obat
+     * @return array
+     */
+    public function addObat(array $data): array
+    {
+        // Content-Type di API BPJS dimintakan text/plain, namun format datanya JSON.
+        // Helper post kita menggunakan application/json yang umumnya tetap diterima oleh BPJS PCare.
+        return $this->post('obat/kunjungan', $data);
+    }
+
+    /**
+     * Delete obat kunjungan
+     *
+     * @param string $kdObatSK Kode Obat SK
+     * @param string $noKunjungan Nomor Kunjungan
+     * @return array
+     */
+    public function deleteObatKunjungan(string $kdObatSK, string $noKunjungan): array
+    {
+        return $this->delete("obat/{$kdObatSK}/kunjungan/{$noKunjungan}");
+    }
+
+    // ==========================================
+    // PENDAFTARAN
+    // ==========================================
+
+    /**
+     * Get Data Pendaftaran by Nomor Urut
+     *
+     * @param string $noUrut Nomor Urut Pendaftaran
+     * @param string $tglDaftar Tanggal Pendaftaran (dd-MM-yyyy)
+     * @return array
+     */
+    public function getPendaftaranByNoUrut(string $noUrut, string $tglDaftar): array
+    {
+        return $this->get("pendaftaran/noUrut/{$noUrut}/tglDaftar/{$tglDaftar}");
+    }
+
+    /**
+     * Get Data Pendaftaran Provider
+     *
+     * @param string $tglDaftar Tanggal Pendaftaran (dd-MM-yyyy)
+     * @param int $start Row data awal
+     * @param int $limit Limit data
+     * @return array
+     */
+    public function getPendaftaranProvider(string $tglDaftar, int $start, int $limit): array
+    {
+        return $this->get("pendaftaran/tglDaftar/{$tglDaftar}/{$start}/{$limit}");
+    }
+
+    /**
+     * Add Pendaftaran
+     *
+     * @param array $data Body pendaftaran
+     * @return array
+     */
+    public function addPendaftaran(array $data): array
+    {
+        return $this->post('pendaftaran', $data);
+    }
+
+    /**
+     * Delete Pendaftaran
+     *
+     * @param string $noKartu Nomor Kartu Peserta
+     * @param string $tglDaftar Tanggal Pendaftaran (dd-MM-yyyy)
+     * @param string $noUrut Nomor Urut Pendaftaran
+     * @param string $kdPoli Kode Poli
+     * @return array
+     */
+    public function deletePendaftaran(string $noKartu, string $tglDaftar, string $noUrut, string $kdPoli): array
+    {
+        return $this->delete("pendaftaran/peserta/{$noKartu}/tglDaftar/{$tglDaftar}/noUrut/{$noUrut}/kdPoli/{$kdPoli}");
     }
 
     /**
@@ -829,6 +1072,144 @@ class BpjsPcareService
         ];
 
         return $body;
+    }
+
+    /**
+     * Build body request pendaftaran dari data pendaftaran riil
+     *
+     * @param \App\Models\TrxPendaftaran $pendaftaran
+     * @return array
+     */
+    public function buildPendaftaranBody(\App\Models\TrxPendaftaran $pendaftaran): array
+    {
+        $pasien = $pendaftaran->pasien;
+        $dokter = $pendaftaran->dokter;
+        $poli = $pendaftaran->poli;
+
+        // Parse tekanan darah (format: "120/80")
+        $tekananDarah = explode('/', $pendaftaran->tekanan_darah ?? '0/0');
+        $sistole = (int) ($tekananDarah[0] ?? 0);
+        $diastole = (int) ($tekananDarah[1] ?? 0);
+
+        // Get diagnosa utama
+        $kdDiag1 = $pendaftaran->diagnoses()->orderBy('id')->first()->kode_diagnosa ?? 'A00';
+
+        return [
+            'noKartu' => $pasien->no_penjamin ?? '',
+            'tglDaftar' => $pendaftaran->created_at ? $pendaftaran->created_at->format('d-m-Y') : now()->format('d-m-Y'),
+            'kdPoli' => $poli->poli_bpjs_id ?? '',
+            'kdTkp' => '10', // Default RJTP
+            'kdSadar' => $pendaftaran->kesadaran ?? '01',
+            'sistole' => $sistole,
+            'diastole' => $diastole,
+            'beratBadan' => (int) ($pendaftaran->berat_badan ?? 0),
+            'tinggi_badan' => (int) ($pendaftaran->tinggi_badan ?? 0),
+            'respRate' => 0,
+            'heartRate' => (int) ($pendaftaran->nadi ?? 0),
+            'lingkarPerut' => 0,
+            'kdProviderRayon' => $this->settings->kd_ppk ?? '',
+            'kdStatusPulang' => '3', // Default Berobat Jalan
+            'tglPulang' => $pendaftaran->created_at ? $pendaftaran->created_at->format('d-m-Y') : now()->format('d-m-Y'),
+            'kdDokter' => $dokter->dokter_bpjs_id ?? '',
+            'kdDiag1' => $kdDiag1,
+            'kdDiag2' => null,
+            'kdDiag3' => null,
+            'kdPoliRujukInternal' => null,
+            'rujukLanjut' => null,
+            'kdTacc' => 0,
+            'alasanTacc' => null,
+        ];
+    }
+
+    /**
+     * Build body request antrean dari data antrian riil
+     *
+     * @param \App\Models\TrxAntrian $antrian
+     * @return array
+     */
+    public function buildAntreanBody(\App\Models\TrxAntrian $antrian): array
+    {
+        $pasien = $antrian->pasien;
+        $pendaftaran = $antrian->pendaftaran;
+        $poli = $antrian->poli;
+        $dokter = $antrian->dokter;
+
+        return [
+            'nomorkartu' => $antrian->no_asuransi ?? ($pasien->no_penjamin ?? ''),
+            'nik' => $antrian->nik_manual ?? ($pasien->nik ?? ''),
+            'nohp' => $antrian->no_telepon_manual ?? ($pasien->no_hp ?? ''),
+            'kodepoli' => $poli ? ($poli->poli_bpjs_id ?? $poli->kode_poli) : $antrian->kode_poli,
+            'namapoli' => $poli->nama_poli ?? 'Poli',
+            'norm' => $pasien->no_rm ?? '-',
+            'tanggalperiksa' => $antrian->tanggal_antrian ? $antrian->tanggal_antrian->format('Y-m-d') : now()->format('Y-m-d'),
+            'kodedokter' => (int) ($dokter->dokter_bpjs_id ?? ($antrian->kode_dokter ?? 0)),
+            'namadokter' => $dokter->nama_dokter ?? 'Dokter',
+            'jampraktek' => $antrian->time_slot ?? '08:00-12:00',
+            'nomorantrean' => $antrian->nomor_antrian ?? '-',
+            'angkaantrean' => (int) filter_var($antrian->nomor_antrian, FILTER_SANITIZE_NUMBER_INT) ?: 1,
+            'keterangan' => 'Harap datang tepat waktu'
+        ];
+    }
+
+    /**
+     * Build body update status antrean dari data riil
+     *
+     * @param \App\Models\TrxAntrian $antrian
+     * @return array
+     */
+    public function buildUpdateStatusAntreanBody(\App\Models\TrxAntrian $antrian): array
+    {
+        $pasien = $antrian->pasien;
+        $poli = $antrian->poli;
+
+        return [
+            'tanggalperiksa' => $antrian->tanggal_antrian ? $antrian->tanggal_antrian->format('Y-m-d') : now()->format('Y-m-d'),
+            'kodepoli' => $poli ? ($poli->poli_bpjs_id ?? $poli->kode_poli) : $antrian->kode_poli,
+            'nomorkartu' => $antrian->no_asuransi ?? ($pasien->no_penjamin ?? ''),
+            'status' => $antrian->status == 'hadir' || $antrian->status == 'selesai' ? 1 : 2, // 1 Hadir, 2 Tidak Hadir
+            'waktu' => (int)(microtime(true) * 1000)
+        ];
+    }
+
+    /**
+     * Build body batal antrean dari data riil
+     *
+     * @param \App\Models\TrxAntrian $antrian
+     * @return array
+     */
+    public function buildBatalAntreanBody(\App\Models\TrxAntrian $antrian): array
+    {
+        $pasien = $antrian->pasien;
+        $poli = $antrian->poli;
+
+        return [
+            'tanggalperiksa' => $antrian->tanggal_antrian ? $antrian->tanggal_antrian->format('Y-m-d') : now()->format('Y-m-d'),
+            'kodepoli' => $poli ? ($poli->poli_bpjs_id ?? $poli->kode_poli) : $antrian->kode_poli,
+            'nomorkartu' => $antrian->no_asuransi ?? ($pasien->no_penjamin ?? ''),
+            'alasan' => 'Dibatalkan oleh sistem aplikasi'
+        ];
+    }
+
+    /**
+     * Build body request tindakan
+     *
+     * @param \App\Models\TrxTindakan $tindakan
+     * @param string $noKunjunganBpjs
+     * @param int $kdTindakanSK
+     * @return array
+     */
+    public function buildTindakanBody(\App\Models\TrxTindakan $tindakan, string $noKunjunganBpjs, int $kdTindakanSK = 0): array
+    {
+        $mstTindakan = $tindakan->tindakan;
+
+        return [
+            'kdTindakanSK' => $kdTindakanSK,
+            'noKunjungan' => $noKunjunganBpjs,
+            'kdTindakan' => $mstTindakan->kode_tindakan ?? '',
+            'biaya' => (int) $tindakan->biaya,
+            'keterangan' => null,
+            'hasil' => 0,
+        ];
     }
 
     // ==========================================
@@ -937,6 +1318,83 @@ class BpjsPcareService
     }
 
     /**
+     * Send POST request ke BPJS Antrean API
+     *
+     * @param string $endpoint Endpoint path (tanpa base URL)
+     * @param array $data Body request
+     * @return array
+     */
+    public function postAntrean(string $endpoint, array $data): array
+    {
+        if (!$this->settings || empty($this->consid) || empty($this->secretKey) || empty($this->baseUrlAntrean)) {
+            return [
+                'success' => false,
+                'data' => null,
+                'metadata' => [
+                    'code' => 500,
+                    'message' => 'Konfigurasi Antrean BPJS belum lengkap. Silakan isi URL Antrean di Setting API.',
+                ],
+                'raw' => null,
+            ];
+        }
+
+        $url = $this->baseUrlAntrean . '/' . ltrim($endpoint, '/');
+        $headers = $this->buildAntreanHeaders();
+
+        Log::info('BPJS Antrean POST Request', [
+            'url' => $url,
+            'data' => $data,
+        ]);
+
+        try {
+            $response = Http::withHeaders($headers)
+                ->withoutVerifying()
+                ->timeout(30)
+                ->post($url, $data);
+
+            $body = $response->json();
+            $httpStatus = $response->status();
+
+            $metaDataObj = $body['metadata'] ?? $body['metaData'] ?? [];
+            $metaCode = $metaDataObj['code'] ?? $httpStatus;
+            $metaMessage = $metaDataObj['message'] ?? 'Unknown';
+
+            if ($metaCode == 200 || $metaCode == '200' || $metaCode == 1 || $metaCode == '1') {
+                return [
+                    'success' => true,
+                    'data' => $body['response'] ?? null,
+                    'metadata' => [
+                        'code' => (int) ($metaCode == 1 || $metaCode == '1' ? 200 : $metaCode),
+                        'message' => $metaMessage,
+                    ],
+                    'raw' => $body,
+                ];
+            } else {
+                return [
+                    'success' => false,
+                    'data' => null,
+                    'metadata' => [
+                        'code' => (int) $metaCode,
+                        'message' => $metaMessage,
+                    ],
+                    'raw' => $body,
+                ];
+            }
+        } catch (\Exception $e) {
+            Log::error('BPJS Antrean POST Error: ' . $e->getMessage());
+            return [
+                'success' => false,
+                'data' => null,
+                'metadata' => [
+                    'code' => 500,
+                    'message' => 'Terjadi kesalahan sistem: ' . $e->getMessage(),
+                ],
+                'raw' => null,
+            ];
+        }
+    }
+
+    /**
      * Get referensi poli antrean
      *
      * @param string $tanggal Format YYYY-MM-DD
@@ -955,6 +1413,40 @@ class BpjsPcareService
     public function getRefDokterAntrean(string $kodepoli, string $tanggal): array
     {
         return $this->getAntrean("ref/dokter/kodepoli/{$kodepoli}/tanggal/{$tanggal}");
+    }
+
+    /**
+     * Add Antrean
+     *
+     * @param array $data Body antrean
+     * @return array
+     */
+    public function addAntrean(array $data): array
+    {
+        return $this->postAntrean('antrean/add', $data);
+    }
+
+    /**
+     * Update status antrean hadir/tidak hadir
+     *
+     * @param array $data Body status
+     * @return array
+     */
+    public function updateStatusAntrean(array $data): array
+    {
+        // Endpoint sama dengan add antrean menurut dokumentasi user
+        return $this->postAntrean('antrean/add', $data);
+    }
+
+    /**
+     * Batal Antrean
+     *
+     * @param array $data Body batal
+     * @return array
+     */
+    public function batalAntrean(array $data): array
+    {
+        return $this->postAntrean('antrean/batal', $data);
     }
 }
 

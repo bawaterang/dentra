@@ -29,11 +29,32 @@
                     <h5 class="text-xs font-bold text-white uppercase tracking-widest flex items-center gap-2">
                         <i class="ri-api-line text-lg"></i> Endpoint API PCare
                     </h5>
-                    <p class="text-blue-200 text-[10px] mt-1 font-medium">Pilih endpoint untuk melakukan testing</p>
+                    <p class="text-blue-200 text-[10px] mt-1 font-medium mb-3">Pilih endpoint untuk melakukan testing</p>
+
+                    {{-- Search Endpoint --}}
+                    <div class="relative mt-3">
+                        <input 
+                            type="text" 
+                            wire:model.live.debounce.300ms="searchEndpoint" 
+                            class="w-full h-9 text-xs bg-white/10 border border-white/20 text-white placeholder-blue-100 rounded-xl px-4 pr-10 focus:bg-white focus:text-gray-800 focus:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-white/30 transition-all shadow-inner" 
+                            placeholder="Cari endpoint..."
+                        >
+                        <i class="ri-search-line absolute right-3 top-1/2 -translate-y-1/2 text-white/50 pointer-events-none transition-colors group-focus-within:text-gray-400"></i>
+                    </div>
                 </div>
 
+                @php
+                    $search = strtolower($searchEndpoint);
+                    $filteredEndpoints = collect($this->groupedEndpoints)->map(function ($endpoints, $category) use ($search) {
+                        return collect($endpoints)->filter(function ($ep) use ($search, $category) {
+                            if (empty($search)) return true;
+                            return str_contains(strtolower($ep['label']), $search) || str_contains(strtolower($category), $search);
+                        })->toArray();
+                    })->filter(fn($endpoints) => count($endpoints) > 0)->toArray();
+                @endphp
+
                 <div class="p-3 max-h-[calc(100vh-380px)] overflow-y-auto scrollbar-thin">
-                    @foreach($this->groupedEndpoints as $category => $endpoints)
+                    @forelse($filteredEndpoints as $category => $endpoints)
                     <div class="mb-3">
                         <h6 class="text-[10px] font-black text-gray-400 uppercase tracking-widest px-2 mb-1.5">{{ $category }}</h6>
                         @foreach($endpoints as $key => $ep)
@@ -62,7 +83,14 @@
                         </button>
                         @endforeach
                     </div>
-                    @endforeach
+                    @empty
+                    <div class="p-4 text-center">
+                        <div class="h-10 w-10 bg-gray-100 text-gray-400 rounded-full flex items-center justify-center mx-auto mb-2">
+                            <i class="ri-search-eye-line text-lg"></i>
+                        </div>
+                        <p class="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Endpoint tidak ditemukan.</p>
+                    </div>
+                    @endforelse
                 </div>
             </div>
         </div>
@@ -167,6 +195,62 @@
                         </div>
                         @endif
 
+                        @if(in_array('kdObatSK', $ep['params']))
+                        <div class="flex-1 min-w-[150px]">
+                            <label class="block text-[10px] font-bold text-gray-500 mb-1 uppercase tracking-tight">Kode Obat SK</label>
+                            <input type="text" wire:model="paramKdObatSK" class="w-full rounded-lg border-gray-200 text-sm px-3 py-2 focus:border-[#0d6efd] transition-all shadow-sm">
+                        </div>
+                        @endif
+
+                        @if(in_array('kdTindakanSK', $ep['params']))
+                        <div class="flex-1 min-w-[150px]">
+                            <label class="block text-[10px] font-bold text-gray-500 mb-1 uppercase tracking-tight">Kode Tindakan SK</label>
+                            <input type="text" wire:model="paramKdTindakanSK" class="w-full rounded-lg border-gray-200 text-sm px-3 py-2 focus:border-[#0d6efd] transition-all shadow-sm">
+                        </div>
+                        @endif
+
+                        @if(in_array('noUrut', $ep['params']))
+                        <div class="flex-1 min-w-[150px]">
+                            <label class="block text-[10px] font-bold text-gray-500 mb-1 uppercase tracking-tight">No. Urut Pendaftaran</label>
+                            <input type="text" wire:model="paramNoUrut" class="w-full rounded-lg border-gray-200 text-sm px-3 py-2 focus:border-[#0d6efd] transition-all shadow-sm" placeholder="Misal: A1">
+                        </div>
+                        @endif
+
+                        @if(in_array('tglDaftar', $ep['params']))
+                        <div class="flex-1 min-w-[150px]">
+                            <label class="block text-[10px] font-bold text-gray-500 mb-1 uppercase tracking-tight">Tgl Daftar</label>
+                            <input type="text" wire:model="paramTglDaftar" class="w-full rounded-lg border-gray-200 text-sm px-3 py-2 focus:border-[#0d6efd] transition-all shadow-sm" placeholder="dd-MM-yyyy">
+                        </div>
+                        @endif
+
+                        @if(in_array('kdSpesialis', $ep['params']))
+                        <div class="flex-1 min-w-[150px]">
+                            <label class="block text-[10px] font-bold text-gray-500 mb-1 uppercase tracking-tight">Kode Spesialis</label>
+                            <input type="text" wire:model="paramKdSpesialis" class="w-full rounded-lg border-gray-200 text-sm px-3 py-2 focus:border-[#0d6efd] transition-all shadow-sm" placeholder="Contoh: ANA">
+                        </div>
+                        @endif
+
+                        @if(in_array('kdSubSpesialis', $ep['params']))
+                        <div class="flex-1 min-w-[150px]">
+                            <label class="block text-[10px] font-bold text-gray-500 mb-1 uppercase tracking-tight">Kode Sub Spesialis</label>
+                            <input type="text" wire:model="paramKdSubSpesialis" class="w-full rounded-lg border-gray-200 text-sm px-3 py-2 focus:border-[#0d6efd] transition-all shadow-sm">
+                        </div>
+                        @endif
+
+                        @if(in_array('kdSarana', $ep['params']))
+                        <div class="flex-1 min-w-[150px]">
+                            <label class="block text-[10px] font-bold text-gray-500 mb-1 uppercase tracking-tight">Kode Sarana</label>
+                            <input type="text" wire:model="paramKdSarana" class="w-full rounded-lg border-gray-200 text-sm px-3 py-2 focus:border-[#0d6efd] transition-all shadow-sm">
+                        </div>
+                        @endif
+
+                        @if(in_array('tglEstRujuk', $ep['params']))
+                        <div class="flex-1 min-w-[150px]">
+                            <label class="block text-[10px] font-bold text-gray-500 mb-1 uppercase tracking-tight">Tgl Est Rujuk</label>
+                            <input type="text" wire:model="paramTglEstRujuk" class="w-full rounded-lg border-gray-200 text-sm px-3 py-2 focus:border-[#0d6efd] transition-all shadow-sm" placeholder="dd-MM-yyyy">
+                        </div>
+                        @endif
+
                         @if(in_array('kdTkp', $ep['params']))
                         <div class="flex-1 min-w-[200px]">
                             <label class="block text-[10px] font-bold text-gray-500 mb-1 uppercase tracking-tight">Tingkat Pelayanan (kdTkp)</label>
@@ -268,7 +352,7 @@
                             <div class="mb-3">
                                 <div class="flex items-center justify-between mb-2">
                                     <h6 class="text-[10px] font-black text-gray-500 uppercase tracking-widest flex items-center gap-2">
-                                        <i class="ri-code-s-slash-line text-sm"></i> Body Request (JSON)
+                                        <i class="ri-code-s-slash-line text-sm"></i> Body Request Kunjungan (JSON)
                                     </h6>
                                     <button
                                         wire:click="generateDefaultBody"
@@ -282,6 +366,114 @@
                                     rows="20"
                                     class="w-full rounded-xl border-gray-200 text-xs px-4 py-3 font-mono leading-relaxed focus:border-[#0d6efd] transition-all shadow-sm bg-gray-50/50 resize-y"
                                     placeholder='Klik "Generate Template" atau cari pasien untuk mengisi body JSON...'
+                                    spellcheck="false"
+                                ></textarea>
+                            </div>
+                        </div>
+                        <div class="flex flex-wrap items-end gap-3 mt-4">
+                        @endif
+
+                        @if(in_array('obat_body', $ep['params']))
+                        </div>
+                        <div class="mt-4 border-t border-gray-100 pt-4">
+                            <div class="mb-3">
+                                <div class="flex items-center justify-between mb-2">
+                                    <h6 class="text-[10px] font-black text-gray-500 uppercase tracking-widest flex items-center gap-2">
+                                        <i class="ri-code-s-slash-line text-sm"></i> Body Request Obat (JSON)
+                                    </h6>
+                                    <button
+                                        wire:click="generateDefaultObatBody"
+                                        class="text-[9px] font-bold text-indigo-500 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1 rounded-lg transition-all flex items-center gap-1"
+                                    >
+                                        <i class="ri-file-code-line text-xs"></i> Generate Template
+                                    </button>
+                                </div>
+                                <textarea
+                                    wire:model="obatBodyJson"
+                                    rows="12"
+                                    class="w-full rounded-xl border-gray-200 text-xs px-4 py-3 font-mono leading-relaxed focus:border-[#0d6efd] transition-all shadow-sm bg-gray-50/50 resize-y"
+                                    placeholder='Klik "Generate Template" untuk mengisi data default JSON obat...'
+                                    spellcheck="false"
+                                ></textarea>
+                            </div>
+                        </div>
+                        <div class="flex flex-wrap items-end gap-3 mt-4">
+                        @endif
+
+                        @if(in_array('pendaftaran_body', $ep['params']))
+                        </div>
+                        <div class="mt-4 border-t border-gray-100 pt-4">
+                            <div class="mb-3">
+                                <div class="flex items-center justify-between mb-2">
+                                    <h6 class="text-[10px] font-black text-gray-500 uppercase tracking-widest flex items-center gap-2">
+                                        <i class="ri-code-s-slash-line text-sm"></i> Body Request Pendaftaran (JSON)
+                                    </h6>
+                                    <button
+                                        wire:click="generateDefaultPendaftaranBody"
+                                        class="text-[9px] font-bold text-indigo-500 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1 rounded-lg transition-all flex items-center gap-1"
+                                    >
+                                        <i class="ri-file-code-line text-xs"></i> Generate Template
+                                    </button>
+                                </div>
+                                <textarea
+                                    wire:model="pendaftaranBodyJson"
+                                    rows="12"
+                                    class="w-full rounded-xl border-gray-200 text-xs px-4 py-3 font-mono leading-relaxed focus:border-[#0d6efd] transition-all shadow-sm bg-gray-50/50 resize-y"
+                                    placeholder='Klik "Generate Template" untuk mengisi data default JSON pendaftaran...'
+                                    spellcheck="false"
+                                ></textarea>
+                            </div>
+                        </div>
+                        <div class="flex flex-wrap items-end gap-3 mt-4">
+                        @endif
+
+                        @if(in_array('tindakan_body', $ep['params']))
+                        </div>
+                        <div class="mt-4 border-t border-gray-100 pt-4">
+                            <div class="mb-3">
+                                <div class="flex items-center justify-between mb-2">
+                                    <h6 class="text-[10px] font-black text-gray-500 uppercase tracking-widest flex items-center gap-2">
+                                        <i class="ri-code-s-slash-line text-sm"></i> Body Request Tindakan (JSON)
+                                    </h6>
+                                    <button
+                                        wire:click="generateDefaultTindakanBody"
+                                        class="text-[9px] font-bold text-indigo-500 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1 rounded-lg transition-all flex items-center gap-1"
+                                    >
+                                        <i class="ri-file-code-line text-xs"></i> Generate Template
+                                    </button>
+                                </div>
+                                <textarea
+                                    wire:model="tindakanBodyJson"
+                                    rows="10"
+                                    class="w-full rounded-xl border-gray-200 text-xs px-4 py-3 font-mono leading-relaxed focus:border-[#0d6efd] transition-all shadow-sm bg-gray-50/50 resize-y"
+                                    placeholder='Klik "Generate Template" untuk mengisi data default JSON tindakan...'
+                                    spellcheck="false"
+                                ></textarea>
+                            </div>
+                        </div>
+                        <div class="flex flex-wrap items-end gap-3 mt-4">
+                        @endif
+
+                        @if(in_array('antrean_body', $ep['params']))
+                        </div>
+                        <div class="mt-4 border-t border-gray-100 pt-4">
+                            <div class="mb-3">
+                                <div class="flex items-center justify-between mb-2">
+                                    <h6 class="text-[10px] font-black text-gray-500 uppercase tracking-widest flex items-center gap-2">
+                                        <i class="ri-code-s-slash-line text-sm"></i> Body Request Antrean (JSON)
+                                    </h6>
+                                    <button
+                                        wire:click="generateDefaultAntreanBody"
+                                        class="text-[9px] font-bold text-indigo-500 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1 rounded-lg transition-all flex items-center gap-1"
+                                    >
+                                        <i class="ri-file-code-line text-xs"></i> Generate Template
+                                    </button>
+                                </div>
+                                <textarea
+                                    wire:model="antreanBodyJson"
+                                    rows="15"
+                                    class="w-full rounded-xl border-gray-200 text-xs px-4 py-3 font-mono leading-relaxed focus:border-[#0d6efd] transition-all shadow-sm bg-gray-50/50 resize-y"
+                                    placeholder='Klik "Generate Template" untuk mengisi data default JSON antrean...'
                                     spellcheck="false"
                                 ></textarea>
                             </div>
