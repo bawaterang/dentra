@@ -6,7 +6,6 @@ use Illuminate\Support\Facades\Route;
 use App\Modules\Bridging\Http\Livewire\SettingApiPage;
 use App\Modules\Bridging\Http\Livewire\DataPasienBpjsPage;
 use App\Modules\Bridging\Http\Livewire\ApiMonitoringPage;
-use App\Modules\Bridging\Http\Livewire\PcareDokterPage;
 use App\Modules\Bridging\Http\Livewire\DokumentasiApiPage;
 
 Route::middleware(['web', 'auth'])->group(function () {
@@ -14,7 +13,6 @@ Route::middleware(['web', 'auth'])->group(function () {
         Route::get('/setting-api', SettingApiPage::class)->name('setting_api');
         Route::get('/data-pasien-bpjs', DataPasienBpjsPage::class)->name('data_pasien_bpjs');
         Route::get('/api-monitoring', ApiMonitoringPage::class)->name('api_monitoring');
-        Route::get('/pcare-dokter', PcareDokterPage::class)->name('pcare_dokter');
         Route::get('/dokumentasi-api', DokumentasiApiPage::class)->name('dokumentasi_api');
     });
 });

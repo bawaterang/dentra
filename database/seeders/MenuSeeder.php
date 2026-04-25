@@ -215,24 +215,12 @@ class MenuSeeder extends Seeder
         ]);
 
         DB::table('mst_menu')->insert([
-            'id' => 41,
-            'menu_name' => 'Dokter PCare',
-            'menu_link' => '/bridging/pcare-dokter',
-            'menu_icon' => 'ri-stethoscope-line',
-            'parent_id' => 3,
-            'order_no' => 4,
-            'is_active' => true,
-            'created_at' => $now,
-            'updated_at' => $now,
-        ]);
-
-        DB::table('mst_menu')->insert([
             'id' => 42,
             'menu_name' => 'Dokumentasi API',
             'menu_link' => '/bridging/dokumentasi-api',
             'menu_icon' => 'ri-book-open-line',
             'parent_id' => 3,
-            'order_no' => 5,
+            'order_no' => 4,
             'is_active' => true,
             'created_at' => $now,
             'updated_at' => $now,

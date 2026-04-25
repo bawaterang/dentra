@@ -4,18 +4,39 @@ namespace App\Modules\Setting\Http\Livewire;
 
 use Livewire\Component;
 use Livewire\WithPagination;
+use Livewire\WithFileUploads;
 use Livewire\Attributes\Computed;
 use App\Models\TrxBackupLog;
 use Illuminate\Support\Facades\File;
+use App\Services\CsvEntityMappingService;
+use App\Exports\DynamicCsvExport;
+use App\Imports\DynamicCsvImport;
+use Maatwebsite\Excel\Facades\Excel;
 
 
 class BackupPage extends Component
 {
-    use WithPagination;
+    use WithPagination, WithFileUploads;
 
     public $search = '';
+    public $selectedEntity = 'mst_pasien';
+    public $importFile;
 
     protected $queryString = ['search'];
+
+    #[Computed]
+    public function entityOptions()
+    {
+        $entities = CsvEntityMappingService::getEntities();
+        $options = [];
+        foreach ($entities as $key => $data) {
+            $options[] = [
+                'value' => $key,
+                'label' => $data['label']
+            ];
+        }
+        return $options;
+    }
 
     #[Computed]
     public function backupList()
@@ -168,6 +189,60 @@ class BackupPage extends Component
         return round($bytes, $precision) . ' ' . $units[$pow];
     }
 
+    public function downloadTemplate()
+    {
+        $entities = CsvEntityMappingService::getEntities();
+        if (!isset($entities[$this->selectedEntity])) return;
+
+        $label = $entities[$this->selectedEntity]['label'];
+        $filename = 'Template_' . str_replace(' ', '_', $label) . '.csv';
+
+        return Excel::download(new DynamicCsvExport($this->selectedEntity, true), $filename, \Maatwebsite\Excel\Excel::CSV);
+    }
+
+    public function exportDataCsv()
+    {
+        $entities = CsvEntityMappingService::getEntities();
+        if (!isset($entities[$this->selectedEntity])) return;
+
+        $label = $entities[$this->selectedEntity]['label'];
+        $filename = 'Data_' . str_replace(' ', '_', $label) . '_' . date('Ymd_His') . '.csv';
+
+        return Excel::download(new DynamicCsvExport($this->selectedEntity, false), $filename, \Maatwebsite\Excel\Excel::CSV);
+    }
+
+    public function importDataCsv()
+    {
+        $this->validate([
+            'importFile' => 'required|file|mimes:csv,txt|max:10240', // 10MB max
+            'selectedEntity' => 'required'
+        ]);
+
+        try {
+            $import = new DynamicCsvImport($this->selectedEntity);
+            Excel::import($import, $this->importFile->getRealPath(), null, \Maatwebsite\Excel\Excel::CSV);
+
+            $msg = "Berhasil mengimpor {$import->successCount} baris data.";
+            if (count($import->errorExceptions) > 0) {
+                // If there are specific rows with error
+                // We'll just show the first few to avoid too long messages
+                $errorMsg = implode("<br>", array_slice($import->errorExceptions, 0, 5));
+                if (count($import->errorExceptions) > 5) {
+                    $errorMsg .= "<br>...dan " . (count($import->errorExceptions) - 5) . " error lainnya.";
+                }
+                $this->dispatch('alert', ['type' => 'warning', 'message' => $msg . '<br><br><b>Peringatan:</b><br>' . $errorMsg]);
+            } else {
+                $this->dispatch('alert', ['type' => 'success', 'message' => $msg]);
+            }
+
+            $this->reset('importFile');
+            // Randomize component ID or similar to clear file input if needed, handled by Livewire automatically mostly.
+        } catch (\Exception $e) {
+            $this->dispatch('alert', ['type' => 'error', 'message' => 'Gagal mengimpor CSV: ' . $e->getMessage()]);
+        }
+    }
+
+
     public function render()
     {
         return <<<'HTML'
@@ -279,7 +354,86 @@ class BackupPage extends Component
                 </div>
             </div>
 
-            <div class="card overflow-hidden border-t-2 border-[#0ab39c]">
+            <!-- Export & Import Data CSV Card -->
+            <div class="card mb-6 border-t-2 border-[#0ab39c] relative z-20" style="overflow: visible !important;">
+                <div class="p-6 bg-[#f3f6f9]/30 flex flex-col" style="overflow: visible !important;">
+                    <div class="flex items-center gap-4 border-b border-gray-100 pb-4 mb-4">
+                        <div class="h-12 w-12 bg-emerald-100 rounded-xl flex items-center justify-center text-emerald-600 shadow-inner">
+                            <i class="ri-file-excel-2-line text-2xl"></i>
+                        </div>
+                        <div>
+                            <h4 class="text-base font-bold text-[#495057] mb-1">Export & Import Data (CSV)</h4>
+                            <p class="text-xs text-gray-500 max-w-md">Pilih modul data pada dropdown, kemudian unduh template atau data saat ini. Anda juga bisa mengunggah file .csv untuk mengimpor data.</p>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8" style="overflow: visible !important;">
+                        <!-- Left Side: Selection and Export -->
+                        <div class="space-y-4">
+                            <div>
+                                <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1 mb-1 block">Modul Data / Tabel <span class="text-rose-500">*</span></label>
+                                <x-custom-dropdown 
+                                    model="selectedEntity" 
+                                    :options="$this->entityOptions"
+                                    placeholder="Pilih Modul Data"
+                                    searchable="true"
+                                    live="true"
+                                />
+                            </div>
+                            
+                            <div class="flex flex-col sm:flex-row gap-3 pt-2">
+                                <button wire:click="exportDataCsv" wire:loading.attr="disabled" class="btn h-10 px-5 flex-1 flex items-center justify-center gap-2 transition-all hover:translate-y-[-2px] hover:shadow-lg active:scale-95 bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white border border-emerald-100 shadow-sm rounded-xl">
+                                    <i wire:loading.remove wire:target="exportDataCsv" class="ri-download-cloud-line text-lg"></i>
+                                    <svg wire:loading wire:target="exportDataCsv" class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                    <span class="font-bold text-xs uppercase tracking-wider">Download Data CSV</span>
+                                </button>
+                                
+                                <button wire:click="downloadTemplate" wire:loading.attr="disabled" class="btn h-10 px-5 flex-1 flex items-center justify-center gap-2 transition-all hover:translate-y-[-2px] hover:shadow-lg active:scale-95 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white border border-blue-100 shadow-sm rounded-xl">
+                                    <i wire:loading.remove wire:target="downloadTemplate" class="ri-file-list-3-line text-lg"></i>
+                                    <svg wire:loading wire:target="downloadTemplate" class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                    <span class="font-bold text-xs uppercase tracking-wider">Download Template Kosong</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Right Side: Import -->
+                        <div class="space-y-4 lg:border-l lg:border-gray-100 lg:pl-8">
+                            <form wire:submit.prevent="importDataCsv">
+                                <div>
+                                    <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1 mb-1 block">Upload File (.CSV) <span class="text-rose-500">*</span></label>
+                                    <div class="relative w-full">
+                                        <input type="file" wire:model="importFile" id="importFile" class="hidden" accept=".csv">
+                                        <label for="importFile" class="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-emerald-200 rounded-xl cursor-pointer bg-emerald-50/30 hover:bg-emerald-50 transition-colors">
+                                            <div class="flex flex-col items-center justify-center pt-2 pb-3 text-center">
+                                                @if($importFile)
+                                                    <i class="ri-file-check-line text-2xl text-emerald-500 mb-1"></i>
+                                                    <p class="text-[11px] font-bold text-emerald-600 truncate px-4 w-full">{{ $importFile->getClientOriginalName() }}</p>
+                                                @else
+                                                    <i class="ri-upload-cloud-2-line text-2xl text-emerald-400 mb-1"></i>
+                                                    <p class="text-[11px] font-bold text-emerald-600/70">Klik untuk memilih file CSV</p>
+                                                @endif
+                                            </div>
+                                        </label>
+                                        @error('importFile') <span class="text-[10px] text-rose-500 font-bold mt-1 pl-1 block">{{ $message }}</span> @enderror
+                                    </div>
+                                    <div wire:loading wire:target="importFile" class="text-[10px] font-bold text-indigo-500 mt-2 block animate-pulse">
+                                        <i class="ri-loader-4-line animate-spin mr-1"></i> Sedang mengunggah...
+                                    </div>
+                                </div>
+                                <div class="mt-4 flex justify-end">
+                                    <button type="submit" wire:loading.attr="disabled" class="btn btn-primary h-10 px-6 flex items-center justify-center gap-2 transition-all hover:translate-y-[-2px] hover:shadow-lg active:scale-95 shadow-md w-full lg:w-auto">
+                                        <i wire:loading.remove wire:target="importDataCsv" class="ri-upload-2-line text-lg"></i>
+                                        <svg wire:loading wire:target="importDataCsv" class="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                        <span class="font-bold text-xs uppercase tracking-wider">Import Data</span>
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card overflow-hidden border-t-2 border-indigo-400">
                 <div class="p-4 border-b border-[#eff2f7] bg-[#f3f6f9]/30 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                     <h6 class="mb-0 text-sm font-bold text-gray-600 uppercase tracking-wider"><i class="ri-history-line mr-2"></i>Riwayat Backup Database</h6>
                     
