@@ -672,6 +672,188 @@
             margin: 4px 0;
         }
 
+        /* ── Notification Dropdown ───────────────────────── */
+        .notif-menu {
+            min-width: 340px;
+            padding: 0;
+            overflow: hidden;
+            border-radius: 12px;
+        }
+
+        @media (max-width: 400px) {
+            .notif-menu {
+                position: fixed;
+                top: 64px !important;
+                right: 16px !important;
+                left: 16px !important;
+                min-width: auto;
+                width: auto;
+            }
+        }
+
+        .notif-header {
+            background: linear-gradient(to right, #405189, #0ab39c);
+            padding: 16px;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .notif-header h6 {
+            margin: 0;
+            font-size: 14px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+
+        .notif-badge-count {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 3px 8px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 700;
+            backdrop-filter: blur(4px);
+        }
+
+        .notif-body {
+            max-height: 360px;
+            overflow-y: auto;
+            background: var(--bg-card);
+        }
+
+        .notif-item {
+            display: flex;
+            gap: 14px;
+            padding: 16px;
+            border-bottom: 1px solid var(--border-color);
+            text-decoration: none;
+            transition: background 0.2s;
+            position: relative;
+        }
+
+        .notif-item:last-child {
+            border-bottom: none;
+        }
+
+        .notif-item:hover {
+            background: var(--icon-hover);
+        }
+
+        .notif-item.unread {
+            background: rgba(10, 179, 156, 0.04);
+        }
+
+        .notif-item.unread::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 3px;
+            background: #0ab39c;
+        }
+
+        .dark .notif-item.unread {
+            background: rgba(10, 179, 156, 0.1);
+        }
+
+        .notif-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            font-size: 18px;
+        }
+
+        /* Using Remix Icons colors */
+        .notif-icon.bg-primary-soft { background: rgba(64, 81, 137, 0.1); color: #405189; }
+        .notif-icon.bg-success-soft { background: rgba(10, 179, 156, 0.1); color: #0ab39c; }
+        .notif-icon.bg-warning-soft { background: rgba(247, 184, 75, 0.1); color: #f7b84b; }
+        .notif-icon.bg-info-soft { background: rgba(41, 156, 219, 0.1); color: #299cdb; }
+        
+        .dark .notif-icon.bg-primary-soft { background: rgba(102, 145, 231, 0.15); color: #6691e7; }
+        .dark .notif-icon.bg-success-soft { background: rgba(10, 179, 156, 0.15); color: #0ab39c; }
+        .dark .notif-icon.bg-warning-soft { background: rgba(247, 184, 75, 0.15); color: #f7b84b; }
+        .dark .notif-icon.bg-info-soft { background: rgba(41, 156, 219, 0.15); color: #299cdb; }
+
+        .notif-content {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .notif-content h6 {
+            margin: 0 0 4px 0;
+            font-size: 13.5px;
+            font-weight: 700;
+            color: var(--text-heading);
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .notif-content p {
+            margin: 0;
+            font-size: 12.5px;
+            color: var(--text-muted);
+            line-height: 1.4;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .notif-time {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 6px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-weight: 600;
+        }
+
+        .notif-footer {
+            padding: 12px;
+            text-align: center;
+            border-top: 1px solid var(--border-color);
+            background: var(--bg-card);
+        }
+
+        .notif-footer a {
+            font-size: 13px;
+            font-weight: 700;
+            color: #405189;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            transition: color 0.2s;
+        }
+
+        .notif-footer a:hover {
+            color: #0ab39c;
+        }
+        
+        .dark .notif-footer a {
+            color: #6691e7;
+        }
+
+        .topbar-badge.ping {
+            animation: ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+            border: none;
+            opacity: 0.75;
+        }
+
+        @keyframes ping {
+            75%, 100% {
+                transform: scale(2.5);
+                opacity: 0;
+            }
+        }
+
         /* ── Page Content ────────────────────────────────── */
         .page-content {
             padding: 24px;
@@ -1160,15 +1342,7 @@
                 </svg>
             </button>
 
-            {{-- Notifications --}}
-            <button class="topbar-icon-btn" title="Notifikasi">
-                <span class="topbar-badge"></span>
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
-                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-                    <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-                </svg>
-            </button>
+            <livewire:layouts.notification-menu />
 
             <div class="topbar-divider"></div>
 

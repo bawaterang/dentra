@@ -19,6 +19,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        \App\Models\TrxAntrian::observe(\App\Observers\TrxAntrianObserver::class);
+        \App\Models\TrxPendaftaran::observe(\App\Observers\TrxPendaftaranObserver::class);
+        \App\Models\TrxScreening::observe(\App\Observers\TrxScreeningObserver::class);
     }
 }
