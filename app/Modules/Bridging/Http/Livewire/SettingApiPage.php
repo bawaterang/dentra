@@ -207,6 +207,60 @@ class SettingApiPage extends Component
         }
     }
 
+    public function syncKesadaran()
+    {
+        try {
+            $service = new BpjsPcareService();
+            $result = $service->getKesadaran();
+
+            if ($result['success'] && isset($result['data']['list'])) {
+                foreach ($result['data']['list'] as $item) {
+                    \App\Models\MstKesadaran::updateOrCreate(
+                        ['kdSadar' => $item['kdSadar']],
+                        ['nmSadar' => $item['nmSadar']]
+                    );
+                }
+                $this->dispatch('alert', ['type' => 'success', 'message' => 'Sinkronisasi Kesadaran Berhasil!']);
+            } else {
+                $this->dispatch('alert', ['type' => 'error', 'message' => 'Gagal sinkronisasi Kesadaran: ' . ($result['metadata']['message'] ?? 'Unknown error')]);
+            }
+        } catch (\Exception $e) {
+            $this->dispatch('alert', ['type' => 'error', 'message' => 'Error: ' . $e->getMessage()]);
+        }
+    }
+
+    public function syncAlergi()
+    {
+        try {
+            $service = new BpjsPcareService();
+            $jenisAlergi = ['01' => 'Makanan', '02' => 'Udara', '03' => 'Obat'];
+            $successCount = 0;
+
+            foreach ($jenisAlergi as $kdJenis => $nmJenis) {
+                $result = $service->getAlergi($kdJenis);
+                if ($result['success'] && isset($result['data']['list'])) {
+                    foreach ($result['data']['list'] as $item) {
+                        \App\Models\MstAlergi::updateOrCreate(
+                            ['kdAlergi' => $item['kdAlergi']],
+                            [
+                                'nmAlergi' => $item['nmAlergi'],
+                                'kdJenis' => $kdJenis
+                            ]
+                        );
+                    }
+                    $successCount++;
+                }
+            }
+
+            if ($successCount > 0) {
+                $this->dispatch('alert', ['type' => 'success', 'message' => 'Sinkronisasi Alergi Berhasil!']);
+            } else {
+                $this->dispatch('alert', ['type' => 'error', 'message' => 'Gagal sinkronisasi Alergi']);
+            }
+        } catch (\Exception $e) {
+            $this->dispatch('alert', ['type' => 'error', 'message' => 'Error: ' . $e->getMessage()]);
+        }
+    }
 
     public function render()
     {

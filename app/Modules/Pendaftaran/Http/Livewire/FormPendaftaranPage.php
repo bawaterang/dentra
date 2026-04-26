@@ -36,14 +36,15 @@ class FormPendaftaranPage extends Component
     public $poli_id, $dokter_id, $asuransi_id, $no_kartu_asuransi;
 
     // Data medis awal
-    public $kesadaran = 'Compos Mentis', $tekanan_darah, $nadi, $suhu, $berat_badan, $tinggi_badan;
-    public $riwayat_penyakit, $alergi, $keterangan_lain;
+    public $kesadaran = '01', $tekanan_darah, $nadi, $suhu, $berat_badan, $tinggi_badan, $lingkar_perut;
+    public $riwayat_penyakit, $kode_alergi, $alergi, $keterangan_lain;
 
     // Dropdown data
     public $poliList = [];
     public $dokterList = [];
     public $asuransiList = [];
     public $kesadaranList = [];
+    public $alergiList = [];
     public $jkList = [];
     public $agamaList = [];
     public $golDarahList = [];
@@ -57,6 +58,7 @@ class FormPendaftaranPage extends Component
             $pasien = MstPasien::find($this->pasien_id);
             if ($pasien) {
                 $this->selectedPasien = $pasien->toArray();
+                $this->kode_alergi = $pasien->kode_alergi;
                 $this->alergi = $pasien->alergi;
             }
         } elseif ($this->antrian_id) {
@@ -113,6 +115,7 @@ class FormPendaftaranPage extends Component
         $pasien = MstPasien::findOrFail($id);
         $this->selectedPasien = $pasien->toArray();
         $this->pasien_id = $pasien->id;
+        $this->kode_alergi = $pasien->kode_alergi;
         $this->alergi = $pasien->alergi;
         $this->searchPasien = '';
         $this->pasienResults = [];
@@ -263,6 +266,7 @@ class FormPendaftaranPage extends Component
                     'pekerjaan' => $this->pekerjaan,
                     'nik' => $this->nik,
                     'golongan_darah' => $this->golongan_darah,
+                    'kode_alergi' => $this->kode_alergi,
                     'alergi' => $this->alergi,
                     'status' => 'Aktif',
                 ]);
@@ -286,15 +290,22 @@ class FormPendaftaranPage extends Component
                 'suhu' => $this->suhu,
                 'berat_badan' => $this->berat_badan,
                 'tinggi_badan' => $this->tinggi_badan,
+                'lingkar_perut' => $this->lingkar_perut,
                 'riwayat_penyakit' => $this->riwayat_penyakit,
+                'kode_alergi' => $this->kode_alergi,
                 'alergi' => $this->alergi,
                 'keterangan_lain' => $this->keterangan_lain,
                 'status' => 'terdaftar',
             ]);
 
             // Update alergi ke master pasien
-            if ($this->alergi && $this->pasien_id) {
-                MstPasien::where('id', $this->pasien_id)->update(['alergi' => $this->alergi]);
+            if ($this->pasien_id) {
+                $updateData = [];
+                if ($this->kode_alergi !== null) $updateData['kode_alergi'] = $this->kode_alergi;
+                if ($this->alergi !== null) $updateData['alergi'] = $this->alergi;
+                if (!empty($updateData)) {
+                    MstPasien::where('id', $this->pasien_id)->update($updateData);
+                }
             }
 
             // Update status antrian
@@ -334,12 +345,8 @@ class FormPendaftaranPage extends Component
         }
         $this->dokterList = $docQuery->get()->map(fn($d) => ['value' => $d->id, 'label' => $d->nama_dokter, 'icon' => 'ri-user-star-line text-purple-500'])->toArray();
         $this->asuransiList = MstAsuransi::where('status', 'Aktif')->get()->map(fn($a) => ['value' => $a->id, 'label' => $a->nama_asuransi, 'icon' => 'ri-shield-check-line text-green-500'])->toArray();
-        $this->kesadaranList = [
-            ['value' => 'Compos Mentis', 'label' => 'Compos Mentis', 'icon' => 'ri-checkbox-circle-line text-green-500'],
-            ['value' => 'Somnolence', 'label' => 'Somnolence', 'icon' => 'ri-eye-close-line text-yellow-500'],
-            ['value' => 'Sopor', 'label' => 'Sopor', 'icon' => 'ri-eye-close-line text-orange-500'],
-            ['value' => 'Coma', 'label' => 'Coma', 'icon' => 'ri-close-circle-line text-red-500'],
-        ];
+        $this->kesadaranList = \App\Models\MstKesadaran::all()->map(fn($k) => ['value' => $k->kdSadar, 'label' => $k->nmSadar, 'icon' => 'ri-checkbox-circle-line text-green-500'])->toArray();
+        $this->alergiList = \App\Models\MstAlergi::all()->map(fn($a) => ['value' => $a->kdAlergi, 'label' => $a->nmAlergi, 'icon' => 'ri-bug-line text-red-500'])->toArray();
         $this->jkList = [
             ['value' => 'Laki-laki', 'label' => 'Laki-laki', 'icon' => 'ri-men-line text-blue-500'],
             ['value' => 'Perempuan', 'label' => 'Perempuan', 'icon' => 'ri-women-line text-pink-500'],
@@ -495,14 +502,16 @@ class FormPendaftaranPage extends Component
                             <div><label class="block text-xs font-semibold text-gray-500 mb-1">Tekanan Darah</label><input type="text" wire:model="tekanan_darah" class="w-full rounded-lg border-gray-200 text-sm px-4 h-[42px] focus:border-[#405189] transition-all" placeholder="120/80 mmHg"></div>
                             <div><label class="block text-xs font-semibold text-gray-500 mb-1">Nadi</label><input type="number" wire:model="nadi" class="w-full rounded-lg border-gray-200 text-sm px-4 h-[42px] focus:border-[#405189] transition-all" placeholder="x/menit"></div>
                         </div>
-                        <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                             <div><label class="block text-xs font-semibold text-gray-500 mb-1">Suhu (°C)</label><input type="number" step="0.1" wire:model="suhu" class="w-full rounded-lg border-gray-200 text-sm px-4 h-[42px] focus:border-[#405189] transition-all" placeholder="36.5"></div>
                             <div><label class="block text-xs font-semibold text-gray-500 mb-1">Berat Badan (kg)</label><input type="number" step="0.1" wire:model="berat_badan" class="w-full rounded-lg border-gray-200 text-sm px-4 h-[42px] focus:border-[#405189] transition-all" placeholder="60"></div>
                             <div><label class="block text-xs font-semibold text-gray-500 mb-1">Tinggi Badan (cm)</label><input type="number" step="0.1" wire:model="tinggi_badan" class="w-full rounded-lg border-gray-200 text-sm px-4 h-[42px] focus:border-[#405189] transition-all" placeholder="170"></div>
+                            <div><label class="block text-xs font-semibold text-gray-500 mb-1">Lingkar Perut (cm)</label><input type="number" step="0.1" wire:model="lingkar_perut" class="w-full rounded-lg border-gray-200 text-sm px-4 h-[42px] focus:border-[#405189] transition-all" placeholder="80"></div>
                         </div>
                         <div><label class="block text-xs font-semibold text-gray-500 mb-1">Riwayat Penyakit</label><textarea wire:model="riwayat_penyakit" rows="2" class="w-full rounded-lg border-gray-200 text-sm px-4 py-2.5 focus:border-[#405189] transition-all" placeholder="Riwayat penyakit sebelumnya..."></textarea></div>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div><label class="block text-xs font-semibold text-gray-500 mb-1">Alergi</label><textarea wire:model="alergi" rows="2" class="w-full rounded-lg border-gray-200 text-sm px-4 py-2.5 focus:border-[#405189] transition-all" placeholder="Alergi obat/bahan..."></textarea></div>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div><label class="block text-xs font-semibold text-gray-500 mb-1">Alergi (Master)</label><x-custom-dropdown model="kode_alergi" :options="$alergiList" placeholder="Pilih Alergi" searchable="true" /></div>
+                            <div><label class="block text-xs font-semibold text-gray-500 mb-1">Keterangan Alergi</label><textarea wire:model="alergi" rows="2" class="w-full rounded-lg border-gray-200 text-sm px-4 py-2.5 focus:border-[#405189] transition-all" placeholder="Keterangan tambahan alergi..."></textarea></div>
                             <div><label class="block text-xs font-semibold text-gray-500 mb-1">Keterangan Lain</label><textarea wire:model="keterangan_lain" rows="2" class="w-full rounded-lg border-gray-200 text-sm px-4 py-2.5 focus:border-[#405189] transition-all" placeholder="Catatan tambahan..."></textarea></div>
                         </div>
                     </div>

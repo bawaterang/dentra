@@ -2512,8 +2512,8 @@ class SatuSehatService
             $carbon = Carbon::now();
         }
 
-        // Validasi tanggal minimum
-        $this->validateDateNotBeforeMinimum($carbon);
+        // Birth dates are allowed to be before the 2014 minimum date threshold.
+        // The validation is only for medical event dates (encounters, observations, etc).
 
         return $carbon->format('Y-m-d');
     }

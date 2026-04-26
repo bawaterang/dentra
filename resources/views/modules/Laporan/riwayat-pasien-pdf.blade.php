@@ -89,10 +89,14 @@
                         <td width="35%">{{ $data['pendaftaran']->dokter ? $data['pendaftaran']->dokter->nama_dokter : '-' }}</td>
                         <td class="bg-gray">Pemeriksaan Awal</td>
                         <td>
+                            <span style="color:#666; font-size:7pt; font-weight:bold;">Ksd:</span> {{ $data['clinical']['pemeriksaan_awal']['kesadaran'] ?: '-' }} |
                             <span style="color:#666; font-size:7pt; font-weight:bold;">TD:</span> {{ $data['clinical']['pemeriksaan_awal']['td'] ?: '-' }} |
                             <span style="color:#666; font-size:7pt; font-weight:bold;">N:</span> {{ $data['clinical']['pemeriksaan_awal']['nadi'] ?: '-' }} |
                             <span style="color:#666; font-size:7pt; font-weight:bold;">S:</span> {{ $data['clinical']['pemeriksaan_awal']['suhu'] ?: '-' }} |
-                            <span style="color:#666; font-size:7pt; font-weight:bold;">BB:</span> {{ $data['clinical']['pemeriksaan_awal']['bb'] ?: '-' }}
+                            <span style="color:#666; font-size:7pt; font-weight:bold;">BB:</span> {{ $data['clinical']['pemeriksaan_awal']['bb'] ?: '-' }} |
+                            <span style="color:#666; font-size:7pt; font-weight:bold;">TB:</span> {{ $data['clinical']['pemeriksaan_awal']['tb'] ?: '-' }} |
+                            <span style="color:#666; font-size:7pt; font-weight:bold;">LP:</span> {{ $data['clinical']['pemeriksaan_awal']['lp'] ?: '-' }} <br>
+                            <span style="color:#666; font-size:7pt; font-weight:bold;">Alergi:</span> <span style="color:red;">{{ trim(($data['clinical']['pemeriksaan_awal']['alergi_master'] ?? '') . ' ' . ($data['clinical']['pemeriksaan_awal']['alergi'] ?? '')) ?: '-' }}</span>
                         </td>
                     </tr>
                 </table>
@@ -103,6 +107,11 @@
                     <div class="soap-line"><span class="soap-label">O:</span> {{ $data['clinical']['soap']->objective ?? '-' }}</div>
                     <div class="soap-line"><span class="soap-label">A:</span> {{ $data['clinical']['soap']->assessment ?? '-' }}</div>
                     <div class="soap-line"><span class="soap-label">P:</span> {{ $data['clinical']['soap']->planning ?? '-' }}</div>
+                    @if(!empty($data['clinical']['soap']->rekomendasi_diet))
+                    <div class="soap-line" style="margin-top:4px; padding-top:4px; border-top:1px dashed #eee;">
+                        <span style="font-weight:bold; color:#405189;">Rekomendasi Diet:</span> {{ $data['clinical']['soap']->rekomendasi_diet }}
+                    </div>
+                    @endif
                 </div>
 
                 <div class="section-title">Diagnosis & Resep</div>
@@ -117,7 +126,7 @@
                         <tr>
                             <td>
                                 @forelse($data['clinical']['diagnoses'] as $diag)
-                                    <div style="margin-bottom:2px;">• <strong>{{ $diag->kode_diagnosa }}</strong> - {{ $diag->nama_diagnosa }}</div>
+                                    <div style="margin-bottom:2px;">&bull; <strong>{{ $diag->kode_diagnosa }}</strong> - {{ $diag->nama_diagnosa }}</div>
                                 @empty
                                     <span style="color:#999; font-style:italic;">Tidak ada diagnosis</span>
                                 @endforelse
@@ -125,7 +134,7 @@
                                 <div style="margin-top:8px; border-top:1px dashed #eee; padding-top:5px;">
                                     <div style="font-size:7pt; color:#405189; font-weight:bold; margin-bottom:3px;">GIGI DIPERIKSA:</div>
                                     @forelse($data['clinical']['odontogram_visit'] as $gv)
-                                        <div style="font-size:7.5pt; margin-bottom:1px;">• Gigi <strong>{{ $gv->nomor_gigi }}</strong> ({{ $gv->bagian }}): {{ $gv->nama_kategori ?: 'Pemeriksaan' }}</div>
+                                        <div style="font-size:7.5pt; margin-bottom:1px;">&bull; Gigi <strong>{{ $gv->nomor_gigi }}</strong> ({{ $gv->bagian }}): {{ $gv->nama_kategori ?: 'Pemeriksaan' }}</div>
                                     @empty
                                         <span style="font-size:7pt; color:#999;">Tidak ada data gigi spesifik</span>
                                     @endforelse
@@ -133,7 +142,7 @@
                             </td>
                             <td>
                                 @forelse($data['clinical']['obat'] as $o)
-                                    <div style="margin-bottom:2px;">• <strong>{{ $o->nama_obat }}</strong> ({{ $o->dosis }})</div>
+                                    <div style="margin-bottom:2px;">&bull; <strong>{{ $o->nama_obat }}</strong> ({{ $o->dosis }})</div>
                                 @empty
                                     <span style="color:#999; font-style:italic;">Tidak ada resep</span>
                                 @endforelse

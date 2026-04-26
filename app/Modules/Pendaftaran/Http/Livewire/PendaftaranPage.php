@@ -24,25 +24,19 @@ class PendaftaranPage extends Component
     public $showEditModal = false;
     public $editPendaftaranId, $editPasienId;
     public $editPoliId, $editDokterId, $editAsuransiId, $editNoKartuAsuransi;
-    public $editKesadaran = 'Compos Mentis', $editTd, $editNadi, $editSuhu, $editBb, $editTb;
-    public $editRiwayat, $editAlergi, $editKet;
+    public $editKesadaran = '01', $editTd, $editNadi, $editSuhu, $editBb, $editTb, $editLp;
+    public $editRiwayat, $editKodeAlergi, $editAlergi, $editKet;
     
     // Dropdown Data
     public $poliList = [], $dokterList = [], $asuransiList = [];
-    public $kesadaranList = ['Compos Mentis', 'Apatis', 'Delirium', 'Somnolen', 'Sopor', 'Semi-Koma', 'Koma'];
+    public $kesadaranList = [];
+    public $alergiList = [];
 
     public function mount()
     {
         $this->selectedDate = now()->format('Y-m-d');
-        $this->kesadaranList = [
-            ['value' => 'Compos Mentis', 'label' => 'Compos Mentis', 'icon' => 'ri-checkbox-circle-line text-green-500'],
-            ['value' => 'Apatis', 'label' => 'Apatis', 'icon' => 'ri-eye-close-line text-blue-500'],
-            ['value' => 'Delirium', 'label' => 'Delirium', 'icon' => 'ri-error-warning-line text-yellow-500'],
-            ['value' => 'Somnolen', 'label' => 'Somnolen', 'icon' => 'ri-eye-close-line text-orange-500'],
-            ['value' => 'Sopor', 'label' => 'Sopor', 'icon' => 'ri-eye-off-line text-orange-400'],
-            ['value' => 'Semi-Koma', 'label' => 'Semi-Koma', 'icon' => 'ri-close-circle-line text-red-500'],
-            ['value' => 'Koma', 'label' => 'Koma', 'icon' => 'ri-close-circle-fill text-red-600'],
-        ];
+        $this->kesadaranList = \App\Models\MstKesadaran::all()->map(fn($k) => ['value' => $k->kdSadar, 'label' => $k->nmSadar, 'icon' => 'ri-checkbox-circle-line text-green-500'])->toArray();
+        $this->alergiList = \App\Models\MstAlergi::all()->map(fn($a) => ['value' => $a->kdAlergi, 'label' => $a->nmAlergi, 'icon' => 'ri-bug-line text-red-500'])->toArray();
     }
 
     public function updatedSelectedDate() { $this->resetPage(); }
@@ -77,7 +71,9 @@ class PendaftaranPage extends Component
         $this->editSuhu = $p->suhu;
         $this->editBb = $p->berat_badan;
         $this->editTb = $p->tinggi_badan;
+        $this->editLp = $p->lingkar_perut;
         $this->editRiwayat = $p->riwayat_penyakit;
+        $this->editKodeAlergi = $p->kode_alergi;
         $this->editAlergi = $p->alergi;
         $this->editKet = $p->keterangan_lain;
 
@@ -108,7 +104,9 @@ class PendaftaranPage extends Component
             'suhu' => $this->editSuhu,
             'berat_badan' => $this->editBb,
             'tinggi_badan' => $this->editTb,
+            'lingkar_perut' => $this->editLp,
             'riwayat_penyakit' => $this->editRiwayat,
+            'kode_alergi' => $this->editKodeAlergi,
             'alergi' => $this->editAlergi,
             'keterangan_lain' => $this->editKet,
         ]);
@@ -532,11 +530,22 @@ class PendaftaranPage extends Component
                                                         <div class="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none text-xs font-bold text-gray-400">cm</div>
                                                     </div>
                                                 </div>
+                                                <div class="col-span-2">
+                                                    <label class="block text-xs font-bold text-gray-500 mb-1.5 ml-1 uppercase tracking-wider text-[10px]">Lingkar Perut</label>
+                                                    <div class="relative">
+                                                        <input type="number" step="0.1" wire:model="editLp" wire:key="edit-lp" class="block w-full pl-4 pr-10 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-[#0ab39c] transition-all" placeholder="80">
+                                                        <div class="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none text-xs font-bold text-gray-400">cm</div>
+                                                    </div>
+                                                </div>
                                             </div>
 
                                             <div class="border-t border-gray-100 pt-6 space-y-4">
                                                 <div>
-                                                    <label class="block text-xs font-bold text-red-500 mb-1.5 ml-1 uppercase tracking-wider text-[10px] flex items-center gap-1"><i class="ri-error-warning-line"></i> Alergi</label>
+                                                    <label class="block text-xs font-bold text-red-500 mb-1.5 ml-1 uppercase tracking-wider text-[10px] flex items-center gap-1"><i class="ri-error-warning-line"></i> Alergi Master</label>
+                                                    <x-custom-dropdown model="editKodeAlergi" :options="$alergiList" placeholder="Pilih Alergi" />
+                                                </div>
+                                                <div>
+                                                    <label class="block text-xs font-bold text-red-500 mb-1.5 ml-1 uppercase tracking-wider text-[10px] flex items-center gap-1"><i class="ri-error-warning-line"></i> Keterangan Alergi</label>
                                                     <textarea wire:model="editAlergi" wire:key="edit-alergi" rows="2" class="block w-full px-4 py-3 bg-red-50/20 border border-red-100 rounded-xl text-sm focus:ring-4 focus:ring-red-500/5 focus:border-red-500 transition-all shadow-sm" placeholder="Catatan alergi..."></textarea>
                                                 </div>
                                                 <div>

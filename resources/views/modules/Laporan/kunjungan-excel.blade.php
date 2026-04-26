@@ -9,6 +9,9 @@
             <th style="font-weight: bold; border: 1px solid #000; width: 200px;">Dokter</th>
             <th style="font-weight: bold; border: 1px solid #000; width: 150px;">Asuransi</th>
             <th style="font-weight: bold; border: 1px solid #000; width: 150px;">Status</th>
+            <th style="font-weight: bold; border: 1px solid #000; width: 100px;">Lingkar Perut</th>
+            <th style="font-weight: bold; border: 1px solid #000; width: 200px;">Alergi</th>
+            <th style="font-weight: bold; border: 1px solid #000; width: 300px;">Rekomendasi Diet</th>
         </tr>
     </thead>
     <tbody>
@@ -22,6 +25,9 @@
             <td style="border: 1px solid #000;">{{ $item->dokter ? $item->dokter->nama_dokter : '-' }}</td>
             <td style="border: 1px solid #000;">{{ $item->asuransi ? $item->asuransi->nama_asuransi : 'Pribadi' }}</td>
             <td style="border: 1px solid #000;">{{ ucfirst($item->status) }}</td>
+            <td style="border: 1px solid #000;">{{ $item->lingkar_perut ?: '-' }}</td>
+            <td style="border: 1px solid #000;">{{ $item->kode_alergi ? (\App\Models\MstAlergi::where('kdAlergi', $item->kode_alergi)->value('nmAlergi') . ' ') : '' }}{{ $item->alergi ?: '-' }}</td>
+            <td style="border: 1px solid #000;">{{ \Illuminate\Support\Facades\DB::table('trx_pemeriksaan')->where('nomor_kunjungan', $item->nomor_kunjungan)->value('rekomendasi_diet') ?: '-' }}</td>
         </tr>
         @endforeach
     </tbody>

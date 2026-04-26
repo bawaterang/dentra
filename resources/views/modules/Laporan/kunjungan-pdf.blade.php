@@ -89,9 +89,12 @@
                         <td class="vital-label">BB (kg)</td><td>{{ $details['pemeriksaan_awal']['bb'] ?: '-' }}</td>
                         <td class="vital-label">TB (cm)</td><td>{{ $details['pemeriksaan_awal']['tb'] ?: '-' }}</td>
                     </tr>
+                    <tr>
+                        <td class="vital-label">Lingkar Perut (cm)</td><td colspan="3">{{ $details['pemeriksaan_awal']['lp'] ?: '-' }}</td>
+                    </tr>
                 </table>
                 <div style="font-size:8pt; margin-top:5px;">
-                    <strong>Alergi:</strong> <span style="color:red;">{{ $details['pemeriksaan_awal']['alergi'] ?: '-' }}</span> | 
+                    <strong>Alergi:</strong> <span style="color:red;">{{ trim(($details['pemeriksaan_awal']['alergi_master'] ?? '') . ' ' . ($details['pemeriksaan_awal']['alergi'] ?? '')) ?: '-' }}</span> | 
                     <strong>Riwayat Penyakit:</strong> {{ $details['pemeriksaan_awal']['riwayat'] ?: '-' }}
                 </div>
             </div>
@@ -102,6 +105,11 @@
                 <div class="soap-item"><span class="soap-label">O:</span> {{ $details['soap']->objective ?? '-' }}</div>
                 <div class="soap-item"><span class="soap-label">A:</span> {{ $details['soap']->assessment ?? '-' }}</div>
                 <div class="soap-item"><span class="soap-label">P:</span> {{ $details['soap']->planning ?? '-' }}</div>
+                @if(!empty($details['soap']->rekomendasi_diet))
+                <div class="soap-item" style="margin-top:4px; padding-top:4px; border-top:1px dashed #e2e8f0;">
+                    <strong>Rekomendasi Diet:</strong> {{ $details['soap']->rekomendasi_diet }}
+                </div>
+                @endif
             </div>
 
             <div class="section-title">Diagnosis & Resep</div>

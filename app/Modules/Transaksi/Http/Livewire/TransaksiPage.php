@@ -25,6 +25,7 @@ class TransaksiPage extends Component
     public $poliList = [];
     public $poliListOptions = [];
     public $kesadaranList = [];
+    public $alergiList = [];
 
     // SOAP / Anamnesis State
     public $subyektif = '';
@@ -46,7 +47,9 @@ class TransaksiPage extends Component
     public $suhu = '';
     public $berat_badan = '';
     public $tinggi_badan = '';
+    public $lingkar_perut = '';
     public $riwayat_penyakit = '';
+    public $kode_alergi = '';
     public $alergi = '';
     public $keterangan_lain = '';
 
@@ -119,6 +122,8 @@ class TransaksiPage extends Component
     public function mount()
     {
         $this->selectedDate = now()->format('Y-m-d');
+        $this->kesadaranList = \App\Models\MstKesadaran::all()->map(fn($k) => ['value' => $k->kdSadar, 'label' => $k->nmSadar, 'icon' => 'ri-checkbox-circle-line text-green-500'])->toArray();
+        $this->alergiList = \App\Models\MstAlergi::all()->map(fn($a) => ['value' => $a->kdAlergi, 'label' => $a->nmAlergi, 'icon' => 'ri-bug-line text-red-500'])->toArray();
     }
 
     public function prevDate()
@@ -155,12 +160,23 @@ class TransaksiPage extends Component
         
         // Vitals / Pemeriksaan Awal (From Pendaftaran)
         $this->kesadaran = $this->selectedPendaftaran?->kesadaran ?? '';
+        
+        // Mapping Kesadaran lama (string) ke kode jika perlu
+        if ($this->kesadaran && !is_numeric($this->kesadaran) && strlen($this->kesadaran) > 2) {
+            $matched = \App\Models\MstKesadaran::where('nmSadar', 'like', '%' . $this->kesadaran . '%')->first();
+            if ($matched) {
+                $this->kesadaran = $matched->kdSadar;
+            }
+        }
+        
         $this->tekanan_darah = $this->selectedPendaftaran?->tekanan_darah ?? '';
         $this->nadi = $this->selectedPendaftaran?->nadi ?? '';
         $this->suhu = $this->selectedPendaftaran?->suhu ?? '';
         $this->berat_badan = $this->selectedPendaftaran?->berat_badan ?? '';
         $this->tinggi_badan = $this->selectedPendaftaran?->tinggi_badan ?? '';
+        $this->lingkar_perut = $this->selectedPendaftaran?->lingkar_perut ?? '';
         $this->riwayat_penyakit = $this->selectedPendaftaran?->riwayat_penyakit ?? '';
+        $this->kode_alergi = $this->selectedPendaftaran?->kode_alergi ?? '';
         $this->alergi = $this->selectedPendaftaran?->alergi ?? '';
         $this->keterangan_lain = $this->selectedPendaftaran?->keterangan_lain ?? '';
         
@@ -256,7 +272,22 @@ class TransaksiPage extends Component
             ]
         );
 
-        $this->dispatch('alert', ['type' => 'success', 'message' => 'Clinical Notes berhasil disimpan.']);
+        // Update Vitals di Pendaftaran
+        TrxPendaftaran::where('nomor_kunjungan', $this->selectedPendaftaran->nomor_kunjungan)->update([
+            'kesadaran' => $this->kesadaran,
+            'tekanan_darah' => $this->tekanan_darah,
+            'nadi' => $this->nadi,
+            'suhu' => $this->suhu,
+            'berat_badan' => $this->berat_badan,
+            'tinggi_badan' => $this->tinggi_badan,
+            'lingkar_perut' => $this->lingkar_perut,
+            'riwayat_penyakit' => $this->riwayat_penyakit,
+            'kode_alergi' => $this->kode_alergi,
+            'alergi' => $this->alergi,
+            'keterangan_lain' => $this->keterangan_lain,
+        ]);
+
+        $this->dispatch('alert', ['type' => 'success', 'message' => 'Clinical Notes & Vitals berhasil disimpan.']);
     }
 
     public function saveOhis()
@@ -883,18 +914,21 @@ class TransaksiPage extends Component
 
         return [
             'vitals' => [
-                'kesadaran' => $pendaftaran?->kesadaran,
+                'kesadaran' => $pendaftaran?->kesadaran ? (\App\Models\MstKesadaran::where('kdSadar', $pendaftaran->kesadaran)->value('nmSadar') ?? $pendaftaran->kesadaran) : '-',
                 'td' => $pendaftaran?->tekanan_darah,
                 'nadi' => $pendaftaran?->nadi,
                 'suhu' => $pendaftaran?->suhu,
                 'bb' => $pendaftaran?->berat_badan,
                 'tb' => $pendaftaran?->tinggi_badan,
+                'lp' => $pendaftaran?->lingkar_perut,
+                'alergi' => trim(($pendaftaran?->kode_alergi ? (\App\Models\MstAlergi::where('kdAlergi', $pendaftaran->kode_alergi)->value('nmAlergi') . ' ') : '') . ($pendaftaran?->alergi ?? '')),
             ],
             'soap' => $soap ? [
                 'subjective' => $soap->subjective ?? '-',
                 'objective' => $soap->objective ?? '-',
                 'assessment' => $soap->assessment ?? '-',
                 'planning' => $soap->planning ?? '-',
+                'rekomendasi_diet' => $soap->rekomendasi_diet ?? '-',
             ] : null,
             'diagnoses' => $diagnoses,
             'obat' => $obat,
@@ -963,12 +997,13 @@ class TransaksiPage extends Component
             $this->selectedPoli = $this->poliList->first()->id;
         }
         
-        $this->kesadaranList = [
-            ['value' => 'Compos Mentis', 'label' => 'Compos Mentis', 'icon' => 'ri-checkbox-circle-line text-green-500'],
-            ['value' => 'Somnolence', 'label' => 'Somnolence', 'icon' => 'ri-eye-close-line text-yellow-500'],
-            ['value' => 'Sopor', 'label' => 'Sopor', 'icon' => 'ri-eye-close-line text-orange-500'],
-            ['value' => 'Coma', 'label' => 'Coma', 'icon' => 'ri-close-circle-line text-red-500'],
-        ];
+        if (empty($this->kesadaranList)) {
+            $this->kesadaranList = \App\Models\MstKesadaran::all()->map(fn($k) => ['value' => $k->kdSadar, 'label' => $k->nmSadar, 'icon' => 'ri-checkbox-circle-line text-green-500'])->toArray();
+        }
+
+        if (empty($this->alergiList)) {
+            $this->alergiList = \App\Models\MstAlergi::all()->map(fn($a) => ['value' => $a->kdAlergi, 'label' => $a->nmAlergi, 'icon' => 'ri-bug-line text-red-500'])->toArray();
+        }
 
         // Load only small datasets eagerly (kategori gigi is tiny)
         if (empty($this->kategoriGigiOptions)) {
@@ -1226,11 +1261,22 @@ class TransaksiPage extends Component
                                                     <span class="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-gray-400">cm</span>
                                                 </div>
                                             </div>
+                                            <div class="form-group">
+                                                <label class="block text-[11px] font-bold text-gray-500 mb-1.5 uppercase">Lingkar Perut</label>
+                                                <div class="relative">
+                                                    <input type="text" wire:model.defer="lingkar_perut" class="w-full rounded-lg border-gray-200 text-sm px-4 h-[42px] focus:border-[#405189] transition-all pr-10 font-bold" placeholder="80">
+                                                    <span class="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-gray-400">cm</span>
+                                                </div>
+                                            </div>
                                             <div class="form-group md:col-span-1 lg:col-span-2 lg:col-start-1">
-                                                <label class="block text-[11px] font-bold text-gray-500 mb-1.5 uppercase">Alergi</label>
-                                                <textarea wire:model.defer="alergi" rows="2" class="w-full rounded-lg border border-gray-200 text-sm px-4 py-2 focus:border-[#405189] transition-all font-bold" placeholder="Alergi"></textarea>
+                                                <label class="block text-[11px] font-bold text-gray-500 mb-1.5 uppercase">Alergi (Master)</label>
+                                                <x-custom-dropdown model="kode_alergi" :options="$this->alergiList" placeholder="Pilih..." />
                                             </div>
                                             <div class="form-group md:col-span-1 lg:col-span-2">
+                                                <label class="block text-[11px] font-bold text-gray-500 mb-1.5 uppercase">Keterangan Alergi</label>
+                                                <textarea wire:model.defer="alergi" rows="2" class="w-full rounded-lg border border-gray-200 text-sm px-4 py-2 focus:border-[#405189] transition-all font-bold" placeholder="Alergi"></textarea>
+                                            </div>
+                                            <div class="form-group md:col-span-2 lg:col-span-4">
                                                 <label class="block text-[11px] font-bold text-gray-500 mb-1.5 uppercase">Riwayat Penyakit</label>
                                                 <textarea wire:model.defer="riwayat_penyakit" rows="2" class="w-full rounded-lg border border-gray-200 text-sm px-4 py-2 focus:border-[#405189] transition-all font-bold" placeholder="Riwayat Penyakit"></textarea>
                                             </div>
@@ -2344,13 +2390,22 @@ class TransaksiPage extends Component
                                                                 <div class="bg-white rounded-xl border border-gray-100 p-4">
                                                                     <h6 class="text-[10px] font-black text-[#405189] uppercase tracking-widest mb-3 flex items-center gap-1.5"><i class="ri-heart-pulse-line"></i> Pemeriksaan Awal</h6>
                                                                     <div class="grid grid-cols-3 gap-2">
-                                                                        @foreach(['kesadaran' => 'Kesadaran', 'td' => 'TD (mmHg)', 'nadi' => 'Nadi', 'suhu' => 'Suhu (°C)', 'bb' => 'BB (kg)', 'tb' => 'TB (cm)'] as $k => $lbl)
+                                                                        @foreach(['kesadaran' => 'Kesadaran', 'td' => 'TD (mmHg)', 'nadi' => 'Nadi', 'suhu' => 'Suhu (°C)', 'bb' => 'BB (kg)', 'tb' => 'TB (cm)', 'lp' => 'LP (cm)'] as $k => $lbl)
                                                                             <div class="p-2 bg-gray-50 rounded-lg">
                                                                                 <span class="text-[9px] font-bold text-gray-400 uppercase block">{{ $lbl }}</span>
                                                                                 <span class="text-xs font-black text-gray-700">{{ $rw['clinical']['vitals'][$k] ?: '-' }}</span>
                                                                             </div>
                                                                         @endforeach
                                                                     </div>
+                                                                    @if(!empty($rw['clinical']['vitals']['alergi']))
+                                                                    <div class="mt-2 p-2 bg-red-50 rounded-lg border border-red-100 flex items-start gap-2">
+                                                                        <i class="ri-error-warning-fill text-red-500 text-xs mt-0.5"></i>
+                                                                        <div>
+                                                                            <span class="text-[9px] font-black text-red-600 uppercase block leading-none">Alergi</span>
+                                                                            <p class="text-[10px] font-bold text-red-700 leading-tight">{{ $rw['clinical']['vitals']['alergi'] }}</p>
+                                                                        </div>
+                                                                    </div>
+                                                                    @endif
                                                                 </div>
                                                             @endif
 
@@ -2365,6 +2420,12 @@ class TransaksiPage extends Component
                                                                                 <p class="text-[11px] text-gray-600 leading-relaxed m-0">{{ $rw['clinical']['soap'][$k] ?? '-' }}</p>
                                                                             </div>
                                                                         @endforeach
+                                                                        @if(!empty($rw['clinical']['soap']['rekomendasi_diet']) && $rw['clinical']['soap']['rekomendasi_diet'] !== '-')
+                                                                        <div class="flex gap-2 mt-2 pt-2 border-t border-gray-100">
+                                                                            <div class="w-5 h-5 rounded bg-emerald-50 flex items-center justify-center text-[9px] font-black text-emerald-500 shrink-0"><i class="ri-restaurant-line"></i></div>
+                                                                            <p class="text-[11px] text-gray-600 leading-relaxed m-0 font-medium">{{ $rw['clinical']['soap']['rekomendasi_diet'] }}</p>
+                                                                        </div>
+                                                                        @endif
                                                                     </div>
                                                                 </div>
                                                             @endif

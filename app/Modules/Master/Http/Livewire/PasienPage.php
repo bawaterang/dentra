@@ -12,7 +12,7 @@ use Livewire\WithPagination;
 
 class PasienPage extends Component
 {
-    use WithPagination, DynamicKodeGenerator;
+    use WithPagination, DynamicKodeGenerator, \App\Traits\HasPatientHistory;
 
     public $pasienId;
     public $no_rm;
@@ -184,7 +184,7 @@ class PasienPage extends Component
 
     public function history($id)
     {
-        $this->dispatch('alert', ['type' => 'info', 'message' => 'Fitur riwayat pasien sedang dalam pengembangan.']);
+        $this->openRiwayatModal($id);
     }
 
     public function edit($id)
@@ -910,6 +910,16 @@ class PasienPage extends Component
                     </div>
                 </div>
             </div>
+            <!-- Modal Riwayat Pasien -->
+            <x-patient-history-modal 
+                wire:model="showRiwayatModal"
+                :show="$showRiwayatModal"
+                :currentPasien="$currentPasien"
+                :pasienHistoryData="$pasienHistoryData"
+                :latestOdontogramState="$latestOdontogramState"
+                :dentalCategories="$dentalCategories"
+                :selectedPasienId="$selectedPasienId"
+            />
         </div>
         HTML;
     }

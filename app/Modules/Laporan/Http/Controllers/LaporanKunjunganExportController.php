@@ -42,6 +42,15 @@ class LaporanKunjunganExportController extends Controller
     public function getClinicalDetails($nomorKunjungan)
     {
         $pendaftaran = TrxPendaftaran::where('nomor_kunjungan', $nomorKunjungan)->first();
+        
+        $alergiName = null;
+        if ($pendaftaran && $pendaftaran->kode_alergi) {
+            $mstAlergi = DB::table('mst_alergi')->where('kdAlergi', $pendaftaran->kode_alergi)->first();
+            if ($mstAlergi) {
+                $alergiName = $mstAlergi->nmAlergi;
+            }
+        }
+
         $soap = DB::table('trx_pemeriksaan')->where('nomor_kunjungan', $nomorKunjungan)->first();
         
         $diagnoses = DB::table('trx_diagnosis')
@@ -72,13 +81,16 @@ class LaporanKunjunganExportController extends Controller
 
         return [
             'pemeriksaan_awal' => [
-                'kesadaran' => $pendaftaran->kesadaran ?? null,
+                'kesadaran' => $pendaftaran && $pendaftaran->kesadaran ? (\App\Models\MstKesadaran::where('kdSadar', $pendaftaran->kesadaran)->value('nmSadar') ?? $pendaftaran->kesadaran) : '-',
                 'td' => $pendaftaran->tekanan_darah ?? null,
                 'nadi' => $pendaftaran->nadi ?? null,
                 'suhu' => $pendaftaran->suhu ?? null,
                 'bb' => $pendaftaran->berat_badan ?? null,
                 'tb' => $pendaftaran->tinggi_badan ?? null,
+                'lp' => $pendaftaran->lingkar_perut ?? null,
                 'riwayat' => $pendaftaran->riwayat_penyakit ?? null,
+                'kode_alergi' => $pendaftaran->kode_alergi ?? null,
+                'alergi_master' => $alergiName,
                 'alergi' => $pendaftaran->alergi ?? null,
             ],
             'soap' => $soap,

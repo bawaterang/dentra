@@ -86,6 +86,22 @@
                             <i class="ri-loader-4-line mr-2 animate-spin"></i> Testing...
                         </span>
                     </button>
+                    <button type="button" wire:click="syncKesadaran" wire:loading.attr="disabled" class="btn bg-white text-orange-500 border-orange-500 font-bold text-xs uppercase tracking-widest px-6 h-10 shadow-sm hover:bg-orange-500 hover:text-white hover:translate-y-[-2px] transition-all active:scale-95">
+                        <span wire:loading.remove wire:target="syncKesadaran">
+                            <i class="ri-refresh-line mr-2"></i> Sync Kesadaran
+                        </span>
+                        <span wire:loading wire:target="syncKesadaran">
+                            <i class="ri-loader-4-line mr-2 animate-spin"></i> Sync...
+                        </span>
+                    </button>
+                    <button type="button" wire:click="syncAlergi" wire:loading.attr="disabled" class="btn bg-white text-purple-500 border-purple-500 font-bold text-xs uppercase tracking-widest px-6 h-10 shadow-sm hover:bg-purple-500 hover:text-white hover:translate-y-[-2px] transition-all active:scale-95">
+                        <span wire:loading.remove wire:target="syncAlergi">
+                            <i class="ri-refresh-line mr-2"></i> Sync Alergi
+                        </span>
+                        <span wire:loading wire:target="syncAlergi">
+                            <i class="ri-loader-4-line mr-2 animate-spin"></i> Sync...
+                        </span>
+                    </button>
                     <button type="submit" class="btn bg-[#0d6efd] text-white font-bold text-xs uppercase tracking-widest px-6 h-10 shadow-md hover:bg-[#0b5ed7] hover:translate-y-[-2px] transition-all active:scale-95">
                         <i class="ri-save-line mr-2"></i> Simpan BPJS
                     </button>
@@ -196,9 +212,6 @@
                     </button>
                 </div>
 
-            </form>
-        </div>
-    </div>
             </form>
         </div>
     </div>
