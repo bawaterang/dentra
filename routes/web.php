@@ -15,3 +15,12 @@ Route::get('/logout', function () {
     session()->regenerateToken();
     return redirect()->route('login');
 })->name('logout');
+
+use App\Http\Controllers\ChatController;
+
+Route::middleware(['auth'])->prefix('chat')->group(function () {
+    Route::get('/users', [ChatController::class, 'getUsers']);
+    Route::get('/messages/{receiverId}', [ChatController::class, 'getMessages']);
+    Route::post('/messages', [ChatController::class, 'sendMessage']);
+    Route::post('/read/{senderId}', [ChatController::class, 'markAsRead']);
+});

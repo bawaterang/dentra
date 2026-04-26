@@ -1470,6 +1470,7 @@
             });
         });
     </script>
+    <x-chat-box />
 </body>
 
 </html>
