@@ -373,7 +373,7 @@ class PendaftaranPage extends Component
                                         <td class="px-6 py-4 whitespace-nowrap">
                                             <div class="flex items-center justify-center gap-2">
                                                 <button wire:click="editPendaftaran({{ $item->id }})" class="w-8 h-8 rounded-full flex items-center justify-center bg-orange-50 text-orange-500 hover:bg-orange-500 hover:text-white transition-all shadow-sm" title="Edit"><i class="ri-edit-line"></i></button>
-                                                <a href="{{ route('pendaftaran.print', $item->id) }}" target="_blank" class="w-8 h-8 rounded-full flex items-center justify-center bg-indigo-50 text-[#405189] hover:bg-[#405189] hover:text-white transition-all shadow-sm" title="Cetak"><i class="ri-printer-line"></i></a>
+                                                <a href="{{ URL::signedRoute('pendaftaran.print', ['id' => $item->id]) }}" target="_blank" class="w-8 h-8 rounded-full flex items-center justify-center bg-indigo-50 text-[#405189] hover:bg-[#405189] hover:text-white transition-all shadow-sm" title="Cetak"><i class="ri-printer-line"></i></a>
                                                 <button @click="
                                                     Swal.fire({
                                                         title: 'Konfirmasi',

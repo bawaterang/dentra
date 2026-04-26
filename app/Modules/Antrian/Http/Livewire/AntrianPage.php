@@ -505,7 +505,7 @@ class AntrianPage extends Component
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap">
                                             <div class="flex items-center justify-center gap-2">
-                                                <a href="{{ route('antrian.cetak', $item->id) }}" target="_blank" class="w-8 h-8 rounded-full flex items-center justify-center bg-indigo-50 text-[#405189] hover:bg-[#405189] hover:text-white transition-all shadow-sm" title="Cetak Tiket"><i class="ri-printer-line"></i></a>
+                                                <a href="{{ URL::signedRoute('antrian.cetak', ['id' => $item->id]) }}" target="_blank" class="w-8 h-8 rounded-full flex items-center justify-center bg-indigo-50 text-[#405189] hover:bg-[#405189] hover:text-white transition-all shadow-sm" title="Cetak Tiket"><i class="ri-printer-line"></i></a>
                                                 @if(in_array($item->status, ['menunggu','dipanggil']))
                                                     <button wire:click="editAntrian({{ $item->id }})" class="w-8 h-8 rounded-full flex items-center justify-center bg-orange-50 text-orange-500 hover:bg-orange-500 hover:text-white transition-all shadow-sm" title="Edit Antrian"><i class="ri-edit-line"></i></button>
                                                 @endif
@@ -634,7 +634,7 @@ class AntrianPage extends Component
                                                           
                                                           <!-- Hover Actions Overlay -->
                                                           <div class="absolute inset-0 bg-white rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-2 z-10">
-                                                              <a href="{{ route('antrian.cetak', $item->id) }}" target="_blank" class="w-10 h-10 rounded-full flex items-center justify-center bg-indigo-50 text-[#405189] hover:bg-[#405189] hover:text-white hover:-translate-y-1 transition-all shadow-sm" title="Cetak Tiket"><i class="ri-printer-line text-lg"></i></a>
+                                                              <a href="{{ URL::signedRoute('antrian.cetak', ['id' => $item->id]) }}" target="_blank" class="w-10 h-10 rounded-full flex items-center justify-center bg-indigo-50 text-[#405189] hover:bg-[#405189] hover:text-white hover:-translate-y-1 transition-all shadow-sm" title="Cetak Tiket"><i class="ri-printer-line text-lg"></i></a>
                                                               @if(in_array($item->status, ['menunggu','dipanggil']))
                                                                   <button wire:click="editAntrian({{ $item->id }})" class="w-10 h-10 rounded-full flex items-center justify-center bg-orange-50 text-orange-500 hover:bg-orange-500 hover:text-white hover:-translate-y-1 transition-all shadow-sm" title="Edit"><i class="ri-edit-line text-lg"></i></button>
                                                               @endif
