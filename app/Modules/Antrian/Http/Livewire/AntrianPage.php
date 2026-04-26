@@ -519,7 +519,7 @@ class AntrianPage extends Component
                                                 @if(!$item->pasien_id && in_array($item->status, ['menunggu','dipanggil','hadir']))
                                                     <button wire:click="openSyncModal({{ $item->id }})" class="flex h-8 px-3 rounded-full items-center justify-center bg-purple-50 text-purple-600 hover:bg-purple-600 hover:text-white transition-all shadow-sm text-xs font-bold gap-1" title="Sinkron Pasien"><i class="ri-link"></i> Sinkron</button>
                                                 @endif
-                                                @if(in_array($item->status, ['hadir','dipanggil']) && $item->pasien_id)
+                                                @if(in_array($item->status, ['hadir','dipanggil']))
                                                     <button wire:click="daftarkan({{ $item->id }})" class="flex h-8 px-3 rounded-full items-center justify-center bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white transition-all shadow-sm text-xs font-bold gap-1" title="Daftarkan"><i class="ri-file-add-line"></i> Daftar</button>
                                                 @endif
                                                 @if(in_array($item->status, ['menunggu','dipanggil']))
@@ -648,7 +648,7 @@ class AntrianPage extends Component
                                                               @if(!$item->pasien_id && in_array($item->status, ['menunggu','dipanggil','hadir']))
                                                                   <button wire:click="openSyncModal({{ $item->id }})" class="w-10 h-10 rounded-full flex items-center justify-center bg-purple-50 text-purple-600 hover:bg-purple-600 hover:text-white hover:-translate-y-1 transition-all shadow-sm" title="Sinkron Pasien"><i class="ri-link text-lg"></i></button>
                                                               @endif
-                                                              @if(in_array($item->status, ['hadir','dipanggil']) && $item->pasien_id)
+                                                              @if(in_array($item->status, ['hadir','dipanggil']))
                                                                   <button wire:click="daftarkan({{ $item->id }})" class="w-10 h-10 rounded-full flex items-center justify-center bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white hover:-translate-y-1 transition-all shadow-sm" title="Daftarkan"><i class="ri-file-add-line text-lg"></i></button>
                                                               @endif
                                                          </div>

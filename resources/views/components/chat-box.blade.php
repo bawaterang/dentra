@@ -1,6 +1,7 @@
 <div x-data="chatBox()" x-init="init()" @click.outside="isOpen = false" class="fixed z-[1002]" :class="isMobile ? 'inset-x-0 bottom-0' : 'bottom-8 left-8'">
     <!-- Floating Button -->
     <button 
+        x-cloak
         @click="toggleChat()" 
         class="flex items-center justify-center rounded-2xl bg-[#405189] text-white shadow-2xl hover:bg-[#0ab39c] active:scale-95 transition-all duration-300 border border-white/20 backdrop-blur-sm relative"
         :class="isMobile ? 'w-10 h-10 ml-5 mb-[90px]' : 'w-12 h-12'"
@@ -18,6 +19,7 @@
     <!-- Chat Window -->
     <div 
         x-show="isOpen"
+        x-cloak
         x-transition:enter="transition ease-out duration-300"
         x-transition:enter-start="opacity-0 translate-y-10 scale-95"
         x-transition:enter-end="opacity-100 translate-y-0 scale-100"

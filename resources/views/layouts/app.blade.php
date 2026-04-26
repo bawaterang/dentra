@@ -30,6 +30,7 @@
     @livewireStyles
 
     <style>
+        [x-cloak] { display: none !important; }
         :root {
             /* ... (keep existing root) ... */
         }
@@ -1451,6 +1452,14 @@
                     timer: data.type === 'success' ? 3000 : null,
                     showConfirmButton: data.type !== 'success',
                     confirmButtonColor: '#405189'
+                }).then((result) => {
+                    if (data.redirect) {
+                        if (typeof Livewire !== 'undefined') {
+                            Livewire.navigate(data.redirect);
+                        } else {
+                            window.location.href = data.redirect;
+                        }
+                    }
                 });
             });
         });
@@ -1467,6 +1476,14 @@
                 timer: data.type === 'success' ? 3000 : null,
                 showConfirmButton: data.type !== 'success',
                 confirmButtonColor: '#405189'
+            }).then((result) => {
+                if (data.redirect) {
+                    if (typeof Livewire !== 'undefined') {
+                        Livewire.navigate(data.redirect);
+                    } else {
+                        window.location.href = data.redirect;
+                    }
+                }
             });
         });
     </script>

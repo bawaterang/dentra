@@ -11,9 +11,11 @@ use App\Models\MstDokter;
 use App\Models\MstAsuransi;
 use App\Models\MstSettingAntrianHari;
 use App\Models\MstSettingAntrianLibur;
+use App\Traits\DynamicKodeGenerator;
 
 class FormPendaftaranPage extends Component
 {
+    use DynamicKodeGenerator;
     // Mode
     public $modePasien = 'lama'; // lama or baru
 
@@ -57,6 +59,8 @@ class FormPendaftaranPage extends Component
                 $this->selectedPasien = $pasien->toArray();
                 $this->alergi = $pasien->alergi;
             }
+        } elseif ($this->antrian_id) {
+            $this->modePasien = 'baru';
         }
 
         if ($this->antrian_id) {
@@ -76,6 +80,12 @@ class FormPendaftaranPage extends Component
                     if ($asuransi) $this->asuransi_id = $asuransi->id;
                 }
                 $this->no_kartu_asuransi = $antrian->no_asuransi;
+                
+                if (!$this->pasien_id) {
+                    $this->nama_pasien = $antrian->nama_pasien_input_manual;
+                    $this->nik = $antrian->nik_manual;
+                    $this->no_telepon = $antrian->no_telepon_manual;
+                }
             }
         }
     }
@@ -236,13 +246,10 @@ class FormPendaftaranPage extends Component
 
             // Simpan pasien baru jika perlu
             if ($this->modePasien === 'baru') {
-                $lastRm = MstPasien::withTrashed()->orderBy('id', 'desc')->first();
-                $nextRm = 1;
-                if ($lastRm && $lastRm->no_rm) {
-                    $num = (int) substr($lastRm->no_rm, 2);
-                    $nextRm = $num + 1;
+                $noRm = $this->generateDynamicKode('mst_pasien', 'no_rm');
+                if (!$noRm) {
+                    $noRm = 'P00001';
                 }
-                $noRm = 'RM' . str_pad($nextRm, 6, '0', STR_PAD_LEFT);
 
                 $newPasien = MstPasien::create([
                     'no_rm' => $noRm,
@@ -295,8 +302,11 @@ class FormPendaftaranPage extends Component
                 TrxAntrian::where('id', $this->antrian_id)->update(['status' => 'selesai']);
             }
 
-            $this->dispatch('alert', ['type' => 'success', 'message' => 'Pendaftaran berhasil! No Kunjungan: ' . $nomorKunjungan]);
-            return redirect()->route('pendaftaran.index');
+            $this->dispatch('alert', [
+                'type' => 'success', 
+                'message' => 'Pendaftaran berhasil! No Kunjungan: ' . $nomorKunjungan,
+                'redirect' => route('pendaftaran.index')
+            ]);
 
         } catch (\Illuminate\Validation\ValidationException $e) { throw $e;
         } catch (\Exception $e) { $this->dispatch('alert', ['type' => 'error', 'message' => 'Gagal: ' . $e->getMessage()]); }
