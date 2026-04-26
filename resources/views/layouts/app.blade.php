@@ -1206,6 +1206,222 @@
             }
         }
 
+        /* ── Global Search Dropdown ──────────────────────── */
+        .search-clear-btn {
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(255, 255, 255, 0.15);
+            border: none;
+            border-radius: 50%;
+            width: 22px;
+            height: 22px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 14px;
+            transition: all 0.15s;
+            padding: 0;
+        }
+
+        .search-clear-btn:hover {
+            background: rgba(255, 255, 255, 0.25);
+            color: #fff;
+        }
+
+        .search-loading {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+
+        .search-loading-spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-top-color: rgba(255, 255, 255, 0.8);
+            border-radius: 50%;
+            animation: searchSpin 0.6s linear infinite;
+        }
+
+        @keyframes searchSpin {
+            to { transform: rotate(360deg); }
+        }
+
+        .search-dropdown {
+            position: absolute;
+            top: calc(100% + 8px);
+            left: 0;
+            right: 0;
+            min-width: 420px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 14px;
+            box-shadow: 0 16px 48px -12px rgba(0, 0, 0, 0.25), 0 4px 12px -2px rgba(0, 0, 0, 0.08);
+            overflow: hidden;
+            z-index: 9999;
+        }
+
+        .search-dropdown-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 16px;
+            background: var(--bg-body);
+            border-bottom: 1px solid var(--border-color);
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+
+        .search-kbd {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 6px;
+            font-size: 10px;
+            font-weight: 700;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            color: var(--text-muted);
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            line-height: 1.4;
+        }
+
+        .search-dropdown-body {
+            max-height: 400px;
+            overflow-y: auto;
+            padding: 6px 0;
+        }
+
+        .search-dropdown-body::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .search-dropdown-body::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .search-dropdown-body::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 4px;
+        }
+
+        .search-category {
+            padding: 4px 0;
+        }
+
+        .search-category:not(:last-child) {
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .search-category-label {
+            padding: 6px 16px;
+            font-size: 11px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--text-muted);
+        }
+
+        .search-result-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 16px;
+            text-decoration: none;
+            transition: background 0.12s;
+            cursor: pointer;
+        }
+
+        .search-result-item:hover {
+            background: var(--icon-hover);
+        }
+
+        .search-result-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            font-size: 16px;
+        }
+
+        .search-result-content {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .search-result-title {
+            font-size: 13.5px;
+            font-weight: 600;
+            color: var(--text-heading);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .search-result-subtitle {
+            font-size: 12px;
+            color: var(--text-muted);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-top: 1px;
+        }
+
+        .search-result-meta {
+            font-size: 11px;
+            font-weight: 500;
+            color: var(--text-muted);
+            white-space: nowrap;
+            flex-shrink: 0;
+            padding: 2px 8px;
+            background: var(--bg-body);
+            border-radius: 6px;
+        }
+
+        .search-empty {
+            padding: 32px 24px;
+            text-align: center;
+            color: var(--text-muted);
+        }
+
+        .search-empty i {
+            font-size: 36px;
+            display: block;
+            margin-bottom: 12px;
+            color: var(--border-color);
+        }
+
+        .search-empty p {
+            font-size: 13.5px;
+            font-weight: 600;
+            color: var(--text-heading);
+            margin: 0 0 6px 0;
+        }
+
+        .search-empty span {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        @media (max-width: 768px) {
+            .search-dropdown {
+                position: fixed;
+                top: 64px;
+                left: 12px;
+                right: 12px;
+                min-width: auto;
+            }
+        }
+
         /* ── Global Loader ───────────────────────────────── */
         .global-loader {
             position: fixed;
@@ -1309,15 +1525,8 @@
 
         <div class="topbar-divider"></div>
 
-        {{-- Search --}}
-        <div class="topbar-search">
-            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="11" cy="11" r="8" />
-                <line x1="21" y1="21" x2="16.65" y2="16.65" />
-            </svg>
-            <input type="text" placeholder="Cari pasien, jadwal, rekam medis…">
-        </div>
+        {{-- Global Search --}}
+        <livewire:layouts.global-search />
 
         <div class="topbar-right">
             {{-- Theme Toggle --}}

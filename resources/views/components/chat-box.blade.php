@@ -147,21 +147,22 @@
             currentUserId: {{ auth()->id() }},
             
             init() {
-                this.fetchUsers();
+                this._echoInitialized = false;
                 
-                // Listen to online presence channel
-                window.Echo.join('online')
-                    .here((users) => {
-                        this.onlineUsers = users;
-                    })
-                    .joining((user) => {
-                        this.onlineUsers.push(user);
-                    })
-                    .leaving((user) => {
-                        this.onlineUsers = this.onlineUsers.filter(u => u.id !== user.id);
-                    });
+                // Defer the private channel listener so it doesn't block initial render
+                setTimeout(() => {
+                    this.setupPrivateChannel();
+                }, 2000);
 
-                // Listen to my private channel
+                window.addEventListener('resize', () => {
+                    this.isMobile = window.innerWidth < 768;
+                });
+            },
+
+            setupPrivateChannel() {
+                if (!window.Echo) return;
+                
+                // Listen to my private channel for incoming messages
                 window.Echo.private(`chat.${this.currentUserId}`)
                     .listen('MessageSent', (e) => {
                         const fromCurrentChat = this.isOpen && this.activeUser && this.activeUser.id === e.sender_id;
@@ -201,6 +202,7 @@
                                     toast.addEventListener('mouseleave', Swal.resumeTimer)
                                     toast.addEventListener('click', () => {
                                         this.isOpen = true;
+                                        this.initEchoPresence();
                                         const senderObj = this.users.find(u => u.id === e.sender_id);
                                         if (senderObj) this.selectUser(senderObj);
                                         Swal.close();
@@ -209,15 +211,35 @@
                             });
                         }
                     });
+            },
 
-                window.addEventListener('resize', () => {
-                    this.isMobile = window.innerWidth < 768;
-                });
+            initEchoPresence() {
+                if (this._echoInitialized || !window.Echo) return;
+                this._echoInitialized = true;
+
+                // Only join presence channel when chat is actually used
+                window.Echo.join('online')
+                    .here((users) => {
+                        this.onlineUsers = users;
+                    })
+                    .joining((user) => {
+                        this.onlineUsers.push(user);
+                    })
+                    .leaving((user) => {
+                        this.onlineUsers = this.onlineUsers.filter(u => u.id !== user.id);
+                    });
             },
 
             toggleChat() {
                 this.isOpen = !this.isOpen;
-                if (this.isOpen) this.unreadCount = 0;
+                if (this.isOpen) {
+                    this.unreadCount = 0;
+                    // Lazy-load users and presence channel on first open
+                    if (this.users.length === 0) {
+                        this.fetchUsers();
+                    }
+                    this.initEchoPresence();
+                }
             },
 
             fetchUsers() {
