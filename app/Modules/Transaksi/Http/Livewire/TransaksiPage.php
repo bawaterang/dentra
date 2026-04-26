@@ -2348,7 +2348,7 @@ class TransaksiPage extends Component
                                             </div>
                                         </div>
                                         @if($selectedPendaftaran?->pasien_id)
-                                            <a href="{{ route('laporan.kunjungan.print-riwayat', $selectedPendaftaran->pasien_id) }}" target="_blank" class="btn bg-indigo-50 text-indigo-600 h-10 px-5 rounded-xl font-bold text-sm shadow-sm hover:bg-indigo-600 hover:text-white transition-all flex items-center gap-2 w-full sm:w-auto justify-center">
+                                            <a href="{{ URL::signedRoute('laporan.kunjungan.print-riwayat', $selectedPendaftaran->pasien_id) }}" target="_blank" class="btn bg-indigo-50 text-indigo-600 h-10 px-5 rounded-xl font-bold text-sm shadow-sm hover:bg-indigo-600 hover:text-white transition-all flex items-center gap-2 w-full sm:w-auto justify-center">
                                                 <i class="ri-printer-line text-lg"></i>
                                                 <span class="font-semibold text-xs uppercase tracking-wider">Cetak Riwayat</span>
                                             </a>

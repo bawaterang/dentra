@@ -19,7 +19,7 @@ Route::middleware(['web', 'auth'])->prefix('laporan')->name('laporan.')->group(f
     Route::get('/kunjungan', LaporanKunjunganPage::class)->name('kunjungan');
     Route::get('/kunjungan/print', [LaporanKunjunganExportController::class, 'print'])->name('kunjungan.print');
     Route::get('/kunjungan/export-excel', [LaporanKunjunganExportController::class, 'exportExcel'])->name('kunjungan.export');
-    Route::get('/kunjungan/print-riwayat/{pasienId}', [LaporanKunjunganExportController::class, 'printRiwayat'])->name('kunjungan.print-riwayat');
+    Route::get('/kunjungan/print-riwayat/{pasienId}', [LaporanKunjunganExportController::class, 'printRiwayat'])->name('kunjungan.print-riwayat')->middleware('signed');
 
     // Kritik dan Saran
     Route::get('/kritik-saran', LaporanKritikSaranPage::class)->name('kritik-saran');

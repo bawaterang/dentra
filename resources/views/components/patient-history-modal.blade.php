@@ -23,7 +23,7 @@
                 </div>
                 <div class="flex items-center gap-3">
                     @if($selectedPasienId)
-                    <a href="{{ route('laporan.kunjungan.print-riwayat', $selectedPasienId) }}" target="_blank"
+                    <a href="{{ URL::signedRoute('laporan.kunjungan.print-riwayat', $selectedPasienId) }}" target="_blank"
                        class="hidden sm:flex items-center gap-2 bg-white/20 hover:bg-white text-white hover:text-indigo-700 px-4 py-2 rounded-xl text-xs font-black transition-all shadow-lg border border-white/10">
                         <i class="ri-printer-line"></i> CETAK RIWAYAT
                     </a>
@@ -304,7 +304,7 @@
             <!-- Modal Footer -->
             <div class="px-6 py-4 bg-gray-50/80 border-t border-gray-100 flex items-center justify-between sm:justify-start gap-4">
                 @if($selectedPasienId)
-                <a href="{{ route('laporan.kunjungan.print-riwayat', $selectedPasienId) }}" target="_blank"
+                <a href="{{ URL::signedRoute('laporan.kunjungan.print-riwayat', $selectedPasienId) }}" target="_blank"
                    class="sm:hidden flex flex-grow items-center justify-center gap-2 bg-indigo-600 text-white px-6 py-2.5 rounded-xl text-xs font-black transition-all shadow-lg active:scale-95">
                     <i class="ri-printer-line"></i> CETAK RIWAYAT
                 </a>
