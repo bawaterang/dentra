@@ -7,8 +7,12 @@ use App\Models\MstSettingBpjs;
 use App\Modules\Bridging\Services\BpjsPcareService;
 use App\Models\MstSettingSatusehat;
 
+use App\Traits\HasAccessControl;
+
 class SettingApiPage extends Component
 {
+    use HasAccessControl;
+
     // BPJS
     public $bpjs_consid;
     public $bpjs_secret_key;
@@ -31,6 +35,8 @@ class SettingApiPage extends Component
 
     public function mount()
     {
+        $this->authorizeAccess('/bridging/setting-api');
+
         $bpjs = MstSettingBpjs::first();
         if ($bpjs) {
             $this->bpjs_consid = $bpjs->consid;

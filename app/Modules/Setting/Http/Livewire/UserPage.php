@@ -10,9 +10,16 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 
 
+use App\Traits\HasAccessControl;
+
 class UserPage extends Component
 {
-    use WithPagination;
+    use WithPagination, HasAccessControl;
+
+    public function mount()
+    {
+        $this->authorizeAccess('/setting/user');
+    }
 
     // Form Properties
 
@@ -87,7 +94,7 @@ class UserPage extends Component
         ];
 
         if (!$this->isEdit || $this->password) {
-            $rules['password'] = 'required|string|min:6';
+            $rules['password'] = 'required|string|min:8|regex:/[a-z]/|regex:/[0-9]/';
         }
 
         return $rules;

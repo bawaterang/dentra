@@ -7,8 +7,12 @@ use App\Models\TrxPendaftaran;
 use App\Models\TrxScreening;
 use App\Models\MstSurvei;
 
+use App\Traits\HasAccessControl;
+
 class FormScreeningPage extends Component
 {
+    use HasAccessControl;
+
     public $pendaftaranId;
     public $pendaftaran;
     public $pertanyaanList = [];
@@ -20,6 +24,22 @@ class FormScreeningPage extends Component
     {
         $this->pendaftaranId = $pendaftaranId;
         $this->pendaftaran = TrxPendaftaran::with(['pasien', 'poli', 'dokter'])->findOrFail($pendaftaranId);
+
+        // Security Check: Basic access to screening module
+        $this->authorizeAccess('/screening');
+
+        // Security Check: Poli Isolation (Skip for Admin)
+        $user = auth()->user();
+        $userRoleNames = $user->roles->pluck('nama_role')->toArray();
+        $isAdmin = in_array('Administrator', $userRoleNames) || in_array('Admin', $userRoleNames);
+
+        if (!$isAdmin) {
+            $userPoliIds = $user->polis->pluck('id')->toArray();
+            if (!in_array($this->pendaftaran->poli_id, $userPoliIds)) {
+                abort(403, 'Anda tidak memiliki akses ke data poli ini.');
+            }
+        }
+
         $this->pertanyaanList = MstSurvei::where('status', 'Aktif')->where('jenis_survei', 'screening')->get();
 
         // Check if already screened

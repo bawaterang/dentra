@@ -10,9 +10,16 @@ use App\Models\User;
 use Illuminate\Support\Facades\Storage;
 
 
+use App\Traits\HasAccessControl;
+
 class RoleUserPage extends Component
 {
-    use WithPagination;
+    use WithPagination, HasAccessControl;
+
+    public function mount()
+    {
+        $this->authorizeAccess('/setting/role-user');
+    }
 
     public $activeTab = 'roles'; // 'roles' or 'mapping'
 

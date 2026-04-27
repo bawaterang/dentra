@@ -8,10 +8,11 @@ use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
 use Livewire\WithPagination;
+use App\Traits\HasAccessControl;
 
 class LaporanPendapatanPage extends Component
 {
-    use WithPagination;
+    use WithPagination, HasAccessControl;
 
     public $periodType = 'DAILY'; // DAILY, MONTHLY, YEARLY
 
@@ -36,6 +37,8 @@ class LaporanPendapatanPage extends Component
 
     public function mount()
     {
+        $this->authorizeAccess('/laporan/pendapatan');
+
         $this->selectedDate = date('Y-m-d');
         $this->selectedBulan = (int) date('n');
         $this->selectedTahun = (int) date('Y');

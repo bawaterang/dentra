@@ -10,9 +10,23 @@ use Livewire\Attributes\Computed;
 use Livewire\Component;
 use Livewire\WithPagination;
 
+use App\Traits\HasAccessControl;
+
 class LaporanKunjunganPage extends Component
 {
-    use WithPagination, \App\Traits\HasPatientHistory;
+    use WithPagination, \App\Traits\HasPatientHistory, HasAccessControl;
+
+    public function mount()
+    {
+        $this->authorizeAccess('/laporan/kunjungan');
+        
+        $this->selectedDate = date('Y-m-d');
+        $this->selectedBulan = (int) date('n');
+        $this->selectedTahun = (int) date('Y');
+        $this->loadAvailableYears();
+        $this->loadDokterList();
+        $this->loadListBulan();
+    }
 
     public $periodType = 'DAILY'; // DAILY, MONTHLY, YEARLY
 
@@ -41,16 +55,6 @@ class LaporanKunjunganPage extends Component
     ];
 
     protected $queryString = ['periodType', 'selectedDate', 'selectedBulan', 'selectedTahun', 'selectedDokter', 'search'];
-
-    public function mount()
-    {
-        $this->selectedDate = date('Y-m-d');
-        $this->selectedBulan = (int) date('n');
-        $this->selectedTahun = (int) date('Y');
-        $this->loadAvailableYears();
-        $this->loadDokterList();
-        $this->loadListBulan();
-    }
 
     public function loadListBulan()
     {
