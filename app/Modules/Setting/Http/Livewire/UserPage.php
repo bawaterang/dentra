@@ -363,39 +363,39 @@ class UserPage extends Component
             </div>
 
             <!-- Stats Cards -->
-            <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 mb-6">
-                <div class="card shadow-sm hover:shadow-md transition-all duration-300" style="border-top: 3px solid #405189;">
-                    <div class="flex items-center p-5 gap-4">
-                        <div class="flex h-12 w-12 items-center justify-center rounded-lg bg-indigo-50 text-[#405189] shrink-0">
-                            <i class="ri-team-line text-xl"></i>
+            <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 mb-8">
+                <div class="group relative overflow-hidden bg-white rounded-2xl p-5 shadow-sm hover:shadow-xl transition-all duration-500 border-l-4 border-[#405189]">
+                    <div class="flex items-center gap-4">
+                        <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-50 text-[#405189] group-hover:bg-indigo-500 group-hover:text-white transition-all duration-300 shadow-inner">
+                            <i class="ri-team-line text-2xl"></i>
                         </div>
                         <div>
-                            <p class="mb-1 text-[#878a99] font-medium text-xs uppercase tracking-wider">Total User</p>
-                            <h4 class="mb-0 font-bold text-2xl text-[#495057]">{{ number_format($totalUsers) }}</h4>
+                            <p class="text-[#878a99] font-bold text-[10px] uppercase tracking-[0.1em]">Total User</p>
+                            <h4 class="text-2xl font-black text-[#2c3e50] leading-none mt-1">{{ number_format($totalUsers) }}</h4>
                         </div>
                     </div>
                 </div>
 
-                <div class="card shadow-sm hover:shadow-md transition-all duration-300" style="border-top: 3px solid #0ab39c;">
-                    <div class="flex items-center p-5 gap-4">
-                        <div class="flex h-12 w-12 items-center justify-center rounded-lg bg-emerald-50 text-emerald-500 shrink-0">
-                            <i class="ri-user-follow-line text-xl"></i>
+                <div class="group relative overflow-hidden bg-white rounded-2xl p-5 shadow-sm hover:shadow-xl transition-all duration-500 border-l-4 border-[#0ab39c]">
+                    <div class="flex items-center gap-4">
+                        <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-50 text-[#0ab39c] group-hover:bg-emerald-500 group-hover:text-white transition-all duration-300 shadow-inner">
+                            <i class="ri-user-follow-line text-2xl"></i>
                         </div>
                         <div>
-                            <p class="mb-1 text-[#878a99] font-medium text-xs uppercase tracking-wider">User Aktif</p>
-                            <h4 class="mb-0 font-bold text-2xl text-[#495057]">{{ number_format($activeUsers) }}</h4>
+                            <p class="text-[#878a99] font-bold text-[10px] uppercase tracking-[0.1em]">User Aktif</p>
+                            <h4 class="text-2xl font-black text-[#2c3e50] leading-none mt-1 text-[#0ab39c]">{{ number_format($activeUsers) }}</h4>
                         </div>
                     </div>
                 </div>
 
-                <div class="card shadow-sm hover:shadow-md transition-all duration-300" style="border-top: 3px solid #f06548;">
-                    <div class="flex items-center p-5 gap-4">
-                        <div class="flex h-12 w-12 items-center justify-center rounded-lg bg-red-50 text-red-500 shrink-0">
-                            <i class="ri-user-unfollow-line text-xl"></i>
+                <div class="group relative overflow-hidden bg-white rounded-2xl p-5 shadow-sm hover:shadow-xl transition-all duration-500 border-l-4 border-[#f06548]">
+                    <div class="flex items-center gap-4">
+                        <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-red-50 text-[#f06548] group-hover:bg-red-500 group-hover:text-white transition-all duration-300 shadow-inner">
+                            <i class="ri-user-unfollow-line text-2xl"></i>
                         </div>
                         <div>
-                            <p class="mb-1 text-[#878a99] font-medium text-xs uppercase tracking-wider">User Tak Aktif</p>
-                            <h4 class="mb-0 font-bold text-2xl text-[#495057]">{{ number_format($inactiveUsers) }}</h4>
+                            <p class="text-[#878a99] font-bold text-[10px] uppercase tracking-[0.1em]">User Tak Aktif</p>
+                            <h4 class="text-2xl font-black text-[#2c3e50] leading-none mt-1 text-[#f06548]">{{ number_format($inactiveUsers) }}</h4>
                         </div>
                     </div>
                 </div>

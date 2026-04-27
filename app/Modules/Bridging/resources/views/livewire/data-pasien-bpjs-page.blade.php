@@ -13,16 +13,16 @@
         </div>
     </div>
 
-    <!-- Stats / Overview (Optional but looks premium) -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-        <div class="card shadow-sm rounded-xl p-4 bg-gradient-to-br from-blue-50 to-white border-l-4 border-blue-500" style="border-top: 3px solid #405189;">
-            <div class="flex items-center gap-3">
-                <div class="h-10 w-10 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600">
-                    <i class="ri-group-line text-xl"></i>
+    <!-- Stats / Overview -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6 mb-8">
+        <div class="group relative overflow-hidden bg-white rounded-2xl p-5 shadow-sm hover:shadow-xl transition-all duration-500 border-l-4 border-[#405189]">
+            <div class="flex items-center gap-4">
+                <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-50 text-[#405189] group-hover:bg-indigo-500 group-hover:text-white transition-all duration-300 shadow-inner">
+                    <i class="ri-group-line text-2xl"></i>
                 </div>
                 <div>
-                    <p class="text-xs font-bold text-gray-500 uppercase tracking-tight">Total Pasien Lokal</p>
-                    <h3 class="text-xl font-black text-gray-800">{{ \App\Models\TrxPasienBpjs::count() }}</h3>
+                    <p class="text-[#878a99] font-bold text-[10px] uppercase tracking-[0.1em]">Total Pasien Lokal</p>
+                    <h4 class="text-2xl font-black text-[#2c3e50] leading-none mt-1">{{ number_format(\App\Models\TrxPasienBpjs::count()) }}</h4>
                 </div>
             </div>
         </div>

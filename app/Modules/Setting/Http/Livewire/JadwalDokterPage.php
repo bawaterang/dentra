@@ -277,23 +277,38 @@ class JadwalDokterPage extends Component
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 gap-5 sm:grid-cols-3 mb-6">
-                <div class="card shadow-sm hover:shadow-md transition-all duration-300" style="border-top: 3px solid #405189;">
-                    <div class="flex items-center p-5 gap-4">
-                        <div class="flex h-12 w-12 items-center justify-center rounded-lg bg-info-subtle text-info"><i class="ri-calendar-todo-line text-xl"></i></div>
-                        <div><p class="mb-1 text-[#878a99] font-medium text-xs uppercase tracking-wider">Total Jadwal</p><h4 class="mb-0 font-bold text-2xl text-[#495057]">{{ number_format($totalJadwal) }}</h4></div>
+            <div class="grid grid-cols-1 gap-6 sm:grid-cols-3 mb-8">
+                <div class="group relative overflow-hidden bg-white rounded-2xl p-5 shadow-sm hover:shadow-xl transition-all duration-500 border-l-4 border-[#405189]">
+                    <div class="flex items-center gap-4">
+                        <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-50 text-[#405189] group-hover:bg-indigo-500 group-hover:text-white transition-all duration-300 shadow-inner">
+                            <i class="ri-calendar-todo-line text-2xl"></i>
+                        </div>
+                        <div>
+                            <p class="text-[#878a99] font-bold text-[10px] uppercase tracking-[0.1em]">Total Jadwal</p>
+                            <h4 class="text-2xl font-black text-[#2c3e50] leading-none mt-1">{{ number_format($totalJadwal) }}</h4>
+                        </div>
                     </div>
                 </div>
-                <div class="card shadow-sm hover:shadow-md transition-all duration-300" style="border-top: 3px solid #0ab39c;">
-                    <div class="flex items-center p-5 gap-4">
-                        <div class="flex h-12 w-12 items-center justify-center rounded-lg bg-success-subtle text-success"><i class="ri-checkbox-circle-line text-xl"></i></div>
-                        <div><p class="mb-1 text-[#878a99] font-medium text-xs uppercase tracking-wider">Jadwal Aktif Terjadwal</p><h4 class="mb-0 font-bold text-2xl text-[#495057]">{{ number_format($totalAktif) }}</h4></div>
+                <div class="group relative overflow-hidden bg-white rounded-2xl p-5 shadow-sm hover:shadow-xl transition-all duration-500 border-l-4 border-[#0ab39c]">
+                    <div class="flex items-center gap-4">
+                        <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-50 text-[#0ab39c] group-hover:bg-emerald-500 group-hover:text-white transition-all duration-300 shadow-inner">
+                            <i class="ri-checkbox-circle-line text-2xl"></i>
+                        </div>
+                        <div>
+                            <p class="text-[#878a99] font-bold text-[10px] uppercase tracking-[0.1em]">Jadwal Aktif Terjadwal</p>
+                            <h4 class="text-2xl font-black text-[#2c3e50] leading-none mt-1 text-[#0ab39c]">{{ number_format($totalAktif) }}</h4>
+                        </div>
                     </div>
                 </div>
-                <div class="card shadow-sm hover:shadow-md transition-all duration-300" style="border-top: 3px solid #f7b84b;">
-                    <div class="flex items-center p-5 gap-4">
-                        <div class="flex h-12 w-12 items-center justify-center rounded-lg bg-warning-subtle text-warning"><i class="ri-alarm-warning-line text-xl"></i></div>
-                        <div><p class="mb-1 text-[#878a99] font-medium text-xs uppercase tracking-wider">Jadwal Cuti/Libur</p><h4 class="mb-0 font-bold text-2xl text-[#495057]">{{ number_format($totalLiburCuti) }}</h4></div>
+                <div class="group relative overflow-hidden bg-white rounded-2xl p-5 shadow-sm hover:shadow-xl transition-all duration-500 border-l-4 border-[#f7b84b]">
+                    <div class="flex items-center gap-4">
+                        <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-50 text-[#f7b84b] group-hover:bg-amber-500 group-hover:text-white transition-all duration-300 shadow-inner">
+                            <i class="ri-alarm-warning-line text-2xl"></i>
+                        </div>
+                        <div>
+                            <p class="text-[#878a99] font-bold text-[10px] uppercase tracking-[0.1em]">Jadwal Cuti/Libur</p>
+                            <h4 class="text-2xl font-black text-[#2c3e50] leading-none mt-1 text-[#f7b84b]">{{ number_format($totalLiburCuti) }}</h4>
+                        </div>
                     </div>
                 </div>
             </div>
