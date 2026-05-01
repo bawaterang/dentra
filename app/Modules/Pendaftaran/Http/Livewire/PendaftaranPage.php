@@ -19,6 +19,7 @@ class PendaftaranPage extends Component
     public $terdaftar = 0;
     public $menungguScreening = 0;
     public $selesai = 0;
+    public $viewMode = 'table'; // table or grid
 
     // Edit Pendaftaran
     public $showEditModal = false;
@@ -162,6 +163,45 @@ class PendaftaranPage extends Component
         }
 
         return $query->orderBy('created_at', 'desc')->paginate(25);
+    }
+
+    #[Computed]
+    public function groupedPendaftaranList()
+    {
+        $query = TrxPendaftaran::with(['pasien', 'poli', 'dokter', 'asuransi', 'antrian'])
+            ->whereDate('created_at', $this->selectedDate);
+
+        if ($this->selectedStatus !== 'all') {
+            if ($this->selectedStatus === 'menunggu_screening') {
+                $query->whereIn('status', ['terdaftar', 'menunggu_screening']);
+            } else {
+                $query->where('status', $this->selectedStatus);
+            }
+        }
+
+        if ($this->search) {
+            $query->where(function($q) {
+                $q->where('nomor_kunjungan', 'like', '%' . $this->search . '%')
+                  ->orWhereHas('pasien', function($qp) {
+                      $qp->where('nama_pasien', 'like', '%' . $this->search . '%')
+                        ->orWhere('no_rm', 'like', '%' . $this->search . '%');
+                  });
+            });
+        }
+
+        $allData = $query->orderBy('created_at', 'desc')->get();
+        
+        $grouped = [];
+        foreach($allData as $item) {
+            $slot = ($item->antrian && $item->antrian->time_slot) ? substr($item->antrian->time_slot, 0, 5) : 'Walk-in';
+            if (!isset($grouped[$slot])) {
+                $grouped[$slot] = [];
+            }
+            $grouped[$slot][] = $item;
+        }
+        
+        ksort($grouped);
+        return $grouped;
     }
 
     public function render()
@@ -334,11 +374,22 @@ class PendaftaranPage extends Component
                                 <li class="nav-item"><a class="nav-link {{ $selectedStatus === 'selesai' ? 'active active-pill-success' : '' }}" wire:click="setStatus('selesai')" role="button"><i class="ri-check-double-line"></i><span>Selesai</span></a></li>
                             </ul></div>
 
-                            <div class="relative flex-grow max-w-[320px]">
-                                <i class="ri-search-2-line absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg"></i>
-                                <input type="text" wire:model.live.debounce.300ms="search" class="w-full bg-gray-50 border border-gray-200 rounded-2xl py-2 pl-11 pr-4 text-sm font-medium outline-none transition-all focus:border-[#405189] focus:ring-4 focus:ring-[#405189]/5 placeholder:text-gray-300" placeholder="Cari pasien atau kunjungan...">
+                            <div class="flex items-center gap-3 w-full lg:w-auto">
+                                <div class="bg-gray-100 p-1 rounded-xl flex items-center shrink-0">
+                                    <button wire:click="$set('viewMode', 'table')" class="w-9 h-8 flex items-center justify-center rounded-lg transition-all {{ $viewMode === 'table' ? 'bg-white shadow-sm text-[#405189]' : 'text-gray-500 hover:text-gray-700' }}" title="Tampilan Tabel">
+                                        <i class="ri-list-check"></i>
+                                    </button>
+                                    <button wire:click="$set('viewMode', 'grid')" class="w-9 h-8 flex items-center justify-center rounded-lg transition-all {{ $viewMode === 'grid' ? 'bg-white shadow-sm text-[#405189]' : 'text-gray-500 hover:text-gray-700' }}" title="Tampilan Grup Waktu">
+                                        <i class="ri-grid-fill"></i>
+                                    </button>
+                                </div>
+                                <div class="relative flex-grow max-w-[320px] lg:w-80">
+                                    <i class="ri-search-2-line absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg"></i>
+                                    <input type="text" wire:model.live.debounce.300ms="search" class="w-full bg-gray-50 border border-gray-200 rounded-2xl py-2 pl-11 pr-4 text-sm font-medium outline-none transition-all focus:border-[#405189] focus:ring-4 focus:ring-[#405189]/5 placeholder:text-gray-300" placeholder="Cari pasien atau kunjungan...">
+                                </div>
                             </div>
                         </div></div>
+                        @if($viewMode === 'table')
                         <div class="card-body p-0"><div class="overflow-x-auto dark:bg-transparent">
                             <table class="w-full text-left border-collapse">
                                 <thead class="bg-gray-50/50">
@@ -423,6 +474,102 @@ class PendaftaranPage extends Component
                             </div>
                             @endif
                         </div></div>
+                        @else
+                        <div class="p-6 bg-gray-50/50 min-h-[400px]">
+                            @php $groupedData = $this->groupedPendaftaranList; @endphp
+                            
+                            @if(count($groupedData) === 0)
+                                <div class="flex flex-col items-center justify-center py-16">
+                                    <div class="w-20 h-20 bg-white shadow-sm rounded-full flex items-center justify-center mb-4">
+                                        <i class="ri-file-add-line text-4xl text-gray-300"></i>
+                                    </div>
+                                    <p class="text-base font-bold text-gray-500">Belum ada data pendaftaran</p>
+                                    <p class="text-xs text-gray-400 mt-1">Gunakan filter pencarian atau ubah tanggal.</p>
+                                </div>
+                            @else
+                                <div class="space-y-10">
+                                    @foreach($groupedData as $slot => $items)
+                                        <div>
+                                            <div class="flex items-center gap-4 mb-5">
+                                                <div class="h-9 px-5 rounded-full bg-white border-2 border-[#405189] text-[#405189] flex items-center justify-center font-bold text-sm shadow-sm">
+                                                    @if($slot === 'Walk-in')
+                                                        <i class="ri-walk-line mr-2 text-lg"></i> Walk-in (Tanpa Waktu)
+                                                    @else
+                                                        <i class="ri-time-line mr-2 text-lg"></i> {{ $slot }} WIB
+                                                    @endif
+                                                </div>
+                                                <div class="h-px bg-gray-200 flex-1"></div>
+                                                <div class="text-xs font-bold text-gray-400 uppercase tracking-widest bg-white px-3 py-1 rounded-md border border-gray-100 shadow-sm">{{ count($items) }} Pasien</div>
+                                            </div>
+                                            
+                                            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+                                                @foreach($items as $item)
+                                                     <div class="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm hover:shadow-lg transition-all duration-300 group relative overflow-hidden flex flex-col" style="{{ $item->dokter?->color ? 'background-color: ' . $item->dokter->color . '08;' : '' }}">
+                                                          @php 
+                                                             $sc = ['terdaftar'=>'bg-info-subtle text-info','menunggu_screening'=>'bg-warning-subtle text-amber-600','selesai'=>'bg-success-subtle text-emerald-600']; 
+                                                             $borderColors = ['terdaftar'=>'bg-info','menunggu_screening'=>'bg-amber-500','selesai'=>'bg-emerald-500'];
+                                                             $doctorColor = $item->dokter?->color ?? '#405189';
+                                                          @endphp
+                                                          <div class="absolute left-0 top-0 bottom-0 w-1.5" style="background-color: {{ $doctorColor }}"></div>
+                                                          
+                                                          <div class="flex justify-between items-start mb-3 pl-2">
+                                                               <div class="flex items-center gap-2">
+                                                                  <span class="font-mono font-bold text-[#405189] text-xs px-2 py-1 bg-[#405189]/5 rounded">{{ $item->nomor_kunjungan }}</span>
+                                                                  <span class="px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest bg-gray-100 text-gray-500 border border-gray-200">{{ $item->asuransi?->nama_asuransi ?? 'Umum' }}</span>
+                                                               </div>
+                                                               <span class="px-2.5 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1.5 {{ $sc[$item->status] ?? 'bg-secondary-subtle' }}">
+                                                                   <span class="h-1.5 w-1.5 rounded-full {{ str_contains($borderColors[$item->status] ?? '', '#405189') ? 'bg-current animate-ping' : 'bg-current' }}"></span>
+                                                                   {{ ucfirst(str_replace('_',' ',$item->status)) }}
+                                                               </span>
+                                                          </div>
+                                                          <div class="mb-4 pl-2 flex-grow">
+                                                               <h5 class="text-base font-black text-[#2c3e50] mb-1 leading-tight">{{ $item->pasien?->nama_pasien ?? '-' }}</h5>
+                                                               <div class="text-[11px] font-mono text-gray-400">RM: {{ $item->pasien?->no_rm }}</div>
+                                                          </div>
+                                                          
+                                                          <div class="pt-3 border-t border-gray-50 pl-2">
+                                                               <div class="flex items-center gap-3">
+                                                                   <div class="h-8 w-8 rounded-full flex items-center justify-center shrink-0" style="background-color: {{ $doctorColor }}15; color: {{ $doctorColor }}">
+                                                                       <i class="ri-stethoscope-line text-lg"></i>
+                                                                   </div>
+                                                                   <div>
+                                                                       <p class="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{{ $item->poli?->nama_poli ?? '-' }}</p>
+                                                                       <p class="text-xs font-semibold" style="color: {{ $doctorColor }}">{{ $item->dokter?->nama_dokter ?? '-' }}</p>
+                                                                   </div>
+                                                               </div>
+                                                          </div>
+                                                          
+                                                          <!-- Hover Actions Overlay -->
+                                                          <div class="absolute inset-0 bg-white rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-2 z-10">
+                                                              <button wire:click="editPendaftaran({{ $item->id }})" class="w-10 h-10 rounded-full flex items-center justify-center bg-orange-50 text-orange-500 hover:bg-orange-500 hover:text-white hover:-translate-y-1 transition-all shadow-sm" title="Edit"><i class="ri-edit-line text-lg"></i></button>
+                                                              <a href="{{ URL::signedRoute('pendaftaran.print', ['id' => $item->id]) }}" target="_blank" class="w-10 h-10 rounded-full flex items-center justify-center bg-indigo-50 text-[#405189] hover:bg-[#405189] hover:text-white hover:-translate-y-1 transition-all shadow-sm" title="Cetak"><i class="ri-printer-line text-lg"></i></a>
+                                                              <button @click="
+                                                                    Swal.fire({
+                                                                        title: 'Konfirmasi',
+                                                                        text: 'Apakah Anda yakin ingin membatalkan pendaftaran pasien ini?',
+                                                                        icon: 'warning',
+                                                                        showCancelButton: true,
+                                                                        confirmButtonColor: '#f06548',
+                                                                        cancelButtonColor: '#6c757d',
+                                                                        confirmButtonText: 'Ya, Batalkan!',
+                                                                        cancelButtonText: 'Kembali',
+                                                                        reverseButtons: true
+                                                                    }).then((result) => {
+                                                                        if (result.isConfirmed) {
+                                                                            $wire.deletePendaftaran({{ $item->id }})
+                                                                        }
+                                                                    })
+                                                                " class="w-10 h-10 rounded-full flex items-center justify-center bg-rose-50 text-rose-500 hover:bg-rose-500 hover:text-white hover:-translate-y-1 transition-all shadow-sm" title="Batal/Hapus"><i class="ri-delete-bin-line text-lg"></i></button>
+                                                         </div>
+                                                    </div>
+                                                @endforeach
+                                            </div>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            @endif
+                        </div>
+                        @endif
                     </div>
                 </div>
             </div>
