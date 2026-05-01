@@ -6,12 +6,12 @@
     <style>
         body { font-family: 'Helvetica', sans-serif; font-size: 9pt; color: #333; margin: 0; padding: 10px; }
         .kop-surat { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #333; padding-bottom: 10px; position: relative; }
-        .kop-surat h1 { margin: 0; font-size: 18pt; text-transform: uppercase; color: #1a202c; letter-spacing: 1px; }
-        .kop-surat p { margin: 2px 0; font-size: 9pt; color: #4a5568; }
-        .kop-surat .info { margin-top: 5px; font-style: italic; }
+        .kop-surat h1 { margin: 0; font-size: 14pt; text-transform: uppercase; color: #1a202c; letter-spacing: 1px; }
+        .kop-surat p { margin: 1px 0; font-size: 8pt; color: #4a5568; }
+        .kop-surat .info { margin-top: 3px; font-style: italic; font-size: 7.5pt; }
         
         .logo-container { margin-bottom: 5px; }
-        .logo { height: 60px; }
+        .logo { height: 40px; }
 
         .content { margin-top: 20px; }
         

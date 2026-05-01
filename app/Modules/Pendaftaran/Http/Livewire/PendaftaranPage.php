@@ -394,7 +394,7 @@ class PendaftaranPage extends Component
                             <table class="w-full text-left border-collapse">
                                 <thead class="bg-gray-50/50">
                                     <tr>
-                                        <th class="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-50">No Kunjungan</th>
+                                        <th class="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-50 text-center">No Kunjungan</th>
                                         <th class="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-50">Pasien</th>
                                         <th class="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-50">Poli & Dokter</th>
                                         <th class="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-50">Asuransi</th>
@@ -405,7 +405,14 @@ class PendaftaranPage extends Component
                                 <tbody class="divide-y divide-gray-50">
                                     @forelse($this->pendaftaranList as $item)
                                     <tr wire:key="daftar-{{ $item->id }}" class="custom-row transition-all duration-200">
-                                        <td class="px-6 py-4 whitespace-nowrap"><span class="font-mono font-bold text-[#405189] text-xs px-2 py-1 bg-[#405189]/5 rounded">{{ $item->nomor_kunjungan }}</span></td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-center">
+                                            <span class="font-mono font-bold text-[#405189] text-xs px-2 py-1 bg-[#405189]/5 rounded">{{ $item->nomor_kunjungan }}</span>
+                                            @if($item->antrian && $item->antrian->time_slot)
+                                                <div class="text-[10px] text-emerald-600 font-bold mt-1.5 flex items-center justify-center gap-1">
+                                                    <i class="ri-time-line"></i> Jam: {{ substr($item->antrian->time_slot, 0, 5) }} WIB
+                                                </div>
+                                            @endif
+                                        </td>
                                         <td class="px-6 py-4 whitespace-nowrap">
                                             <div class="font-bold text-[#2c3e50] text-sm">{{ $item->pasien->nama_pasien ?? '-' }}</div>
                                             <span class="text-[11px] font-mono text-gray-400 mt-0.5 inline-block">{{ $item->pasien->no_rm ?? '' }}</span>
