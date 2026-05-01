@@ -23,7 +23,9 @@ class PendaftaranPage extends Component
 
     // Edit Pendaftaran
     public $showEditModal = false;
-    public $editPendaftaranId, $editPasienId;
+    public $editPendaftaranId, $editPasienId, $editAntrianId;
+    public $editTanggalAntrian, $editJenisAntrian, $editTimeSlot, $editModeAntrian;
+    public $editAvailableTimeSlots = [];
     public $editPoliId, $editDokterId, $editAsuransiId, $editNoKartuAsuransi;
     public $editKesadaran = '01', $editTd, $editNadi, $editSuhu, $editBb, $editTb, $editLp;
     public $editRiwayat, $editKodeAlergi, $editAlergi, $editKet;
@@ -38,6 +40,12 @@ class PendaftaranPage extends Component
         $this->selectedDate = now()->format('Y-m-d');
         $this->kesadaranList = \App\Models\MstKesadaran::all()->map(fn($k) => ['value' => $k->kdSadar, 'label' => $k->nmSadar, 'icon' => 'ri-checkbox-circle-line text-green-500'])->toArray();
         $this->alergiList = \App\Models\MstAlergi::all()->map(fn($a) => ['value' => $a->kdAlergi, 'label' => $a->nmAlergi, 'icon' => 'ri-bug-line text-red-500'])->toArray();
+        $setting = \App\Models\MstSettingAntrian::first();
+        if ($setting) {
+            $this->editModeAntrian = $setting->mode_antrian;
+        } else {
+            $this->editModeAntrian = 'Nomor Urut';
+        }
     }
 
     public function updatedSelectedDate() { $this->resetPage(); }
@@ -62,6 +70,19 @@ class PendaftaranPage extends Component
         $p = TrxPendaftaran::findOrFail($id);
         $this->editPendaftaranId = $p->id;
         $this->editPasienId = $p->pasien_id;
+        $this->editAntrianId = $p->antrian_id;
+        
+        $antrian = $p->antrian;
+        if ($antrian) {
+            $this->editTanggalAntrian = $antrian->tanggal_antrian;
+            $this->editJenisAntrian = $antrian->jenis_antrian ?? 'offline';
+            $this->editTimeSlot = $antrian->time_slot;
+        } else {
+            $this->editTanggalAntrian = now()->format('Y-m-d');
+            $this->editJenisAntrian = 'offline';
+            $this->editTimeSlot = null;
+        }
+
         $this->editPoliId = $p->poli_id;
         $this->editDokterId = $p->dokter_id;
         $this->editAsuransiId = $p->asuransi_id;
@@ -82,8 +103,63 @@ class PendaftaranPage extends Component
         $this->dokterList = \App\Models\MstDokter::where(fn($q) => $q->where('status', 'Aktif'))->get()->map(fn($d) => ['value' => $d->id, 'label' => $d->nama_dokter, 'icon' => 'ri-user-star-line text-purple-500'])->toArray();
         $this->asuransiList = \App\Models\MstAsuransi::where(fn($q) => $q->where('status', 'Aktif'))->get()->map(fn($a) => ['value' => $a->id, 'label' => $a->nama_asuransi, 'icon' => 'ri-shield-check-line text-green-500'])->toArray();
 
+        $this->loadEditAvailableSlots();
         $this->showEditModal = true;
         $this->dispatch('refresh-table');
+    }
+
+    public function updatedEditTanggalAntrian() { $this->loadEditAvailableSlots(); }
+    public function updatedEditPoliId() { $this->editDokterId = null; $this->editTimeSlot = null; $this->loadEditAvailableSlots(); }
+    public function updatedEditDokterId() { $this->editTimeSlot = null; $this->loadEditAvailableSlots(); }
+
+    public function loadEditAvailableSlots()
+    {
+        if ($this->editModeAntrian === 'Nomor Urut' || empty($this->editTanggalAntrian)) {
+            $this->editAvailableTimeSlots = [];
+            return;
+        }
+
+        $hariMap = ['Monday' => 'Senin', 'Tuesday' => 'Selasa', 'Wednesday' => 'Rabu', 'Thursday' => 'Kamis', 'Friday' => 'Jumat', 'Saturday' => 'Sabtu', 'Sunday' => 'Minggu'];
+        $hariNama = $hariMap[Carbon::parse($this->editTanggalAntrian)->format('l')];
+        
+        $query = \App\Models\TrxAntrian::whereDate('tanggal_antrian', $this->editTanggalAntrian)
+            ->where('status', '!=', 'batal')
+            ->whereNotNull('time_slot');
+
+        if ($this->editAntrianId) {
+            $query->where('id', '!=', $this->editAntrianId);
+        }
+
+        if ($this->editPoliId) {
+            $poli = \App\Models\MstPoli::find($this->editPoliId);
+            if ($poli) $query->where('kode_poli', $poli->kode_poli);
+        }
+        if ($this->editDokterId) {
+            $dokter = \App\Models\MstDokter::find($this->editDokterId);
+            if ($dokter) $query->where('kode_dokter', $dokter->kode_dokter);
+        }
+
+        $bookedSlotsShort = $query->pluck('time_slot')
+            ->map(function($t) { return substr($t, 0, 5); })
+            ->toArray();
+
+        $this->editAvailableTimeSlots = \App\Models\MstSettingAntrianDetail::where('hari', $hariNama)
+            ->orderBy('waktu')
+            ->get()
+            ->filter(function($slot) use ($bookedSlotsShort) {
+                return !in_array(substr($slot->waktu, 0, 5), $bookedSlotsShort);
+            })
+            ->map(function($slot) {
+                return [
+                    'value' => substr($slot->waktu, 0, 5) . ':00',
+                    'label' => substr($slot->waktu, 0, 5) . ' (' . $slot->nomor_urut . ')',
+                    'icon' => 'ri-time-line text-green-500'
+                ];
+            })->values()->toArray();
+            
+        if ($this->editTimeSlot && !in_array(substr($this->editTimeSlot, 0, 5).':00', array_column($this->editAvailableTimeSlots, 'value'))) {
+            $this->editTimeSlot = null;
+        }
     }
 
     public function updatePendaftaran()
@@ -111,6 +187,18 @@ class PendaftaranPage extends Component
             'alergi' => $this->editAlergi,
             'keterangan_lain' => $this->editKet,
         ]);
+
+        if ($p->antrian_id) {
+            $poli = \App\Models\MstPoli::find($this->editPoliId);
+            $dokter = \App\Models\MstDokter::find($this->editDokterId);
+            \App\Models\TrxAntrian::where('id', $p->antrian_id)->update([
+                'tanggal_antrian' => $this->editTanggalAntrian,
+                'jenis_antrian' => $this->editJenisAntrian,
+                'time_slot' => $this->editTimeSlot,
+                'kode_poli' => $poli ? $poli->kode_poli : null,
+                'kode_dokter' => $dokter ? $dokter->kode_dokter : null,
+            ]);
+        }
 
         $this->showEditModal = false;
         $this->dispatch('refresh-table');
@@ -607,26 +695,53 @@ class PendaftaranPage extends Component
                                         </div>
                                         
                                         <div class="bg-gray-50/50 p-6 rounded-2xl border border-gray-100 shadow-sm space-y-5">
-                                            <div>
-                                                <label class="block text-xs font-bold text-gray-500 ml-1 uppercase tracking-wider mb-1.5">Poli Tujuan <span class="text-red-500">*</span></label>
-                                                <x-custom-dropdown model="editPoliId" :options="$poliList" placeholder="Pilih Poli..." />
-                                            </div>
-                                            <div>
-                                                <label class="block text-xs font-bold text-gray-500 ml-1 uppercase tracking-wider mb-1.5">Dokter <span class="text-red-500">*</span></label>
-                                                <x-custom-dropdown model="editDokterId" :options="$dokterList" placeholder="Pilih Dokter..." />
-                                            </div>
-                                            <div>
-                                                <label class="block text-xs font-bold text-gray-500 ml-1 uppercase tracking-wider mb-1.5">Asuransi / Penjamin</label>
-                                                <x-custom-dropdown model="editAsuransiId" :options="$asuransiList" placeholder="Pilih Asuransi..." />
+                                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                <div><label class="block text-xs font-bold text-gray-500 ml-1 uppercase tracking-wider mb-1.5">Tanggal Kunjungan <span class="text-red-500">*</span></label><input type="date" wire:model.live="editTanggalAntrian" class="w-full rounded-lg border-gray-200 text-sm px-4 h-[42px] focus:border-[#405189] transition-all"></div>
+                                                <div>
+                                                    <label class="block text-xs font-bold text-gray-500 ml-1 uppercase tracking-wider mb-1.5">Jenis Kunjungan</label>
+                                                    <x-custom-dropdown model="editJenisAntrian" :options="[
+                                                        ['value' => 'offline', 'label' => 'Offline (Datang Langsung)', 'icon' => 'ri-walk-line text-blue-500'],
+                                                        ['value' => 'online', 'label' => 'Online (Booking)', 'icon' => 'ri-global-line text-green-500'],
+                                                        ['value' => 'mobile_jkn', 'label' => 'Mobile JKN', 'icon' => 'ri-smartphone-line text-purple-500']
+                                                    ]" placeholder="Pilih Jenis" />
+                                                </div>
                                             </div>
                                             
-                                            <div class="space-y-1.5">
-                                                <label class="block text-xs font-bold text-gray-500 ml-1 uppercase tracking-wider">No Kartu Asuransi</label>
-                                                <div class="relative group">
-                                                    <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none group-focus-within:text-[#405189] transition-colors text-gray-400">
-                                                        <i class="ri-id-card-line"></i>
+                                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                <div>
+                                                    <label class="block text-xs font-bold text-gray-500 ml-1 uppercase tracking-wider mb-1.5">Poli Tujuan <span class="text-red-500">*</span></label>
+                                                    <x-custom-dropdown model="editPoliId" :options="$poliList" placeholder="Pilih Poli..." live="true" />
+                                                </div>
+                                                <div>
+                                                    <label class="block text-xs font-bold text-gray-500 ml-1 uppercase tracking-wider mb-1.5">Dokter <span class="text-red-500">*</span></label>
+                                                    <x-custom-dropdown model="editDokterId" :options="$dokterList" placeholder="Pilih Dokter..." live="true" />
+                                                </div>
+                                            </div>
+
+                                            @if($editModeAntrian !== 'Nomor Urut')
+                                            <div class="p-4 bg-blue-50 border border-blue-100 rounded-lg">
+                                                <label class="block text-xs font-bold text-[#405189] mb-2">Slot Waktu Periksa <span class="text-red-500">*</span></label>
+                                                @if(count($editAvailableTimeSlots) > 0)
+                                                    <x-custom-dropdown model="editTimeSlot" :options="$editAvailableTimeSlots" placeholder="Pilih Slot Waktu..." />
+                                                @else
+                                                    <div class="text-xs text-orange-600 font-bold flex items-center gap-2"><i class="ri-error-warning-line"></i> Tidak ada slot waktu tersedia.</div>
+                                                @endif
+                                            </div>
+                                            @endif
+                                            
+                                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                <div>
+                                                    <label class="block text-xs font-bold text-gray-500 ml-1 uppercase tracking-wider mb-1.5">Asuransi / Penjamin</label>
+                                                    <x-custom-dropdown model="editAsuransiId" :options="$asuransiList" placeholder="Pilih Asuransi..." />
+                                                </div>
+                                                <div class="space-y-1.5">
+                                                    <label class="block text-xs font-bold text-gray-500 ml-1 uppercase tracking-wider">No Kartu Asuransi</label>
+                                                    <div class="relative group">
+                                                        <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none group-focus-within:text-[#405189] transition-colors text-gray-400">
+                                                            <i class="ri-id-card-line"></i>
+                                                        </div>
+                                                        <input type="text" wire:model="editNoKartuAsuransi" wire:key="edit-nokartu" class="block w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm transition-all focus:ring-4 focus:ring-[#405189]/10 focus:border-[#405189]" placeholder="Masukkan nomor kartu...">
                                                     </div>
-                                                    <input type="text" wire:model="editNoKartuAsuransi" wire:key="edit-nokartu" class="block w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm transition-all focus:ring-4 focus:ring-[#405189]/10 focus:border-[#405189]" placeholder="Masukkan nomor kartu...">
                                                 </div>
                                             </div>
                                         </div>

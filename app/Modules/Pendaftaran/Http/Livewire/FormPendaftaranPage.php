@@ -21,6 +21,12 @@ class FormPendaftaranPage extends Component
 
     // From antrian
     public $antrian_id, $pasien_id;
+    
+    // Antrian specific fields
+    public $tanggal_antrian, $jenis_antrian = 'offline';
+    public $time_slot;
+    public $mode_antrian = 'Nomor Urut';
+    public $availableTimeSlots = [];
 
     // Pasien lama search
     public $searchPasien = '';
@@ -65,6 +71,11 @@ class FormPendaftaranPage extends Component
             $this->modePasien = 'baru';
         }
 
+        $setting = \App\Models\MstSettingAntrian::first();
+        if ($setting) {
+            $this->mode_antrian = $setting->mode_antrian;
+        }
+
         if ($this->antrian_id) {
             $antrian = TrxAntrian::find($this->antrian_id);
             if ($antrian) {
@@ -82,6 +93,9 @@ class FormPendaftaranPage extends Component
                     if ($asuransi) $this->asuransi_id = $asuransi->id;
                 }
                 $this->no_kartu_asuransi = $antrian->no_asuransi;
+                $this->tanggal_antrian = $antrian->tanggal_antrian;
+                $this->jenis_antrian = $antrian->jenis_antrian ?? 'offline';
+                $this->time_slot = $antrian->time_slot;
                 
                 if (!$this->pasien_id) {
                     $this->nama_pasien = $antrian->nama_pasien_input_manual;
@@ -89,7 +103,10 @@ class FormPendaftaranPage extends Component
                     $this->no_telepon = $antrian->no_telepon_manual;
                 }
             }
+        } else {
+            $this->tanggal_antrian = now()->format('Y-m-d');
         }
+        $this->loadAvailableSlots();
     }
 
     public function updatedSearchPasien()
@@ -131,6 +148,65 @@ class FormPendaftaranPage extends Component
     public function updatedPoliId()
     {
         $this->dokter_id = null;
+        $this->time_slot = null;
+        $this->loadAvailableSlots();
+    }
+
+    public function updatedDokterId()
+    {
+        $this->time_slot = null;
+        $this->loadAvailableSlots();
+    }
+
+    public function updatedTanggalAntrian()
+    {
+        $this->loadAvailableSlots();
+    }
+
+    public function loadAvailableSlots()
+    {
+        if ($this->mode_antrian === 'Nomor Urut' || empty($this->tanggal_antrian)) {
+            $this->availableTimeSlots = [];
+            return;
+        }
+
+        $hariMap = ['Monday' => 'Senin', 'Tuesday' => 'Selasa', 'Wednesday' => 'Rabu', 'Thursday' => 'Kamis', 'Friday' => 'Jumat', 'Saturday' => 'Sabtu', 'Sunday' => 'Minggu'];
+        $hariNama = $hariMap[\Carbon\Carbon::parse($this->tanggal_antrian)->format('l')];
+        
+        $query = TrxAntrian::whereDate('tanggal_antrian', $this->tanggal_antrian)
+            ->where('status', '!=', 'batal')
+            ->whereNotNull('time_slot');
+
+        if ($this->poli_id) {
+            $poli = MstPoli::find($this->poli_id);
+            if ($poli) $query->where('kode_poli', $poli->kode_poli);
+        }
+        if ($this->dokter_id) {
+            $dokter = MstDokter::find($this->dokter_id);
+            if ($dokter) $query->where('kode_dokter', $dokter->kode_dokter);
+        }
+
+        $bookedSlotsShort = $query->pluck('time_slot')
+            ->map(function($t) { return substr($t, 0, 5); })
+            ->toArray();
+
+        $this->availableTimeSlots = \App\Models\MstSettingAntrianDetail::where('hari', $hariNama)
+            ->orderBy('waktu')
+            ->get()
+            ->filter(function($slot) use ($bookedSlotsShort) {
+                return !in_array(substr($slot->waktu, 0, 5), $bookedSlotsShort);
+            })
+            ->map(function($slot) {
+                return [
+                    'value' => substr($slot->waktu, 0, 5) . ':00',
+                    'label' => substr($slot->waktu, 0, 5) . ' (' . $slot->nomor_urut . ')',
+                    'icon' => 'ri-time-line text-green-500'
+                ];
+            })->values()->toArray();
+            
+        if ($this->time_slot && !in_array(substr($this->time_slot, 0, 5).':00', array_column($this->availableTimeSlots, 'value'))) {
+            $this->time_slot = null;
+        }
     }
 
     public function editPasien()
@@ -276,6 +352,57 @@ class FormPendaftaranPage extends Component
             // Generate nomor kunjungan
             $nomorKunjungan = TrxPendaftaran::generateNomorKunjungan();
 
+            if (!$this->antrian_id) {
+                $poli = MstPoli::find($this->poli_id);
+                $dokter = MstDokter::find($this->dokter_id);
+                $asuransiModel = MstAsuransi::find($this->asuransi_id);
+                
+                $hariMap = ['Monday' => 'Senin', 'Tuesday' => 'Selasa', 'Wednesday' => 'Rabu', 'Thursday' => 'Kamis', 'Friday' => 'Jumat', 'Saturday' => 'Sabtu', 'Sunday' => 'Minggu'];
+                $hariNama = $hariMap[\Carbon\Carbon::parse($this->tanggal_antrian)->format('l')];
+
+                if ($this->mode_antrian !== 'Nomor Urut') {
+                    if (!$this->time_slot) {
+                        throw \Illuminate\Validation\ValidationException::withMessages(['time_slot' => 'Silakan pilih Slot Waktu.']);
+                    }
+                    $slotDetail = \App\Models\MstSettingAntrianDetail::where('hari', $hariNama)->where('waktu', 'like', substr($this->time_slot, 0, 5).'%')->first();
+                    $nomorAntrian = $slotDetail ? $slotDetail->nomor_urut : '001';
+                } else {
+                    $setting = \App\Models\MstSettingAntrian::first();
+                    $format = $setting ? ($setting->format_nomor_antrian ?? '[nomor]') : '[nomor]';
+                    $countToday = TrxAntrian::whereDate('tanggal_antrian', $this->tanggal_antrian)->count();
+                    $nextSequence = $countToday + 1;
+                    $base = 0; $len = 3; $prefix = '';
+                    if (preg_match('/(.*?)([0-9]+)$/', $format, $matches)) {
+                        $prefix = $matches[1]; $len = strlen($matches[2]); $base = intval($matches[2]);
+                    }
+                    $nomorAntrian = $prefix . str_pad($base + $nextSequence, $len, '0', STR_PAD_LEFT);
+                }
+
+                $antrian = TrxAntrian::create([
+                    'nomor_antrian' => $nomorAntrian,
+                    'tanggal_antrian' => $this->tanggal_antrian,
+                    'jenis_antrian' => $this->jenis_antrian,
+                    'pasien_id' => $this->pasien_id,
+                    'nama_pasien_input_manual' => $this->modePasien === 'baru' ? $this->nama_pasien : null,
+                    'no_telepon_manual' => $this->modePasien === 'baru' ? $this->no_telepon : null,
+                    'nik_manual' => $this->modePasien === 'baru' ? $this->nik : null,
+                    'kode_dokter' => $dokter ? $dokter->kode_dokter : null,
+                    'kode_poli' => $poli ? $poli->kode_poli : null,
+                    'asuransi' => $asuransiModel ? $asuransiModel->nama_asuransi : null,
+                    'no_asuransi' => $this->no_kartu_asuransi,
+                    'time_slot' => $this->time_slot,
+                    'status' => 'selesai',
+                ]);
+                $this->antrian_id = $antrian->id;
+            } else {
+                TrxAntrian::where('id', $this->antrian_id)->update([
+                    'tanggal_antrian' => $this->tanggal_antrian,
+                    'jenis_antrian' => $this->jenis_antrian,
+                    'time_slot' => $this->time_slot,
+                    'status' => 'selesai'
+                ]);
+            }
+
             $pendaftaran = TrxPendaftaran::create([
                 'nomor_kunjungan' => $nomorKunjungan,
                 'antrian_id' => $this->antrian_id,
@@ -306,11 +433,6 @@ class FormPendaftaranPage extends Component
                 if (!empty($updateData)) {
                     MstPasien::where('id', $this->pasien_id)->update($updateData);
                 }
-            }
-
-            // Update status antrian
-            if ($this->antrian_id) {
-                TrxAntrian::where('id', $this->antrian_id)->update(['status' => 'selesai']);
             }
 
             $this->dispatch('alert', [
@@ -473,7 +595,19 @@ class FormPendaftaranPage extends Component
                     <div class="px-6 py-4 border-b border-gray-100 bg-[#f3f6f9]/50"><h6 class="text-sm font-bold text-[#0ab39c]"><i class="ri-hospital-line mr-2"></i>Informasi Kunjungan</h6></div>
                     <div class="p-6 space-y-4">
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div><label class="block text-xs font-semibold text-gray-500 mb-1">Poli <span class="text-red-500">*</span></label><x-custom-dropdown model="poli_id" :options="$poliList" placeholder="Pilih Poli" searchable="true" live="true" />@error('poli_id')<span class="text-[11px] text-red-500 italic">{{ $message }}</span>@enderror</div>
+                            <div><label class="block text-xs font-semibold text-gray-500 mb-1">Tanggal Kunjungan <span class="text-red-500">*</span></label><input type="date" wire:model.live="tanggal_antrian" class="w-full rounded-lg border-gray-200 text-sm px-4 h-[42px] focus:border-[#405189] transition-all"></div>
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-500 mb-1">Jenis Kunjungan</label>
+                                <x-custom-dropdown model="jenis_antrian" :options="[
+                                    ['value' => 'offline', 'label' => 'Offline (Datang Langsung)', 'icon' => 'ri-walk-line text-blue-500'],
+                                    ['value' => 'online', 'label' => 'Online (Booking)', 'icon' => 'ri-global-line text-green-500'],
+                                    ['value' => 'mobile_jkn', 'label' => 'Mobile JKN', 'icon' => 'ri-smartphone-line text-purple-500']
+                                ]" placeholder="Pilih Jenis" />
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div><label class="block text-xs font-semibold text-gray-500 mb-1">Poli Tujuan <span class="text-red-500">*</span></label><x-custom-dropdown model="poli_id" :options="$poliList" placeholder="Pilih Poli" searchable="true" live="true" />@error('poli_id')<span class="text-[11px] text-red-500 italic">{{ $message }}</span>@enderror</div>
                             <div>
                                 <label class="block text-xs font-semibold text-gray-500 mb-1">Dokter <span class="text-red-500">*</span></label>
                                 <x-custom-dropdown model="dokter_id" :options="$dokterList" placeholder="{{ $poli_id && empty($dokterList) ? 'Tidak ada dokter di poli ini' : 'Pilih Dokter' }}" searchable="true" live="true" />
@@ -483,6 +617,19 @@ class FormPendaftaranPage extends Component
                                 @error('dokter_id')<span class="text-[11px] text-red-500 italic">{{ $message }}</span>@enderror
                             </div>
                         </div>
+
+                        @if($mode_antrian !== 'Nomor Urut')
+                        <div class="p-4 bg-blue-50 border border-blue-100 rounded-lg">
+                            <label class="block text-xs font-bold text-[#405189] mb-2">Slot Waktu Periksa <span class="text-red-500">*</span></label>
+                            @if(count($availableTimeSlots) > 0)
+                                <x-custom-dropdown model="time_slot" :options="$availableTimeSlots" placeholder="Pilih Slot Waktu..." searchable="true" :disabled="empty($dokter_id)" />
+                                @error('time_slot') <span class="text-[11px] text-red-500 mt-1 italic">{{ $message }}</span> @enderror
+                            @else
+                                <div class="text-xs text-orange-600 font-bold flex items-center gap-2"><i class="ri-error-warning-line"></i> Tidak ada slot waktu tersedia (Pastikan Poli & Dokter telah dipilih).</div>
+                            @endif
+                        </div>
+                        @endif
+
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div><label class="block text-xs font-semibold text-gray-500 mb-1">Asuransi</label><x-custom-dropdown model="asuransi_id" :options="$asuransiList" placeholder="Umum (tanpa asuransi)" searchable="true" /></div>
                             <div class="flex gap-2 items-end">
