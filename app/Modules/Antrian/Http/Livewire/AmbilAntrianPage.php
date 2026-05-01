@@ -223,8 +223,23 @@ class AmbilAntrianPage extends Component
                 }
                 
                 $nomorAntrian = $slotDetail->nomor_urut;
+
+                // Apply poli prefix to slot number
+                $poliRecord = MstPoli::where('kode_poli', $this->kode_poli)->first();
+                $poliPrefix = $poliRecord?->prefix_antrian;
+                if ($poliPrefix) {
+                    // Replace existing letter prefix (e.g. "A-001" → "B-001")
+                    $nomorAntrian = preg_replace('/^[a-zA-Z]+/', $poliPrefix, $nomorAntrian);
+                    // If no letter prefix existed, prepend it (e.g. "001" → "B-001")
+                    if (!preg_match('/^[a-zA-Z]/', $nomorAntrian)) {
+                        $nomorAntrian = $poliPrefix . '-' . $nomorAntrian;
+                    }
+                }
             } else {
-                $countToday = TrxAntrian::whereDate('tanggal_antrian', $this->tanggal_antrian)->count();
+                $countToday = TrxAntrian::whereDate('tanggal_antrian', $this->tanggal_antrian)
+                    ->where('kode_poli', $this->kode_poli)
+                    ->where('kode_dokter', $this->kode_dokter)
+                    ->count();
                 $nextSequence = $countToday + 1;
                 
                 $base = 0;
@@ -237,8 +252,20 @@ class AmbilAntrianPage extends Component
                     $base = intval($suffixTpl);
                 }
                 
+                // Prefix from Poli Master Data
+                $poliRecord = MstPoli::where('kode_poli', $this->kode_poli)->first();
+                $poliPrefix = $poliRecord?->prefix_antrian;
+
+                if ($poliPrefix) {
+                    $dynamicPrefix = $poliPrefix . '-';
+                } elseif (preg_match('/[a-zA-Z]/', $prefix)) {
+                    $dynamicPrefix = $prefix;
+                } else {
+                    $dynamicPrefix = $prefix;
+                }
+                
                 $nomorString = str_pad($base + $nextSequence, $len, '0', STR_PAD_LEFT);
-                $nomorAntrian = $prefix . $nomorString;
+                $nomorAntrian = $dynamicPrefix . $nomorString;
             }
 
             $antrian = TrxAntrian::create([

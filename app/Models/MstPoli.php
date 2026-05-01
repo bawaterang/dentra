@@ -16,6 +16,7 @@ class MstPoli extends Model
         'kode_poli',
         'nama_poli',
         'poli_bpjs_id',
+        'prefix_antrian',
         'status',
     ];
 

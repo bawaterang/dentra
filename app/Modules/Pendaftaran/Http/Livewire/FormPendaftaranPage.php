@@ -11,6 +11,10 @@ use App\Models\MstDokter;
 use App\Models\MstAsuransi;
 use App\Models\MstSettingAntrianHari;
 use App\Models\MstSettingAntrianLibur;
+use App\Models\MstSettingAntrian;
+use App\Models\MstSettingAntrianDetail;
+use App\Models\MstKesadaran;
+use App\Models\MstAlergi;
 use App\Traits\DynamicKodeGenerator;
 
 class FormPendaftaranPage extends Component
@@ -21,7 +25,7 @@ class FormPendaftaranPage extends Component
 
     // From antrian
     public $antrian_id, $pasien_id;
-    
+
     // Antrian specific fields
     public $tanggal_antrian, $jenis_antrian = 'offline';
     public $time_slot;
@@ -71,7 +75,7 @@ class FormPendaftaranPage extends Component
             $this->modePasien = 'baru';
         }
 
-        $setting = \App\Models\MstSettingAntrian::first();
+        $setting = MstSettingAntrian::first();
         if ($setting) {
             $this->mode_antrian = $setting->mode_antrian;
         }
@@ -82,21 +86,24 @@ class FormPendaftaranPage extends Component
                 // Pre-fill from antrian data
                 if ($antrian->kode_poli) {
                     $poli = MstPoli::where('kode_poli', $antrian->kode_poli)->first();
-                    if ($poli) $this->poli_id = $poli->id;
+                    if ($poli)
+                        $this->poli_id = $poli->id;
                 }
                 if ($antrian->kode_dokter) {
                     $dokter = MstDokter::where('kode_dokter', $antrian->kode_dokter)->first();
-                    if ($dokter) $this->dokter_id = $dokter->id;
+                    if ($dokter)
+                        $this->dokter_id = $dokter->id;
                 }
                 if ($antrian->asuransi) {
                     $asuransi = MstAsuransi::where('nama_asuransi', $antrian->asuransi)->first();
-                    if ($asuransi) $this->asuransi_id = $asuransi->id;
+                    if ($asuransi)
+                        $this->asuransi_id = $asuransi->id;
                 }
                 $this->no_kartu_asuransi = $antrian->no_asuransi;
                 $this->tanggal_antrian = $antrian->tanggal_antrian;
                 $this->jenis_antrian = $antrian->jenis_antrian ?? 'offline';
                 $this->time_slot = $antrian->time_slot;
-                
+
                 if (!$this->pasien_id) {
                     $this->nama_pasien = $antrian->nama_pasien_input_manual;
                     $this->nik = $antrian->nik_manual;
@@ -115,9 +122,9 @@ class FormPendaftaranPage extends Component
             $this->pasienResults = MstPasien::where('status', 'Aktif')
                 ->where(function ($q) {
                     $q->where('nama_pasien', 'like', '%' . $this->searchPasien . '%')
-                      ->orWhere('nik', 'like', '%' . $this->searchPasien . '%')
-                      ->orWhere('no_rm', 'like', '%' . $this->searchPasien . '%')
-                      ->orWhere('no_telepon', 'like', '%' . $this->searchPasien . '%');
+                        ->orWhere('nik', 'like', '%' . $this->searchPasien . '%')
+                        ->orWhere('no_rm', 'like', '%' . $this->searchPasien . '%')
+                        ->orWhere('no_telepon', 'like', '%' . $this->searchPasien . '%');
                 })
                 ->limit(10)
                 ->get()
@@ -172,39 +179,42 @@ class FormPendaftaranPage extends Component
 
         $hariMap = ['Monday' => 'Senin', 'Tuesday' => 'Selasa', 'Wednesday' => 'Rabu', 'Thursday' => 'Kamis', 'Friday' => 'Jumat', 'Saturday' => 'Sabtu', 'Sunday' => 'Minggu'];
         $hariNama = $hariMap[\Carbon\Carbon::parse($this->tanggal_antrian)->format('l')];
-        
+
         $query = TrxAntrian::whereDate('tanggal_antrian', $this->tanggal_antrian)
             ->where('status', '!=', 'batal')
             ->whereNotNull('time_slot');
 
         if ($this->poli_id) {
             $poli = MstPoli::find($this->poli_id);
-            if ($poli) $query->where('kode_poli', $poli->kode_poli);
+            if ($poli)
+                $query->where('kode_poli', $poli->kode_poli);
         }
         if ($this->dokter_id) {
             $dokter = MstDokter::find($this->dokter_id);
-            if ($dokter) $query->where('kode_dokter', $dokter->kode_dokter);
+            if ($dokter)
+                $query->where('kode_dokter', $dokter->kode_dokter);
         }
 
         $bookedSlotsShort = $query->pluck('time_slot')
-            ->map(function($t) { return substr($t, 0, 5); })
+            ->map(function ($t) {
+                return substr($t, 0, 5); })
             ->toArray();
 
-        $this->availableTimeSlots = \App\Models\MstSettingAntrianDetail::where('hari', $hariNama)
+        $this->availableTimeSlots = MstSettingAntrianDetail::where('hari', $hariNama)
             ->orderBy('waktu')
             ->get()
-            ->filter(function($slot) use ($bookedSlotsShort) {
+            ->filter(function ($slot) use ($bookedSlotsShort) {
                 return !in_array(substr($slot->waktu, 0, 5), $bookedSlotsShort);
             })
-            ->map(function($slot) {
+            ->map(function ($slot) {
                 return [
                     'value' => substr($slot->waktu, 0, 5) . ':00',
                     'label' => substr($slot->waktu, 0, 5) . ' (' . $slot->nomor_urut . ')',
                     'icon' => 'ri-time-line text-green-500'
                 ];
             })->values()->toArray();
-            
-        if ($this->time_slot && !in_array(substr($this->time_slot, 0, 5).':00', array_column($this->availableTimeSlots, 'value'))) {
+
+        if ($this->time_slot && !in_array(substr($this->time_slot, 0, 5) . ':00', array_column($this->availableTimeSlots, 'value'))) {
             $this->time_slot = null;
         }
     }
@@ -232,7 +242,7 @@ class FormPendaftaranPage extends Component
             'nama_pasien' => 'required|string|max:100',
             'jenis_kelamin' => 'required|in:Laki-laki,Perempuan',
         ]);
-        
+
         $pasien = MstPasien::findOrFail($this->pasien_id);
         $pasien->update([
             'nama_pasien' => $this->nama_pasien,
@@ -246,7 +256,7 @@ class FormPendaftaranPage extends Component
             'nik' => $this->nik,
             'golongan_darah' => $this->golongan_darah,
         ]);
-        
+
         $this->selectedPasien = $pasien->fresh()->toArray();
         $this->showEditPasienModal = false;
         $this->dispatch('alert', ['type' => 'success', 'message' => 'Data pasien berhasil diperbarui.']);
@@ -255,154 +265,12 @@ class FormPendaftaranPage extends Component
     public function save()
     {
         try {
-            // Holiday Validation for Today
-            $now = now();
-            $hariMap = ['Monday' => 'Senin', 'Tuesday' => 'Selasa', 'Wednesday' => 'Rabu', 'Thursday' => 'Kamis', 'Friday' => 'Jumat', 'Saturday' => 'Sabtu', 'Sunday' => 'Minggu'];
-            $hariIni = $hariMap[$now->format('l')];
+            $this->validateHoliday();
+            $this->validateRegistration();
+            $this->handlePasienData();
+            $this->syncAntrianData();
 
-            // Check Specific Date Range
-            $liburKhusus = MstSettingAntrianLibur::where('tanggal_mulai', '<=', $now->format('Y-m-d'))
-                ->where('tanggal_selesai', '>=', $now->format('Y-m-d'))
-                ->first();
-            
-            if ($liburKhusus) {
-                $this->dispatch('alert', [
-                    'type' => 'warning',
-                    'message' => 'Pendaftaran gagal: Hari ini adalah Hari Libur (' . ($liburKhusus->keterangan ?? 'Nasional') . ').'
-                ]);
-                return;
-            }
-
-            // Check Weekly Holiday
-            $settingHari = MstSettingAntrianHari::where('hari', $hariIni)->first();
-            if ($settingHari && $settingHari->is_holiday) {
-                $this->dispatch('alert', [
-                    'type' => 'warning',
-                    'message' => "Pendaftaran gagal: Hari $hariIni klinik tidak beroperasi (Libur Mingguan)."
-                ]);
-                return;
-            }
-
-            // Validasi
-            $rules = [
-                'poli_id' => 'required|exists:mst_poli,id',
-                'dokter_id' => 'required|exists:mst_dokter,id',
-            ];
-
-            if ($this->modePasien === 'baru') {
-                $rules['nama_pasien'] = 'required|string|max:100';
-                $rules['jenis_kelamin'] = 'required|in:Laki-laki,Perempuan';
-            } else {
-                $rules['pasien_id'] = 'required|exists:mst_pasien,id';
-            }
-
-            $this->validate($rules);
-
-            // Duplicate Validation
-            $duplicateCheck = \App\Models\TrxPendaftaran::whereDate('created_at', now()->format('Y-m-d'))
-                ->where(fn($q) => $q->where('asuransi_id', $this->asuransi_id))
-                ->where(fn($q) => $q->where('status', '!=', 'batal'))
-                ->where(function($q) {
-                    if ($this->modePasien === 'lama' && $this->pasien_id) {
-                        $q->where('pasien_id', $this->pasien_id);
-                    } else {
-                        $q->whereHas('pasien', function($sq) {
-                            if ($this->nik) {
-                                $sq->where('nik', $this->nik);
-                            } else {
-                                $sq->where('nama_pasien', $this->nama_pasien);
-                            }
-                        });
-                    }
-                })
-                ->exists();
-
-            if ($duplicateCheck) {
-                throw \Illuminate\Validation\ValidationException::withMessages([
-                    'general' => 'Pasien ini sudah terdaftar dengan asuransi yang sama pada hari ini.'
-                ]);
-            }
-
-            // Simpan pasien baru jika perlu
-            if ($this->modePasien === 'baru') {
-                $noRm = $this->generateDynamicKode('mst_pasien', 'no_rm');
-                if (!$noRm) {
-                    $noRm = 'P00001';
-                }
-
-                $newPasien = MstPasien::create([
-                    'no_rm' => $noRm,
-                    'nama_pasien' => $this->nama_pasien,
-                    'jenis_kelamin' => $this->jenis_kelamin,
-                    'tempat_lahir' => $this->tempat_lahir,
-                    'tanggal_lahir' => $this->tanggal_lahir,
-                    'alamat' => $this->alamat,
-                    'no_telepon' => $this->no_telepon,
-                    'agama' => $this->agama,
-                    'pekerjaan' => $this->pekerjaan,
-                    'nik' => $this->nik,
-                    'golongan_darah' => $this->golongan_darah,
-                    'kode_alergi' => $this->kode_alergi,
-                    'alergi' => $this->alergi,
-                    'status' => 'Aktif',
-                ]);
-                $this->pasien_id = $newPasien->id;
-            }
-
-            // Generate nomor kunjungan
             $nomorKunjungan = TrxPendaftaran::generateNomorKunjungan();
-
-            if (!$this->antrian_id) {
-                $poli = MstPoli::find($this->poli_id);
-                $dokter = MstDokter::find($this->dokter_id);
-                $asuransiModel = MstAsuransi::find($this->asuransi_id);
-                
-                $hariMap = ['Monday' => 'Senin', 'Tuesday' => 'Selasa', 'Wednesday' => 'Rabu', 'Thursday' => 'Kamis', 'Friday' => 'Jumat', 'Saturday' => 'Sabtu', 'Sunday' => 'Minggu'];
-                $hariNama = $hariMap[\Carbon\Carbon::parse($this->tanggal_antrian)->format('l')];
-
-                if ($this->mode_antrian !== 'Nomor Urut') {
-                    if (!$this->time_slot) {
-                        throw \Illuminate\Validation\ValidationException::withMessages(['time_slot' => 'Silakan pilih Slot Waktu.']);
-                    }
-                    $slotDetail = \App\Models\MstSettingAntrianDetail::where('hari', $hariNama)->where('waktu', 'like', substr($this->time_slot, 0, 5).'%')->first();
-                    $nomorAntrian = $slotDetail ? $slotDetail->nomor_urut : '001';
-                } else {
-                    $setting = \App\Models\MstSettingAntrian::first();
-                    $format = $setting ? ($setting->format_nomor_antrian ?? '[nomor]') : '[nomor]';
-                    $countToday = TrxAntrian::whereDate('tanggal_antrian', $this->tanggal_antrian)->count();
-                    $nextSequence = $countToday + 1;
-                    $base = 0; $len = 3; $prefix = '';
-                    if (preg_match('/(.*?)([0-9]+)$/', $format, $matches)) {
-                        $prefix = $matches[1]; $len = strlen($matches[2]); $base = intval($matches[2]);
-                    }
-                    $nomorAntrian = $prefix . str_pad($base + $nextSequence, $len, '0', STR_PAD_LEFT);
-                }
-
-                $antrian = TrxAntrian::create([
-                    'nomor_antrian' => $nomorAntrian,
-                    'tanggal_antrian' => $this->tanggal_antrian,
-                    'jenis_antrian' => $this->jenis_antrian,
-                    'pasien_id' => $this->pasien_id,
-                    'nama_pasien_input_manual' => $this->modePasien === 'baru' ? $this->nama_pasien : null,
-                    'no_telepon_manual' => $this->modePasien === 'baru' ? $this->no_telepon : null,
-                    'nik_manual' => $this->modePasien === 'baru' ? $this->nik : null,
-                    'kode_dokter' => $dokter ? $dokter->kode_dokter : null,
-                    'kode_poli' => $poli ? $poli->kode_poli : null,
-                    'asuransi' => $asuransiModel ? $asuransiModel->nama_asuransi : null,
-                    'no_asuransi' => $this->no_kartu_asuransi,
-                    'time_slot' => $this->time_slot,
-                    'status' => 'selesai',
-                ]);
-                $this->antrian_id = $antrian->id;
-            } else {
-                TrxAntrian::where('id', $this->antrian_id)->update([
-                    'tanggal_antrian' => $this->tanggal_antrian,
-                    'jenis_antrian' => $this->jenis_antrian,
-                    'time_slot' => $this->time_slot,
-                    'status' => 'selesai'
-                ]);
-            }
-
             $pendaftaran = TrxPendaftaran::create([
                 'nomor_kunjungan' => $nomorKunjungan,
                 'antrian_id' => $this->antrian_id,
@@ -425,25 +293,175 @@ class FormPendaftaranPage extends Component
                 'status' => 'terdaftar',
             ]);
 
-            // Update alergi ke master pasien
             if ($this->pasien_id) {
                 $updateData = [];
                 if ($this->kode_alergi !== null) $updateData['kode_alergi'] = $this->kode_alergi;
                 if ($this->alergi !== null) $updateData['alergi'] = $this->alergi;
-                if (!empty($updateData)) {
-                    MstPasien::where('id', $this->pasien_id)->update($updateData);
-                }
+                if (!empty($updateData)) MstPasien::where('id', $this->pasien_id)->update($updateData);
             }
 
             $this->dispatch('alert', [
-                'type' => 'success', 
+                'type' => 'success',
                 'message' => 'Pendaftaran berhasil! No Kunjungan: ' . $nomorKunjungan,
                 'redirect' => route('pendaftaran.index')
             ]);
-
-        } catch (\Illuminate\Validation\ValidationException $e) { throw $e;
-        } catch (\Exception $e) { $this->dispatch('alert', ['type' => 'error', 'message' => 'Gagal: ' . $e->getMessage()]); }
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            throw $e;
+        } catch (\Exception $e) {
+            $this->dispatch('alert', ['type' => 'error', 'message' => 'Gagal: ' . $e->getMessage()]);
+        }
     }
+
+    protected function validateHoliday()
+    {
+        $now = now();
+        $hariMap = ['Monday' => 'Senin', 'Tuesday' => 'Selasa', 'Wednesday' => 'Rabu', 'Thursday' => 'Kamis', 'Friday' => 'Jumat', 'Saturday' => 'Sabtu', 'Sunday' => 'Minggu'];
+        $hariIni = $hariMap[$now->format('l')];
+
+        $liburKhusus = MstSettingAntrianLibur::where('tanggal_mulai', '<=', $now->format('Y-m-d'))
+            ->where('tanggal_selesai', '>=', $now->format('Y-m-d'))
+            ->first();
+        
+        if ($liburKhusus) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['general' => 'Hari ini adalah Hari Libur (' . ($liburKhusus->keterangan ?? 'Nasional') . ').']);
+        }
+
+        $settingHari = MstSettingAntrianHari::where('hari', $hariIni)->first();
+        if ($settingHari && $settingHari->is_holiday) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['general' => "Hari $hariIni klinik tidak beroperasi (Libur Mingguan)."]);
+        }
+    }
+
+    protected function validateRegistration()
+    {
+        $rules = [
+            'poli_id' => 'required|exists:mst_poli,id',
+            'dokter_id' => 'required|exists:mst_dokter,id',
+        ];
+
+        if ($this->modePasien === 'baru') {
+            $rules['nama_pasien'] = 'required|string|max:100';
+            $rules['jenis_kelamin'] = 'required|in:Laki-laki,Perempuan';
+        } else {
+            $rules['pasien_id'] = 'required|exists:mst_pasien,id';
+        }
+
+        $this->validate($rules);
+
+        $duplicateCheck = TrxPendaftaran::whereDate('created_at', now()->format('Y-m-d'))
+            ->where('asuransi_id', $this->asuransi_id)
+            ->where('status', '!=', 'batal')
+            ->where(function($q) {
+                if ($this->modePasien === 'lama' && $this->pasien_id) {
+                    $q->where('pasien_id', $this->pasien_id);
+                } else {
+                    $q->whereHas('pasien', function($sq) {
+                        if ($this->nik) $sq->where('nik', $this->nik);
+                        else $sq->where('nama_pasien', $this->nama_pasien);
+                    });
+                }
+            })->exists();
+
+        if ($duplicateCheck) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['general' => 'Pasien ini sudah terdaftar dengan asuransi yang sama pada hari ini.']);
+        }
+    }
+
+    protected function handlePasienData()
+    {
+        if ($this->modePasien === 'baru') {
+            $noRm = $this->generateDynamicKode('mst_pasien', 'no_rm') ?: 'P00001';
+            $newPasien = MstPasien::create([
+                'no_rm' => $noRm,
+                'nama_pasien' => $this->nama_pasien,
+                'jenis_kelamin' => $this->jenis_kelamin,
+                'tempat_lahir' => $this->tempat_lahir,
+                'tanggal_lahir' => $this->tanggal_lahir,
+                'alamat' => $this->alamat,
+                'no_telepon' => $this->no_telepon,
+                'agama' => $this->agama,
+                'pekerjaan' => $this->pekerjaan,
+                'nik' => $this->nik,
+                'golongan_darah' => $this->golongan_darah,
+                'kode_alergi' => $this->kode_alergi,
+                'alergi' => $this->alergi,
+                'status' => 'Aktif',
+            ]);
+            $this->pasien_id = $newPasien->id;
+        }
+    }
+
+    protected function syncAntrianData()
+    {
+        if (!$this->antrian_id) {
+            $poli = MstPoli::find($this->poli_id);
+            $dokter = MstDokter::find($this->dokter_id);
+            $asuransiModel = MstAsuransi::find($this->asuransi_id);
+            
+            $hariMap = ['Monday' => 'Senin', 'Tuesday' => 'Selasa', 'Wednesday' => 'Rabu', 'Thursday' => 'Kamis', 'Friday' => 'Jumat', 'Saturday' => 'Sabtu', 'Sunday' => 'Minggu'];
+            $hariNama = $hariMap[\Carbon\Carbon::parse($this->tanggal_antrian)->format('l')];
+
+            if ($this->mode_antrian !== 'Nomor Urut') {
+                if (!$this->time_slot) throw \Illuminate\Validation\ValidationException::withMessages(['time_slot' => 'Silakan pilih Slot Waktu.']);
+                $slotDetail = MstSettingAntrianDetail::where('hari', $hariNama)->where('waktu', 'like', substr($this->time_slot, 0, 5).'%')->first();
+                $nomorAntrian = $slotDetail ? $slotDetail->nomor_urut : '001';
+
+                // Apply poli prefix to slot number
+                $poliPrefix = $poli?->prefix_antrian;
+                if ($poliPrefix) {
+                    $nomorAntrian = preg_replace('/^[a-zA-Z]+/', $poliPrefix, $nomorAntrian);
+                    if (!preg_match('/^[a-zA-Z]/', $nomorAntrian)) {
+                        $nomorAntrian = $poliPrefix . '-' . $nomorAntrian;
+                    }
+                }
+            } else {
+                $setting = MstSettingAntrian::first();
+                $format = $setting ? ($setting->format_nomor_antrian ?? '[nomor]') : '[nomor]';
+                $countToday = TrxAntrian::whereDate('tanggal_antrian', $this->tanggal_antrian)
+                    ->where('kode_poli', $poli?->kode_poli)->where('kode_dokter', $dokter?->kode_dokter)->count();
+                
+                $prefix = ''; $len = 3; $base = 0;
+                if (preg_match('/(.*?)([0-9]+)$/', $format, $matches)) {
+                    $prefix = $matches[1]; $len = strlen($matches[2]); $base = intval($matches[2]);
+                }
+
+                // Prefix from Poli Master Data
+                $poliPrefix = $poli?->prefix_antrian;
+                if ($poliPrefix) {
+                    $dynamicPrefix = $poliPrefix . '-';
+                } else {
+                    $dynamicPrefix = $prefix;
+                }
+
+                $nomorAntrian = $dynamicPrefix . str_pad($base + $countToday + 1, $len, '0', STR_PAD_LEFT);
+            }
+
+            $antrian = TrxAntrian::create([
+                'nomor_antrian' => $nomorAntrian,
+                'tanggal_antrian' => $this->tanggal_antrian,
+                'jenis_antrian' => $this->jenis_antrian,
+                'pasien_id' => $this->pasien_id,
+                'nama_pasien_input_manual' => $this->modePasien === 'baru' ? $this->nama_pasien : null,
+                'no_telepon_manual' => $this->modePasien === 'baru' ? $this->no_telepon : null,
+                'nik_manual' => $this->modePasien === 'baru' ? $this->nik : null,
+                'kode_dokter' => $dokter?->kode_dokter,
+                'kode_poli' => $poli?->kode_poli,
+                'asuransi' => $asuransiModel?->nama_asuransi,
+                'no_asuransi' => $this->no_kartu_asuransi,
+                'time_slot' => $this->time_slot,
+                'status' => 'selesai',
+            ]);
+            $this->antrian_id = $antrian->id;
+        } else {
+            TrxAntrian::where('id', $this->antrian_id)->update([
+                'tanggal_antrian' => $this->tanggal_antrian,
+                'jenis_antrian' => $this->jenis_antrian,
+                'time_slot' => $this->time_slot,
+                'status' => 'selesai'
+            ]);
+        }
+    }
+
 
     public function cekBpjs()
     {
@@ -454,7 +472,7 @@ class FormPendaftaranPage extends Component
     public function render()
     {
         $this->poliList = MstPoli::where('status', 'Aktif')->get()->map(fn($p) => ['value' => $p->id, 'label' => $p->nama_poli, 'icon' => 'ri-hospital-line text-blue-500'])->toArray();
-        
+
         $docQuery = MstDokter::where('status', 'Aktif');
         if ($this->poli_id) {
             $poli = MstPoli::with('dokters')->find($this->poli_id);
@@ -467,8 +485,8 @@ class FormPendaftaranPage extends Component
         }
         $this->dokterList = $docQuery->get()->map(fn($d) => ['value' => $d->id, 'label' => $d->nama_dokter, 'icon' => 'ri-user-star-line text-purple-500'])->toArray();
         $this->asuransiList = MstAsuransi::where('status', 'Aktif')->get()->map(fn($a) => ['value' => $a->id, 'label' => $a->nama_asuransi, 'icon' => 'ri-shield-check-line text-green-500'])->toArray();
-        $this->kesadaranList = \App\Models\MstKesadaran::all()->map(fn($k) => ['value' => $k->kdSadar, 'label' => $k->nmSadar, 'icon' => 'ri-checkbox-circle-line text-green-500'])->toArray();
-        $this->alergiList = \App\Models\MstAlergi::all()->map(fn($a) => ['value' => $a->kdAlergi, 'label' => $a->nmAlergi, 'icon' => 'ri-bug-line text-red-500'])->toArray();
+        $this->kesadaranList = MstKesadaran::all()->map(fn($k) => ['value' => $k->kdSadar, 'label' => $k->nmSadar, 'icon' => 'ri-checkbox-circle-line text-green-500'])->toArray();
+        $this->alergiList = MstAlergi::all()->map(fn($a) => ['value' => $a->kdAlergi, 'label' => $a->nmAlergi, 'icon' => 'ri-bug-line text-red-500'])->toArray();
         $this->jkList = [
             ['value' => 'Laki-laki', 'label' => 'Laki-laki', 'icon' => 'ri-men-line text-blue-500'],
             ['value' => 'Perempuan', 'label' => 'Perempuan', 'icon' => 'ri-women-line text-pink-500'],

@@ -22,6 +22,8 @@ class PoliPage extends Component
 
     public $poli_bpjs_id;
 
+    public $prefix_antrian;
+
     public $status;
 
     public $totalPoli = 0;
@@ -120,12 +122,13 @@ class PoliPage extends Component
             'kode_poli' => ['required', 'string', 'max:20', Rule::unique('mst_poli', 'kode_poli')->ignore($this->poliId)],
             'nama_poli' => 'required|string|max:100',
             'poli_bpjs_id' => 'nullable|string|max:50',
+            'prefix_antrian' => 'nullable|string|max:5',
         ];
     }
 
     public function resetForm()
     {
-        $this->reset(['poliId', 'kode_poli', 'nama_poli', 'poli_bpjs_id', 'isEdit']);
+        $this->reset(['poliId', 'kode_poli', 'nama_poli', 'poli_bpjs_id', 'prefix_antrian', 'isEdit']);
         $this->status = 'Aktif';
         $this->resetErrorBag();
     }
@@ -151,6 +154,7 @@ class PoliPage extends Component
         $this->kode_poli = $item->kode_poli;
         $this->nama_poli = $item->nama_poli;
         $this->poli_bpjs_id = $item->poli_bpjs_id;
+        $this->prefix_antrian = $item->prefix_antrian;
         $this->status = $item->status;
         $this->isEdit = true;
         $this->dispatch('open-modal');
@@ -165,6 +169,7 @@ class PoliPage extends Component
                 'kode_poli' => $this->kode_poli, 
                 'nama_poli' => $this->nama_poli, 
                 'poli_bpjs_id' => $this->poli_bpjs_id,
+                'prefix_antrian' => $this->prefix_antrian ? strtoupper($this->prefix_antrian) : null,
                 'status' => $this->status ?? 'Aktif'
             ]);
             $item->save();
@@ -476,6 +481,7 @@ class PoliPage extends Component
                             <tr class="bg-gray-50/50">
                                 <th class="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-50">Kode Poli</th>
                                 <th class="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-50">Nama Poli</th>
+                                <th class="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-50">Prefix Antrian</th>
                                 <th class="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-50">Status</th>
                                 <th class="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-50 text-center">Actions</th>
                             </tr>
@@ -490,6 +496,13 @@ class PoliPage extends Component
                                     <div class="group relative">
                                         <div class="font-bold text-[#2c3e50] text-sm group-hover:text-[#405189] transition-colors line-clamp-1">{{ $item->nama_poli }}</div>
                                     </div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    @if($item->prefix_antrian)
+                                    <span class="kode-poli-chip shadow-sm font-bold text-[#405189]">{{ $item->prefix_antrian }}</span>
+                                    @else
+                                    <span class="text-xs text-gray-300 italic">-</span>
+                                    @endif
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     @if($item->status == 'Aktif')
@@ -518,7 +531,7 @@ class PoliPage extends Component
                             </tr>
                             @empty
                             <tr>
-                                <td colspan="4" class="py-20 text-center">
+                                <td colspan="5" class="py-20 text-center">
                                     <div class="flex flex-col items-center justify-center">
                                         <div class="w-32 h-32 bg-gray-50 rounded-full flex items-center justify-center mb-6 animate-bounce" style="animation-duration: 4s;">
                                             <i class="ri-file-search-line text-6xl text-gray-200"></i>
@@ -710,6 +723,18 @@ class PoliPage extends Component
                                     </button>
                                 </div>
                                 @error('poli_bpjs_id') <span class="text-[10px] text-rose-500 font-bold px-1">{{ $message }}</span> @enderror
+                            </div>
+
+                            <div class="space-y-1.5">
+                                <label class="text-[9px] sm:text-[10px] font-black text-[#405189] uppercase tracking-widest px-1">Prefix Antrian</label>
+                                <div class="relative">
+                                    <i class="ri-hashtag absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                                    <input type="text" wire:model="prefix_antrian" maxlength="5"
+                                           class="w-full pl-10 bg-gray-50 border border-gray-100 rounded-xl sm:rounded-2xl py-2.5 sm:py-3 px-4 text-sm font-black text-[#405189] uppercase tracking-wider focus:bg-white focus:ring-4 focus:ring-indigo-100 focus:border-[#405189] transition-all outline-none @error('prefix_antrian') border-rose-300 bg-rose-50/30 @enderror"
+                                           placeholder="Contoh: A, B, POL">
+                                </div>
+                                <p class="text-[10px] text-gray-400 px-1">Huruf prefix untuk nomor antrian poli ini (misal: A → A-001). Kosongkan untuk menggunakan default.</p>
+                                @error('prefix_antrian') <span class="text-[10px] text-rose-500 font-bold px-1">{{ $message }}</span> @enderror
                             </div>
                         </form>
                     </div>
