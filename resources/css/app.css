@@ -10,6 +10,29 @@
         'Segoe UI Symbol', 'Noto Color Emoji';
 }
 
+/* ═══════════════════════════════════════════════════════════════ */
+/* Global: Pointer cursor for all interactive elements             */
+/* ═══════════════════════════════════════════════════════════════ */
+button,
+[type="button"],
+[type="submit"],
+[type="reset"],
+[role="button"],
+a,
+select,
+summary,
+label[for],
+input[type="checkbox"],
+input[type="radio"] {
+    cursor: pointer;
+}
+
+button:disabled,
+[type="button"]:disabled,
+[type="submit"]:disabled,
+[type="reset"]:disabled {
+    cursor: not-allowed;
+}
 
 /* ═══════════════════════════════════════════════════════════════ */
 /* Dark Mode: x-custom-dropdown component                        */

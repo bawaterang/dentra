@@ -391,7 +391,7 @@ new class extends Component {
                     </div>
 
                     <button type="submit" wire:loading.attr="disabled"
-                        class="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-xl shadow-md text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all transform active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed gap-2">
+                        class="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-xl shadow-md text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all transform active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed gap-2 cursor-pointer">
                         <span wire:loading.remove wire:target="login">Sign In</span>
                         <span wire:loading wire:target="login" class="flex items-center gap-2">
                             <i class="ri-loader-4-line animate-spin text-lg"></i>
