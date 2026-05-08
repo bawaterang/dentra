@@ -85,8 +85,8 @@ class PoliPage extends Component
     {
         if ($value) {
             $poli = MstPoli::with('dokters')->find($value);
-            if ($poli) {
-                $this->mappedDokters = $poli->dokters->pluck('id')->toArray();
+            if ($poli && $poli->dokters) {
+                $this->mappedDokters = $poli->dokters->pluck('id')->map(fn($id) => (string) $id)->toArray();
             } else {
                 $this->mappedDokters = [];
             }
@@ -104,7 +104,7 @@ class PoliPage extends Component
 
         try {
             $poli = MstPoli::findOrFail($this->selectedPoliId);
-            $poli->dokters()->sync($this->mappedDokters);
+            $poli->dokters()->sync($this->mappedDokters ?? []);
             
             $this->dispatch('alert', ['type' => 'success', 'message' => 'Pemetaan Poli ke Dokter berhasil disimpan!']);
         } catch (\Exception $e) {
@@ -600,7 +600,7 @@ class PoliPage extends Component
                                     </div>
                                 </div>
                                 <div class="flex items-center gap-2">
-                                    <span class="badge bg-[#f7b84b] text-white px-2 py-1"><i class="ri-user-star-line mr-1"></i> {{ count($mappedDokters) }} Dokter Terpilih</span>
+                                    <span class="badge bg-[#f7b84b] text-white px-2 py-1"><i class="ri-user-star-line mr-1"></i> {{ count($mappedDokters ?? []) }} Dokter Terpilih</span>
                                 </div>
                             </div>
                         @else
