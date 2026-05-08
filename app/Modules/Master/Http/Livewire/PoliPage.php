@@ -43,6 +43,7 @@ class PoliPage extends Component
     public $selectedPoliId = '';
     public $allPolisMapping = [];
     public $allDokters = [];
+    public $mappedDokters = [];
 
     // BPJS Search
     public $searchBpjsPoliQuery = '';
