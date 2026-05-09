@@ -30,7 +30,10 @@
     @livewireStyles
 
     <style>
-        [x-cloak] { display: none !important; }
+        [x-cloak] {
+            display: none !important;
+        }
+
         :root {
             /* ... (keep existing root) ... */
         }
@@ -771,15 +774,45 @@
         }
 
         /* Using Remix Icons colors */
-        .notif-icon.bg-primary-soft { background: rgba(64, 81, 137, 0.1); color: #405189; }
-        .notif-icon.bg-success-soft { background: rgba(10, 179, 156, 0.1); color: #0ab39c; }
-        .notif-icon.bg-warning-soft { background: rgba(247, 184, 75, 0.1); color: #f7b84b; }
-        .notif-icon.bg-info-soft { background: rgba(41, 156, 219, 0.1); color: #299cdb; }
-        
-        .dark .notif-icon.bg-primary-soft { background: rgba(102, 145, 231, 0.15); color: #6691e7; }
-        .dark .notif-icon.bg-success-soft { background: rgba(10, 179, 156, 0.15); color: #0ab39c; }
-        .dark .notif-icon.bg-warning-soft { background: rgba(247, 184, 75, 0.15); color: #f7b84b; }
-        .dark .notif-icon.bg-info-soft { background: rgba(41, 156, 219, 0.15); color: #299cdb; }
+        .notif-icon.bg-primary-soft {
+            background: rgba(64, 81, 137, 0.1);
+            color: #405189;
+        }
+
+        .notif-icon.bg-success-soft {
+            background: rgba(10, 179, 156, 0.1);
+            color: #0ab39c;
+        }
+
+        .notif-icon.bg-warning-soft {
+            background: rgba(247, 184, 75, 0.1);
+            color: #f7b84b;
+        }
+
+        .notif-icon.bg-info-soft {
+            background: rgba(41, 156, 219, 0.1);
+            color: #299cdb;
+        }
+
+        .dark .notif-icon.bg-primary-soft {
+            background: rgba(102, 145, 231, 0.15);
+            color: #6691e7;
+        }
+
+        .dark .notif-icon.bg-success-soft {
+            background: rgba(10, 179, 156, 0.15);
+            color: #0ab39c;
+        }
+
+        .dark .notif-icon.bg-warning-soft {
+            background: rgba(247, 184, 75, 0.15);
+            color: #f7b84b;
+        }
+
+        .dark .notif-icon.bg-info-soft {
+            background: rgba(41, 156, 219, 0.15);
+            color: #299cdb;
+        }
 
         .notif-content {
             flex: 1;
@@ -837,7 +870,7 @@
         .notif-footer a:hover {
             color: #0ab39c;
         }
-        
+
         .dark .notif-footer a {
             color: #6691e7;
         }
@@ -849,7 +882,9 @@
         }
 
         @keyframes ping {
-            75%, 100% {
+
+            75%,
+            100% {
                 transform: scale(2.5);
                 opacity: 0;
             }
@@ -1249,7 +1284,9 @@
         }
 
         @keyframes searchSpin {
-            to { transform: rotate(360deg); }
+            to {
+                transform: rotate(360deg);
+            }
         }
 
         .search-dropdown {
@@ -1558,9 +1595,11 @@
 
             {{-- Avatar + Dropdown --}}
             <div class="dropdown" x-data="{ open: false }" @click.outside="open = false">
-                <div class="topbar-avatar" @click="open = !open" title="{{ Auth::user()->full_name ?? 'User' }}" style="overflow:hidden; display:flex; align-items:center; justify-center;">
+                <div class="topbar-avatar" @click="open = !open" title="{{ Auth::user()->full_name ?? 'User' }}"
+                    style="overflow:hidden; display:flex; align-items:center; justify-center;">
                     @if(Auth::user() && Auth::user()->avatar)
-                        <img src="{{ asset('storage/'.Auth::user()->avatar) }}" style="width:100%; height:100%; object-fit:cover;">
+                        <img src="{{ asset('storage/' . Auth::user()->avatar) }}"
+                            style="width:100%; height:100%; object-fit:cover;">
                     @else
                         {{ strtoupper(substr(Auth::user()->full_name ?? 'U', 0, 2)) }}
                     @endif
@@ -1568,7 +1607,8 @@
                 <div class="dropdown-menu" x-show="open" x-cloak x-transition style="display:none;">
                     <div class="dropdown-item"
                         style="flex-direction:column;align-items:flex-start;gap:1px;padding-bottom:12px;">
-                        <span style="font-weight:600;color:#343a40;">{{ Auth::user()->full_name ?? 'User System' }}</span>
+                        <span
+                            style="font-weight:600;color:#343a40;">{{ Auth::user()->full_name ?? 'User System' }}</span>
                         <span style="font-size:12px;color:#878a99;">{{ Auth::user()->email ?? '' }}</span>
                     </div>
                     <div class="dropdown-divider"></div>
@@ -1619,15 +1659,14 @@
             SIGI Dental EMR v1.0
         </div>
     </footer>
-    
+
     {{-- Back to Top Button --}}
-    <div x-data="{ show: false }" 
-         x-on:scroll.window="show = window.pageYOffset > 400"
-         class="back-to-top fixed z-[1001] transition-all duration-300 group"
-         :class="show ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10 pointer-events-none'"
-         style="bottom: 90px; right: 20px;">
-        <button @click="window.scrollTo({top: 0, behavior: 'smooth'})" 
-                class="flex items-center justify-center w-10 h-10 rounded-2xl bg-[#405189] text-white shadow-2xl hover:bg-[#0ab39c] active:scale-90 transition-all duration-300 border border-white/20 backdrop-blur-sm md:w-12 md:h-12">
+    <div x-data="{ show: false }" x-on:scroll.window="show = window.pageYOffset > 400"
+        class="back-to-top fixed z-[1001] transition-all duration-300 group"
+        :class="show ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10 pointer-events-none'"
+        style="bottom: 90px; right: 20px;">
+        <button @click="window.scrollTo({top: 0, behavior: 'smooth'})"
+            class="flex items-center justify-center w-10 h-10 rounded-2xl bg-[#405189] text-white shadow-2xl hover:bg-[#0ab39c] active:scale-90 transition-all duration-300 border border-white/20 backdrop-blur-sm md:w-12 md:h-12">
             <i class="ri-arrow-up-line text-2xl md:text-3xl"></i>
         </button>
     </div>
@@ -1635,7 +1674,10 @@
     {{-- Mobile Adjustment Style --}}
     <style>
         @media (min-width: 769px) {
-            .back-to-top { bottom: 32px !important; right: 32px !important; }
+            .back-to-top {
+                bottom: 32px !important;
+                right: 32px !important;
+            }
         }
     </style>
 
@@ -1650,8 +1692,8 @@
                     icon: data.type,
                     title: data.type === 'success' ? 'Berhasil!' : 'Perhatian',
                     text: data.message,
-                    timer: data.type === 'success' ? 3000 : null,
-                    showConfirmButton: data.type !== 'success',
+                    timer: (data.type === 'success' && !data.redirect) ? 3000 : null,
+                    showConfirmButton: true,
                     confirmButtonColor: '#405189'
                 }).then((result) => {
                     if (data.redirect) {
@@ -1674,8 +1716,8 @@
                 icon: data.type,
                 title: data.type === 'success' ? 'Berhasil!' : 'Perhatian',
                 text: data.message,
-                timer: data.type === 'success' ? 3000 : null,
-                showConfirmButton: data.type !== 'success',
+                timer: (data.type === 'success' && !data.redirect) ? 3000 : null,
+                showConfirmButton: true,
                 confirmButtonColor: '#405189'
             }).then((result) => {
                 if (data.redirect) {

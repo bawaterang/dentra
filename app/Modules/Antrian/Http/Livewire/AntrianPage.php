@@ -40,8 +40,14 @@ class AntrianPage extends Component
         $this->selectedDate = now()->format('Y-m-d');
     }
 
-    public function updatedSelectedDate() { $this->resetPage(); }
-    public function updatedSearch() { $this->resetPage(); }
+    public function updatedSelectedDate()
+    {
+        $this->resetPage();
+    }
+    public function updatedSearch()
+    {
+        $this->resetPage();
+    }
 
     public function prevDate()
     {
@@ -55,9 +61,9 @@ class AntrianPage extends Component
         $this->resetPage();
     }
 
-    public function setStatus($status) 
-    { 
-        $this->selectedStatus = $status; 
+    public function setStatus($status)
+    {
+        $this->selectedStatus = $status;
         $this->resetPage();
     }
 
@@ -86,8 +92,12 @@ class AntrianPage extends Component
     {
         $antrian = TrxAntrian::findOrFail($id);
         $data = ['status' => $status];
-        if ($status === 'hadir') { $data['waktu_hadir'] = now(); }
-        if ($status === 'dipanggil') { $data['waktu_panggil'] = now(); }
+        if ($status === 'hadir') {
+            $data['waktu_hadir'] = now();
+        }
+        if ($status === 'dipanggil') {
+            $data['waktu_panggil'] = now();
+        }
         $antrian->update($data);
         $this->dispatch('refresh-table');
         $this->dispatch('alert', ['type' => 'success', 'message' => 'Status antrian diubah menjadi ' . ucfirst(str_replace('_', ' ', $status))]);
@@ -108,11 +118,11 @@ class AntrianPage extends Component
     {
         if (strlen($value) >= 2) {
             $this->pasienResults = MstPasien::where(function ($q) use ($value) {
-                    $q->where('nama_pasien', 'like', '%' . $value . '%')
-                      ->orWhere('nik', 'like', '%' . $value . '%')
-                      ->orWhere('no_telepon', 'like', '%' . $value . '%')
-                      ->orWhere('no_rm', 'like', '%' . $value . '%');
-                })
+                $q->where('nama_pasien', 'like', '%' . $value . '%')
+                    ->orWhere('nik', 'like', '%' . $value . '%')
+                    ->orWhere('no_telepon', 'like', '%' . $value . '%')
+                    ->orWhere('no_rm', 'like', '%' . $value . '%');
+            })
                 ->limit(10)
                 ->get()
                 ->toArray();
@@ -155,19 +165,19 @@ class AntrianPage extends Component
         $this->editTanggal = \Carbon\Carbon::parse($antrian->tanggal_antrian)->format('Y-m-d');
         $this->editAsuransi = $antrian->asuransi;
         $this->editNoAsuransi = $antrian->no_asuransi;
-        
+
         $this->poliList = \App\Models\MstPoli::where(fn($q) => $q->where('status', 'Aktif'))->get()->toArray();
         $this->dokterList = \App\Models\MstDokter::where(fn($q) => $q->where('status', 'Aktif'))->get()->toArray();
         $this->asuransiList = \App\Models\MstAsuransi::where(fn($q) => $q->where('status', 'Aktif'))->get()->toArray();
         $this->showEditModal = true;
-        
+
         $this->dispatch('refresh-table');
     }
 
     public function updateAntrian()
     {
         $antrian = TrxAntrian::findOrFail($this->editAntrianId);
-        
+
         $data = [
             'tanggal_antrian' => $this->editTanggal,
             'kode_poli' => $this->editPoli,
@@ -178,7 +188,7 @@ class AntrianPage extends Component
         if (!$antrian->pasien_id) {
             $data['nama_pasien_input_manual'] = $this->editNamaPasien;
         }
-        
+
         $antrian->update($data);
         $this->showEditModal = false;
         $this->dispatch('refresh-table');
@@ -191,19 +201,19 @@ class AntrianPage extends Component
         $query = TrxAntrian::with(['pasien', 'poli', 'dokter'])
             ->whereDate('tanggal_antrian', $this->selectedDate)
             ->where('status', '!=', 'batal');
-        
+
         if ($this->selectedStatus !== 'all') {
             $query->where('status', $this->selectedStatus);
         }
 
         if ($this->search) {
-            $query->where(function($q) {
+            $query->where(function ($q) {
                 $q->where('nomor_antrian', 'like', '%' . $this->search . '%')
-                  ->orWhere('nama_pasien_input_manual', 'like', '%' . $this->search . '%')
-                  ->orWhereHas('pasien', function($qp) {
-                      $qp->where('nama_pasien', 'like', '%' . $this->search . '%')
-                        ->orWhere('no_rm', 'like', '%' . $this->search . '%');
-                  });
+                    ->orWhere('nama_pasien_input_manual', 'like', '%' . $this->search . '%')
+                    ->orWhereHas('pasien', function ($qp) {
+                        $qp->where('nama_pasien', 'like', '%' . $this->search . '%')
+                            ->orWhere('no_rm', 'like', '%' . $this->search . '%');
+                    });
             });
         }
 
@@ -216,33 +226,33 @@ class AntrianPage extends Component
         $query = TrxAntrian::with(['pasien', 'poli', 'dokter'])
             ->whereDate('tanggal_antrian', $this->selectedDate)
             ->where('status', '!=', 'batal');
-        
+
         if ($this->selectedStatus !== 'all') {
             $query->where('status', $this->selectedStatus);
         }
 
         if ($this->search) {
-            $query->where(function($q) {
+            $query->where(function ($q) {
                 $q->where('nomor_antrian', 'like', '%' . $this->search . '%')
-                  ->orWhere('nama_pasien_input_manual', 'like', '%' . $this->search . '%')
-                  ->orWhereHas('pasien', function($qp) {
-                      $qp->where('nama_pasien', 'like', '%' . $this->search . '%')
-                        ->orWhere('no_rm', 'like', '%' . $this->search . '%');
-                  });
+                    ->orWhere('nama_pasien_input_manual', 'like', '%' . $this->search . '%')
+                    ->orWhereHas('pasien', function ($qp) {
+                        $qp->where('nama_pasien', 'like', '%' . $this->search . '%')
+                            ->orWhere('no_rm', 'like', '%' . $this->search . '%');
+                    });
             });
         }
 
         $allData = $query->orderBy('nomor_antrian')->get();
-        
+
         $grouped = [];
-        foreach($allData as $item) {
+        foreach ($allData as $item) {
             $slot = $item->time_slot ? substr($item->time_slot, 0, 5) : 'Walk-in';
             if (!isset($grouped[$slot])) {
                 $grouped[$slot] = [];
             }
             $grouped[$slot][] = $item;
         }
-        
+
         ksort($grouped);
         return $grouped;
     }

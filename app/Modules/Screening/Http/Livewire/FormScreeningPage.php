@@ -26,7 +26,7 @@ class FormScreeningPage extends Component
         $this->pendaftaran = TrxPendaftaran::with(['pasien', 'poli', 'dokter'])->findOrFail($pendaftaranId);
 
         // Security Check: Basic access to screening module
-        $this->authorizeAccess('/screening');
+        $this->authorizeAccess('/admisi/screening-pasien');
 
         // Security Check: Poli Isolation (Skip for Admin)
         $user = auth()->user();
@@ -148,7 +148,7 @@ class FormScreeningPage extends Component
                                             </label>
                                         </div>
                                         <div class="mt-4">
-                                            <input type="text" wire:model="keterangan.{{ $p->id }}" {{ $isCompleted ? 'disabled' : '' }} class="w-full rounded-lg border-gray-200 text-sm px-4 h-11 focus:border-[#405189] focus:ring focus:ring-[#405189]/20 transition-all bg-gray-50/50" placeholder="Tambahkan keterangan rincian (opsional)...">
+                                            <input type="text" wire:model="keterangan.{{ $p->id }}" {{ $isCompleted ? 'disabled' : '' }} class="w-full rounded-lg border border-gray-300 text-sm px-4 h-11 focus:border-[#405189] focus:ring focus:ring-[#405189]/20 transition-all bg-gray-50/50" placeholder="Tambahkan keterangan rincian (opsional)...">
                                         </div>
                                     </div>
                                 </div>
@@ -163,7 +163,7 @@ class FormScreeningPage extends Component
                     <a href="{{ route('screening.index') }}" wire:navigate class="btn bg-orange-500 text-white px-6 h-10 flex items-center gap-2 transition-all hover:bg-orange-600"><i class="ri-arrow-go-back-line"></i> Kembali</a>
                     <div class="flex gap-3">
                         @if($isCompleted)
-                        <a href="{{ URL::signedRoute('screening.print', ['pendaftaranId' => $pendaftaranId]) }}" target="_blank" class="btn bg-[#405189] text-white px-6 h-10 flex items-center gap-2 hover:bg-[#364574] transition-all"><i class="ri-printer-line"></i> Cetak Hasil</a>
+                        <a href="{{ route('screening.print', ['pendaftaranId' => $pendaftaranId]) }}" target="_blank" class="btn bg-[#405189] text-white px-6 h-10 flex items-center gap-2 hover:bg-[#364574] transition-all"><i class="ri-printer-line"></i> Cetak Hasil</a>
                         @else
                         <button type="button" wire:click="save" wire:loading.attr="disabled" class="btn bg-[#0d6efd] text-white px-8 h-10 shadow-md flex items-center justify-center gap-2 transition-all hover:bg-[#0b5ed7] hover:translate-y-[-2px] disabled:opacity-70"><svg wire:loading wire:target="save" class="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg><i wire:loading.remove wire:target="save" class="ri-save-line"></i><span wire:loading.remove wire:target="save">Simpan Screening</span><span wire:loading wire:target="save">Memproses...</span></button>
                         @endif

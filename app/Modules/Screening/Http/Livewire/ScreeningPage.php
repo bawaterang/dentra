@@ -6,11 +6,12 @@ use Livewire\Component;
 use App\Models\TrxPendaftaran;
 use Carbon\Carbon;
 use Livewire\WithPagination;
+use App\Traits\HasAccessControl;
 use Livewire\Attributes\Computed;
 
 class ScreeningPage extends Component
 {
-    use WithPagination;
+    use WithPagination, HasAccessControl;
 
     public $selectedDate;
     public $selectedTab = 'belum'; // belum / sudah
@@ -28,12 +29,19 @@ class ScreeningPage extends Component
 
     public function mount()
     {
+        $this->authorizeAccess('/admisi/screening-pasien');
         $this->selectedDate = now()->format('Y-m-d');
         $this->pertanyaanList = \App\Models\MstSurvei::where('status', 'Aktif')->where('jenis_survei', 'screening')->get();
     }
 
-    public function updatedSelectedDate() { $this->resetPage(); }
-    public function updatedSearch() { $this->resetPage(); }
+    public function updatedSelectedDate()
+    {
+        $this->resetPage();
+    }
+    public function updatedSearch()
+    {
+        $this->resetPage();
+    }
 
     public function prevDate()
     {
@@ -47,7 +55,11 @@ class ScreeningPage extends Component
         $this->resetPage();
     }
 
-    public function setTab($tab) { $this->selectedTab = $tab; $this->resetPage(); }
+    public function setTab($tab)
+    {
+        $this->selectedTab = $tab;
+        $this->resetPage();
+    }
 
     public function editScreening($id)
     {
@@ -73,7 +85,7 @@ class ScreeningPage extends Component
         }
 
         $this->showEditModal = true;
-        $this->dispatch('refresh-table'); 
+        $this->dispatch('refresh-table');
     }
 
     public function updateScreening()
@@ -113,13 +125,23 @@ class ScreeningPage extends Component
             $query->where('status', 'selesai');
         }
 
+        // Security Check: Poli Isolation (Skip for Admin)
+        $user = auth()->user();
+        $userRoleNames = $user->roles->pluck('nama_role')->toArray();
+        $isAdmin = in_array('Administrator', $userRoleNames) || in_array('Admin', $userRoleNames);
+
+        if (!$isAdmin) {
+            $userPoliIds = $user->polis->pluck('id')->toArray();
+            $query->whereIn('poli_id', $userPoliIds);
+        }
+
         if ($this->search) {
-            $query->where(function($q) {
+            $query->where(function ($q) {
                 $q->where('nomor_kunjungan', 'like', '%' . $this->search . '%')
-                  ->orWhereHas('pasien', function($qp) {
-                      $qp->where('nama_pasien', 'like', '%' . $this->search . '%')
-                        ->orWhere('no_rm', 'like', '%' . $this->search . '%');
-                  });
+                    ->orWhereHas('pasien', function ($qp) {
+                        $qp->where('nama_pasien', 'like', '%' . $this->search . '%')
+                            ->orWhere('no_rm', 'like', '%' . $this->search . '%');
+                    });
             });
         }
 
@@ -128,7 +150,7 @@ class ScreeningPage extends Component
 
     public function render()
     {
-        $this->totalBelum = TrxPendaftaran::whereDate('created_at', $this->selectedDate)->whereIn('status', ['terdaftar','menunggu_screening'])->count();
+        $this->totalBelum = TrxPendaftaran::whereDate('created_at', $this->selectedDate)->whereIn('status', ['terdaftar', 'menunggu_screening'])->count();
         $this->totalSudah = TrxPendaftaran::whereDate('created_at', $this->selectedDate)->where('status', 'selesai')->count();
 
         return <<<'HTML'
@@ -213,7 +235,7 @@ class ScreeningPage extends Component
                         <div class="p-4 border-b border-[#eff2f7]"><h6 class="text-xs font-bold text-[#405189] uppercase tracking-widest mb-0"><i class="ri-calendar-line mr-1"></i>Pilih Tanggal</h6></div>
                         <div class="p-4">
                             <div class="flex items-center gap-2">
-                                <button wire:click="prevDate" class="flex h-[42px] w-10 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 hover:border-[#405189] hover:text-[#405189] hover:bg-indigo-50 transition-all group" title="Hari Sebelumnya">
+                                <button wire:click="prevDate" class="flex h-[42px] w-10 shrink-0 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-500 hover:border-[#405189] hover:text-[#405189] hover:bg-indigo-50 transition-all group" title="Hari Sebelumnya">
                                     <i class="ri-arrow-left-s-line text-xl group-hover:scale-110 transition-transform"></i>
                                 </button>
                                 
@@ -221,7 +243,7 @@ class ScreeningPage extends Component
                                     <input type="date" wire:model.live="selectedDate" class="w-full rounded-lg border-gray-200 text-sm px-4 h-[42px] focus:border-[#405189] transition-all text-center font-bold text-[#405189] appearance-none cursor-pointer">
                                 </div>
 
-                                <button wire:click="nextDate" class="flex h-[42px] w-10 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 hover:border-[#405189] hover:text-[#405189] hover:bg-indigo-50 transition-all group" title="Hari Berikutnya">
+                                <button wire:click="nextDate" class="flex h-[42px] w-10 shrink-0 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-500 hover:border-[#405189] hover:text-[#405189] hover:bg-indigo-50 transition-all group" title="Hari Berikutnya">
                                     <i class="ri-arrow-right-s-line text-xl group-hover:scale-110 transition-transform"></i>
                                 </button>
                             </div>
@@ -268,7 +290,7 @@ class ScreeningPage extends Component
 
                                 <div class="relative flex-grow max-w-[320px]">
                                     <i class="ri-search-2-line absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg"></i>
-                                    <input type="text" wire:model.live.debounce.300ms="search" class="w-full bg-gray-50 border border-gray-200 rounded-2xl py-2 pl-11 pr-4 text-sm font-medium outline-none transition-all focus:border-[#405189] focus:ring-4 focus:ring-[#405189]/5 placeholder:text-gray-300" placeholder="Cari pasien atau kunjungan...">
+                                    <input type="text" wire:model.live.debounce.300ms="search" class="w-full bg-gray-50 border border-gray-300 rounded-2xl py-2 pl-11 pr-4 text-sm font-medium outline-none transition-all focus:border-[#405189] focus:ring-4 focus:ring-[#405189]/5 placeholder:text-gray-300" placeholder="Cari pasien atau kunjungan...">
                                 </div>
                             </div>
                         </div>
@@ -305,10 +327,10 @@ class ScreeningPage extends Component
                                         <td class="px-6 py-4 whitespace-nowrap">
                                             <div class="flex items-center justify-center gap-2">
                                                 @if($item->status !== 'selesai')
-                                                    <a href="{{ URL::signedRoute('screening.form', ['pendaftaranId' => $item->id]) }}" wire:navigate class="flex h-8 px-3 rounded-full items-center justify-center bg-indigo-50 text-[#405189] hover:bg-[#405189] hover:text-white transition-all shadow-sm text-xs font-bold gap-1"><i class="ri-shield-check-line"></i> Screening</a>
+                                                    <a href="{{ route('screening.form', ['pendaftaranId' => $item->id]) }}" wire:navigate class="flex h-8 px-3 rounded-full items-center justify-center bg-indigo-50 text-[#405189] hover:bg-[#405189] hover:text-white transition-all shadow-sm text-xs font-bold gap-1"><i class="ri-shield-check-line"></i> Screening</a>
                                                 @else
-                                                    <a href="{{ URL::signedRoute('screening.print', ['pendaftaranId' => $item->id]) }}" target="_blank" class="w-8 h-8 rounded-full flex items-center justify-center bg-indigo-50 text-[#405189] hover:bg-[#405189] hover:text-white transition-all shadow-sm" title="Cetak"><i class="ri-printer-line"></i></a>
-                                                    <a href="{{ URL::signedRoute('screening.form', ['pendaftaranId' => $item->id]) }}" wire:navigate class="w-8 h-8 rounded-full flex items-center justify-center bg-emerald-50 text-emerald-500 hover:bg-emerald-500 hover:text-white transition-all shadow-sm" title="Lihat"><i class="ri-eye-line"></i></a>
+                                                    <a href="{{ route('screening.print', ['pendaftaranId' => $item->id]) }}" target="_blank" class="w-8 h-8 rounded-full flex items-center justify-center bg-indigo-50 text-[#405189] hover:bg-[#405189] hover:text-white transition-all shadow-sm" title="Cetak"><i class="ri-printer-line"></i></a>
+                                                    <a href="{{ route('screening.form', ['pendaftaranId' => $item->id]) }}" wire:navigate class="w-8 h-8 rounded-full flex items-center justify-center bg-emerald-50 text-emerald-500 hover:bg-emerald-500 hover:text-white transition-all shadow-sm" title="Lihat"><i class="ri-eye-line"></i></a>
                                                     <button type="button" wire:click="editScreening({{ $item->id }})" class="w-8 h-8 rounded-full flex items-center justify-center bg-orange-50 text-orange-500 hover:bg-orange-500 hover:text-white transition-all shadow-sm" title="Edit"><i class="ri-edit-line"></i></button>
                                                 @endif
                                             </div>
@@ -398,7 +420,7 @@ class ScreeningPage extends Component
                                                      </label>
                                                 </div>
                                                 <div class="mt-4">
-                                                     <input type="text" wire:model="keterangan.{{ $p_survei->id }}" class="w-full rounded-lg border-gray-200 text-sm px-4 h-11 focus:border-[#405189] focus:ring focus:ring-[#405189]/20 transition-all bg-gray-50/50" placeholder="Tambahkan keterangan rincian (opsional)...">
+                                                     <input type="text" wire:model="keterangan.{{ $p_survei->id }}" class="w-full rounded-lg border border-gray-300 text-sm px-4 h-11 focus:border-[#405189] focus:ring focus:ring-[#405189]/20 transition-all bg-gray-50/50" placeholder="Tambahkan keterangan rincian (opsional)...">
                                                 </div>
                                             </div>
                                         </div>

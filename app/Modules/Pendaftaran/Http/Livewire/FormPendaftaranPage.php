@@ -102,7 +102,7 @@ class FormPendaftaranPage extends Component
                 $this->no_kartu_asuransi = $antrian->no_asuransi;
                 $this->tanggal_antrian = $antrian->tanggal_antrian;
                 $this->jenis_antrian = $antrian->jenis_antrian ?? 'offline';
-                $this->time_slot = $antrian->time_slot;
+                $this->time_slot = $antrian->time_slot ? substr($antrian->time_slot, 0, 5) . ':00' : null;
 
                 if (!$this->pasien_id) {
                     $this->nama_pasien = $antrian->nama_pasien_input_manual;
@@ -183,6 +183,10 @@ class FormPendaftaranPage extends Component
         $query = TrxAntrian::whereDate('tanggal_antrian', $this->tanggal_antrian)
             ->where('status', '!=', 'batal')
             ->whereNotNull('time_slot');
+
+        if ($this->antrian_id) {
+            $query->where('id', '!=', $this->antrian_id);
+        }
 
         if ($this->poli_id) {
             $poli = MstPoli::find($this->poli_id);
@@ -534,10 +538,10 @@ class FormPendaftaranPage extends Component
                 <div class="card border-t-2 border-[#405189] mb-6" style="overflow: visible !important;">
                     <div class="p-5">
                         <div class="flex items-center gap-3 mb-4">
-                            <button type="button" wire:click="$set('modePasien','lama')" class="flex-1 p-4 rounded-xl border-2 transition-all {{ $modePasien === 'lama' ? 'border-[#405189] bg-[#405189]/5' : 'border-gray-200 hover:border-gray-300' }}">
+                            <button type="button" wire:click="$set('modePasien','lama')" class="flex-1 p-4 rounded-xl border-2 transition-all {{ $modePasien === 'lama' ? 'border-[#405189] bg-[#405189]/5' : 'border border-gray-300 hover:border-gray-300' }}">
                                 <div class="flex items-center gap-3"><div class="h-10 w-10 rounded-lg flex items-center justify-center {{ $modePasien === 'lama' ? 'bg-[#405189] text-white' : 'bg-gray-100 text-gray-400' }}"><i class="ri-user-search-line text-lg"></i></div><div class="text-left"><p class="font-bold text-sm {{ $modePasien === 'lama' ? 'text-[#405189]' : 'text-gray-500' }}">Pasien Lama</p><p class="text-[11px] text-[#878a99]">Cari dari data master pasien</p></div></div>
                             </button>
-                            <button type="button" wire:click="$set('modePasien','baru')" class="flex-1 p-4 rounded-xl border-2 transition-all {{ $modePasien === 'baru' ? 'border-[#0ab39c] bg-[#0ab39c]/5' : 'border-gray-200 hover:border-gray-300' }}">
+                            <button type="button" wire:click="$set('modePasien','baru')" class="flex-1 p-4 rounded-xl border-2 transition-all {{ $modePasien === 'baru' ? 'border-[#0ab39c] bg-[#0ab39c]/5' : 'border border-gray-300 hover:border-gray-300' }}">
                                 <div class="flex items-center gap-3"><div class="h-10 w-10 rounded-lg flex items-center justify-center {{ $modePasien === 'baru' ? 'bg-[#0ab39c] text-white' : 'bg-gray-100 text-gray-400' }}"><i class="ri-user-add-line text-lg"></i></div><div class="text-left"><p class="font-bold text-sm {{ $modePasien === 'baru' ? 'text-[#0ab39c]' : 'text-gray-500' }}">Pasien Baru</p><p class="text-[11px] text-[#878a99]">Daftarkan pasien baru</p></div></div>
                             </button>
                         </div>
@@ -555,7 +559,7 @@ class FormPendaftaranPage extends Component
                             </div>
                         </div>
                         @else
-                        <div class="relative"><input type="text" wire:model.live.debounce.300ms="searchPasien" class="w-full rounded-lg border-gray-200 text-sm pl-10 pr-4 h-[42px] focus:border-[#405189] transition-all" placeholder="Cari pasien berdasarkan Nama, NIK, No RM, atau No HP..."><i class="ri-search-line absolute left-3.5 top-1/2 -translate-y-1/2 text-[#878a99]"></i></div>
+                        <div class="relative"><input type="text" wire:model.live.debounce.300ms="searchPasien" class="w-full rounded-lg border border-gray-300 text-sm pl-10 pr-4 h-[42px] focus:border-[#405189] transition-all" placeholder="Cari pasien berdasarkan Nama, NIK, No RM, atau No HP..."><i class="ri-search-line absolute left-3.5 top-1/2 -translate-y-1/2 text-[#878a99]"></i></div>
                         @if(count($pasienResults) > 0)
                         <div class="mt-2 max-h-[200px] overflow-y-auto space-y-1 border rounded-lg p-2">
                             @foreach($pasienResults as $p)
@@ -568,20 +572,20 @@ class FormPendaftaranPage extends Component
                         <!-- Pasien Baru Form -->
                         <div class="space-y-4 mt-2">
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div><label class="block text-xs font-semibold text-gray-500 mb-1">Nama Pasien <span class="text-red-500">*</span></label><input type="text" wire:model="nama_pasien" class="w-full rounded-lg border-gray-200 text-sm px-4 h-[42px] focus:border-[#405189] transition-all" placeholder="Nama lengkap">@error('nama_pasien')<span class="text-[11px] text-red-500 italic">{{ $message }}</span>@enderror</div>
-                                <div><label class="block text-xs font-semibold text-gray-500 mb-1">NIK</label><input type="text" wire:model="nik" class="w-full rounded-lg border-gray-200 text-sm px-4 h-[42px] focus:border-[#405189] transition-all" placeholder="Nomor Induk Kependudukan"></div>
+                                <div><label class="block text-xs font-semibold text-gray-500 mb-1">Nama Pasien <span class="text-red-500">*</span></label><input type="text" wire:model="nama_pasien" class="w-full rounded-lg border border-gray-300 text-sm px-4 h-[42px] focus:border-[#405189] transition-all" placeholder="Nama lengkap">@error('nama_pasien')<span class="text-[11px] text-red-500 italic">{{ $message }}</span>@enderror</div>
+                                <div><label class="block text-xs font-semibold text-gray-500 mb-1">NIK</label><input type="text" wire:model="nik" class="w-full rounded-lg border border-gray-300 text-sm px-4 h-[42px] focus:border-[#405189] transition-all" placeholder="Nomor Induk Kependudukan"></div>
                             </div>
                             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div><label class="block text-xs font-semibold text-gray-500 mb-1">Jenis Kelamin <span class="text-red-500">*</span></label><x-custom-dropdown model="jenis_kelamin" :options="$jkList" placeholder="Pilih JK" /></div>
-                                <div><label class="block text-xs font-semibold text-gray-500 mb-1">Tempat Lahir</label><input type="text" wire:model="tempat_lahir" class="w-full rounded-lg border-gray-200 text-sm px-4 h-[42px] focus:border-[#405189] transition-all" placeholder="Contoh: Jakarta"></div>
-                                <div><label class="block text-xs font-semibold text-gray-500 mb-1">Tanggal Lahir</label><input type="date" wire:model="tanggal_lahir" class="w-full rounded-lg border-gray-200 text-sm px-4 h-[42px] focus:border-[#405189] transition-all"></div>
+                                <div><label class="block text-xs font-semibold text-gray-500 mb-1">Tempat Lahir</label><input type="text" wire:model="tempat_lahir" class="w-full rounded-lg border border-gray-300 text-sm px-4 h-[42px] focus:border-[#405189] transition-all" placeholder="Contoh: Jakarta"></div>
+                                <div><label class="block text-xs font-semibold text-gray-500 mb-1">Tanggal Lahir</label><input type="date" wire:model="tanggal_lahir" class="w-full rounded-lg border border-gray-300 text-sm px-4 h-[42px] focus:border-[#405189] transition-all"></div>
                             </div>
                             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div><label class="block text-xs font-semibold text-gray-500 mb-1">Agama</label><x-custom-dropdown model="agama" :options="$agamaList" placeholder="Pilih Agama" /></div>
                                 <div><label class="block text-xs font-semibold text-gray-500 mb-1">Gol. Darah</label><x-custom-dropdown model="golongan_darah" :options="$golDarahList" placeholder="Pilih" /></div>
-                                <div><label class="block text-xs font-semibold text-gray-500 mb-1">No Telepon</label><input type="text" wire:model="no_telepon" class="w-full rounded-lg border-gray-200 text-sm px-4 h-[42px] focus:border-[#405189] transition-all"></div>
+                                <div><label class="block text-xs font-semibold text-gray-500 mb-1">No Telepon</label><input type="text" wire:model="no_telepon" class="w-full rounded-lg border border-gray-300 text-sm px-4 h-[42px] focus:border-[#405189] transition-all"></div>
                             </div>
-                            <div><label class="block text-xs font-semibold text-gray-500 mb-1">Alamat</label><textarea wire:model="alamat" rows="2" class="w-full rounded-lg border-gray-200 text-sm px-4 py-2.5 focus:border-[#405189] transition-all" placeholder="Alamat lengkap pasien..."></textarea></div>
+                            <div><label class="block text-xs font-semibold text-gray-500 mb-1">Alamat</label><textarea wire:model="alamat" rows="2" class="w-full rounded-lg border border-gray-300 text-sm px-4 py-2.5 focus:border-[#405189] transition-all" placeholder="Alamat lengkap pasien..."></textarea></div>
                         </div>
                         @endif
                     </div>
@@ -592,7 +596,7 @@ class FormPendaftaranPage extends Component
                 <div class="card border-t-2 border-[#f7b84b] mb-6 relative z-10" style="overflow: visible !important;">
                     <div class="px-6 py-4 border-b border-gray-100 bg-[#f3f6f9]/50 flex justify-between items-center">
                         <h6 class="text-sm font-bold text-[#f7b84b]"><i class="ri-user-heart-line mr-2"></i>Data Profil Pasien</h6>
-                        <button type="button" wire:click="editPasien" class="btn bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-[#405189] px-3 py-1.5 text-xs font-bold rounded-lg flex items-center gap-1 transition-all shadow-sm"><i class="ri-edit-2-line"></i> Edit Data</button>
+                        <button type="button" wire:click="editPasien" class="btn bg-white border border-gray-300 text-gray-600 hover:bg-gray-50 hover:text-[#405189] px-3 py-1.5 text-xs font-bold rounded-lg flex items-center gap-1 transition-all shadow-sm"><i class="ri-edit-2-line"></i> Edit Data</button>
                     </div>
                     <div class="p-6">
                         <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -613,7 +617,7 @@ class FormPendaftaranPage extends Component
                     <div class="px-6 py-4 border-b border-gray-100 bg-[#f3f6f9]/50"><h6 class="text-sm font-bold text-[#0ab39c]"><i class="ri-hospital-line mr-2"></i>Informasi Kunjungan</h6></div>
                     <div class="p-6 space-y-4">
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div><label class="block text-xs font-semibold text-gray-500 mb-1">Tanggal Kunjungan <span class="text-red-500">*</span></label><input type="date" wire:model.live="tanggal_antrian" class="w-full rounded-lg border-gray-200 text-sm px-4 h-[42px] focus:border-[#405189] transition-all"></div>
+                            <div><label class="block text-xs font-semibold text-gray-500 mb-1">Tanggal Kunjungan <span class="text-red-500">*</span></label><input type="date" wire:model.live="tanggal_antrian" class="w-full rounded-lg border border-gray-300 text-sm px-4 h-[42px] focus:border-[#405189] transition-all"></div>
                             <div>
                                 <label class="block text-xs font-semibold text-gray-500 mb-1">Jenis Kunjungan</label>
                                 <x-custom-dropdown model="jenis_antrian" :options="[
@@ -651,7 +655,7 @@ class FormPendaftaranPage extends Component
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div><label class="block text-xs font-semibold text-gray-500 mb-1">Asuransi</label><x-custom-dropdown model="asuransi_id" :options="$asuransiList" placeholder="Umum (tanpa asuransi)" searchable="true" /></div>
                             <div class="flex gap-2 items-end">
-                                <div class="flex-1"><label class="block text-xs font-semibold text-gray-500 mb-1">No Kartu Asuransi</label><input type="text" wire:model="no_kartu_asuransi" class="w-full rounded-lg border-gray-200 text-sm px-4 h-[42px] focus:border-[#405189] transition-all" placeholder="Nomor kartu"></div>
+                                <div class="flex-1"><label class="block text-xs font-semibold text-gray-500 mb-1">No Kartu Asuransi</label><input type="text" wire:model="no_kartu_asuransi" class="w-full rounded-lg border border-gray-300 text-sm px-4 h-[42px] focus:border-[#405189] transition-all" placeholder="Nomor kartu"></div>
                                 <button type="button" wire:click="cekBpjs" class="h-[42px] px-4 rounded-lg bg-[#0ab39c] text-white text-xs font-bold hover:bg-[#099885] transition-all whitespace-nowrap flex items-center gap-1"><i class="ri-search-eye-line"></i> Cek BPJS</button>
                             </div>
                         </div>
@@ -664,20 +668,47 @@ class FormPendaftaranPage extends Component
                     <div class="p-6 space-y-4">
                         <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
                             <div><label class="block text-xs font-semibold text-gray-500 mb-1">Kesadaran</label><x-custom-dropdown model="kesadaran" :options="$kesadaranList" placeholder="Pilih" /></div>
-                            <div><label class="block text-xs font-semibold text-gray-500 mb-1">Tekanan Darah</label><input type="text" wire:model="tekanan_darah" class="w-full rounded-lg border-gray-200 text-sm px-4 h-[42px] focus:border-[#405189] transition-all" placeholder="120/80 mmHg"></div>
-                            <div><label class="block text-xs font-semibold text-gray-500 mb-1">Nadi</label><input type="number" wire:model="nadi" class="w-full rounded-lg border-gray-200 text-sm px-4 h-[42px] focus:border-[#405189] transition-all" placeholder="x/menit"></div>
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-500 mb-1">Tekanan Darah (mmHg)</label>
+                                <div x-data="{ 
+                                    sys: '', 
+                                    dia: '',
+                                    sync() { $wire.tekanan_darah = (this.sys || '') + '/' + (this.dia || '') }
+                                }" x-init="
+                                    const update = (val) => {
+                                        if (!val) { sys = ''; dia = ''; return; }
+                                        let p = val.split('/');
+                                        sys = p[0] || '';
+                                        dia = p[1] || '';
+                                    };
+                                    update($wire.tekanan_darah);
+                                    $watch('$wire.tekanan_darah', val => update(val));
+                                " class="flex items-center w-full rounded-lg border border-gray-300 text-sm h-[42px] focus-within:border-[#405189] focus-within:ring-1 focus-within:ring-[#405189] transition-all bg-white px-3">
+                                    <input type="text" x-model="sys" x-ref="sysInput" maxlength="3" 
+                                        @input="sys = sys.replace(/\D/g, ''); if(sys.length >= 3) $refs.diaInput.focus(); sync();" 
+                                        @keydown.slash.prevent="$refs.diaInput.focus()"
+                                        class="w-10 text-center border-none focus:ring-0 p-0 bg-transparent" placeholder="120">
+                                    <span class="text-gray-400 font-bold mx-1">/</span>
+                                    <input type="text" x-model="dia" x-ref="diaInput" maxlength="3" 
+                                        @input="dia = dia.replace(/\D/g, ''); sync();" 
+                                        @keydown.backspace="if (dia.length === 0) { $refs.sysInput.focus(); }"
+                                        class="w-10 text-center border-none focus:ring-0 p-0 bg-transparent" placeholder="80">
+                                    <span class="ml-auto text-gray-400 text-[10px] font-bold uppercase">mmHg</span>
+                                </div>
+                            </div>
+                            <div><label class="block text-xs font-semibold text-gray-500 mb-1">Nadi</label><input type="number" wire:model="nadi" class="w-full rounded-lg border border-gray-300 text-sm px-4 h-[42px] focus:border-[#405189] transition-all" placeholder="x/menit"></div>
                         </div>
                         <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                            <div><label class="block text-xs font-semibold text-gray-500 mb-1">Suhu (°C)</label><input type="number" step="0.1" wire:model="suhu" class="w-full rounded-lg border-gray-200 text-sm px-4 h-[42px] focus:border-[#405189] transition-all" placeholder="36.5"></div>
-                            <div><label class="block text-xs font-semibold text-gray-500 mb-1">Berat Badan (kg)</label><input type="number" step="0.1" wire:model="berat_badan" class="w-full rounded-lg border-gray-200 text-sm px-4 h-[42px] focus:border-[#405189] transition-all" placeholder="60"></div>
-                            <div><label class="block text-xs font-semibold text-gray-500 mb-1">Tinggi Badan (cm)</label><input type="number" step="0.1" wire:model="tinggi_badan" class="w-full rounded-lg border-gray-200 text-sm px-4 h-[42px] focus:border-[#405189] transition-all" placeholder="170"></div>
-                            <div><label class="block text-xs font-semibold text-gray-500 mb-1">Lingkar Perut (cm)</label><input type="number" step="0.1" wire:model="lingkar_perut" class="w-full rounded-lg border-gray-200 text-sm px-4 h-[42px] focus:border-[#405189] transition-all" placeholder="80"></div>
+                            <div><label class="block text-xs font-semibold text-gray-500 mb-1">Suhu (°C)</label><input type="number" step="0.1" wire:model="suhu" class="w-full rounded-lg border border-gray-300 text-sm px-4 h-[42px] focus:border-[#405189] transition-all" placeholder="36.5"></div>
+                            <div><label class="block text-xs font-semibold text-gray-500 mb-1">Berat Badan (kg)</label><input type="number" step="0.1" wire:model="berat_badan" class="w-full rounded-lg border border-gray-300 text-sm px-4 h-[42px] focus:border-[#405189] transition-all" placeholder="60"></div>
+                            <div><label class="block text-xs font-semibold text-gray-500 mb-1">Tinggi Badan (cm)</label><input type="number" step="0.1" wire:model="tinggi_badan" class="w-full rounded-lg border border-gray-300 text-sm px-4 h-[42px] focus:border-[#405189] transition-all" placeholder="170"></div>
+                            <div><label class="block text-xs font-semibold text-gray-500 mb-1">Lingkar Perut (cm)</label><input type="number" step="0.1" wire:model="lingkar_perut" class="w-full rounded-lg border border-gray-300 text-sm px-4 h-[42px] focus:border-[#405189] transition-all" placeholder="80"></div>
                         </div>
-                        <div><label class="block text-xs font-semibold text-gray-500 mb-1">Riwayat Penyakit</label><textarea wire:model="riwayat_penyakit" rows="2" class="w-full rounded-lg border-gray-200 text-sm px-4 py-2.5 focus:border-[#405189] transition-all" placeholder="Riwayat penyakit sebelumnya..."></textarea></div>
+                        <div><label class="block text-xs font-semibold text-gray-500 mb-1">Riwayat Penyakit</label><textarea wire:model="riwayat_penyakit" rows="2" class="w-full rounded-lg border border-gray-300 text-sm px-4 py-2.5 focus:border-[#405189] transition-all" placeholder="Riwayat penyakit sebelumnya..."></textarea></div>
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div><label class="block text-xs font-semibold text-gray-500 mb-1">Alergi (Master)</label><x-custom-dropdown model="kode_alergi" :options="$alergiList" placeholder="Pilih Alergi" searchable="true" /></div>
-                            <div><label class="block text-xs font-semibold text-gray-500 mb-1">Keterangan Alergi</label><textarea wire:model="alergi" rows="2" class="w-full rounded-lg border-gray-200 text-sm px-4 py-2.5 focus:border-[#405189] transition-all" placeholder="Keterangan tambahan alergi..."></textarea></div>
-                            <div><label class="block text-xs font-semibold text-gray-500 mb-1">Keterangan Lain</label><textarea wire:model="keterangan_lain" rows="2" class="w-full rounded-lg border-gray-200 text-sm px-4 py-2.5 focus:border-[#405189] transition-all" placeholder="Catatan tambahan..."></textarea></div>
+                            <div><label class="block text-xs font-semibold text-gray-500 mb-1">Keterangan Alergi</label><textarea wire:model="alergi" rows="2" class="w-full rounded-lg border border-gray-300 text-sm px-4 py-2.5 focus:border-[#405189] transition-all" placeholder="Keterangan tambahan alergi..."></textarea></div>
+                            <div><label class="block text-xs font-semibold text-gray-500 mb-1">Keterangan Lain</label><textarea wire:model="keterangan_lain" rows="2" class="w-full rounded-lg border border-gray-300 text-sm px-4 py-2.5 focus:border-[#405189] transition-all" placeholder="Catatan tambahan..."></textarea></div>
                         </div>
                     </div>
                 </div>
@@ -701,21 +732,21 @@ class FormPendaftaranPage extends Component
                     <div class="px-8 py-6 overflow-y-auto flex-1">
                         <div class="space-y-4">
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div><label class="block text-xs font-semibold text-gray-500 mb-1">Nama Pasien <span class="text-red-500">*</span></label><input type="text" wire:model="nama_pasien" class="w-full rounded-lg border-gray-200 text-sm px-4 h-[42px] focus:border-[#405189] transition-all">@error('nama_pasien')<span class="text-[11px] text-red-500 italic">{{ $message }}</span>@enderror</div>
-                                <div><label class="block text-xs font-semibold text-gray-500 mb-1">NIK</label><input type="text" wire:model="nik" class="w-full rounded-lg border-gray-200 text-sm px-4 h-[42px] focus:border-[#405189] transition-all"></div>
+                                <div><label class="block text-xs font-semibold text-gray-500 mb-1">Nama Pasien <span class="text-red-500">*</span></label><input type="text" wire:model="nama_pasien" class="w-full rounded-lg border border-gray-300 text-sm px-4 h-[42px] focus:border-[#405189] transition-all">@error('nama_pasien')<span class="text-[11px] text-red-500 italic">{{ $message }}</span>@enderror</div>
+                                <div><label class="block text-xs font-semibold text-gray-500 mb-1">NIK</label><input type="text" wire:model="nik" class="w-full rounded-lg border border-gray-300 text-sm px-4 h-[42px] focus:border-[#405189] transition-all"></div>
                             </div>
                             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div><label class="block text-xs font-semibold text-gray-500 mb-1">Jenis Kelamin <span class="text-red-500">*</span></label><x-custom-dropdown model="jenis_kelamin" :options="$jkList" placeholder="Pilih JK" /></div>
-                                <div><label class="block text-xs font-semibold text-gray-500 mb-1">Tempat Lahir</label><input type="text" wire:model="tempat_lahir" class="w-full rounded-lg border-gray-200 text-sm px-4 h-[42px] focus:border-[#405189] transition-all" placeholder="Contoh: Jakarta"></div>
-                                <div><label class="block text-xs font-semibold text-gray-500 mb-1">Tanggal Lahir</label><input type="date" wire:model="tanggal_lahir" class="w-full rounded-lg border-gray-200 text-sm px-4 h-[42px] focus:border-[#405189] transition-all"></div>
+                                <div><label class="block text-xs font-semibold text-gray-500 mb-1">Tempat Lahir</label><input type="text" wire:model="tempat_lahir" class="w-full rounded-lg border border-gray-300 text-sm px-4 h-[42px] focus:border-[#405189] transition-all" placeholder="Contoh: Jakarta"></div>
+                                <div><label class="block text-xs font-semibold text-gray-500 mb-1">Tanggal Lahir</label><input type="date" wire:model="tanggal_lahir" class="w-full rounded-lg border border-gray-300 text-sm px-4 h-[42px] focus:border-[#405189] transition-all"></div>
                             </div>
                             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div><label class="block text-xs font-semibold text-gray-500 mb-1">Agama</label><x-custom-dropdown model="agama" :options="$agamaList" placeholder="Pilih Agama" /></div>
                                 <div><label class="block text-xs font-semibold text-gray-500 mb-1">Gol. Darah</label><x-custom-dropdown model="golongan_darah" :options="$golDarahList" placeholder="Pilih" /></div>
-                                <div><label class="block text-xs font-semibold text-gray-500 mb-1">No Telepon</label><input type="text" wire:model="no_telepon" class="w-full rounded-lg border-gray-200 text-sm px-4 h-[42px] focus:border-[#405189] transition-all"></div>
+                                <div><label class="block text-xs font-semibold text-gray-500 mb-1">No Telepon</label><input type="text" wire:model="no_telepon" class="w-full rounded-lg border border-gray-300 text-sm px-4 h-[42px] focus:border-[#405189] transition-all"></div>
                             </div>
-                            <div><label class="block text-xs font-semibold text-gray-500 mb-1">Alamat</label><textarea wire:model="alamat" rows="2" class="w-full rounded-lg border-gray-200 text-sm px-4 py-2.5 focus:border-[#405189] transition-all" placeholder="Alamat lengkap pasien..."></textarea></div>
-                            <div><label class="block text-xs font-semibold text-gray-500 mb-1">Pekerjaan</label><input type="text" wire:model="pekerjaan" class="w-full rounded-lg border-gray-200 text-sm px-4 h-[42px] focus:border-[#405189] transition-all"></div>
+                            <div><label class="block text-xs font-semibold text-gray-500 mb-1">Alamat</label><textarea wire:model="alamat" rows="2" class="w-full rounded-lg border border-gray-300 text-sm px-4 py-2.5 focus:border-[#405189] transition-all" placeholder="Alamat lengkap pasien..."></textarea></div>
+                            <div><label class="block text-xs font-semibold text-gray-500 mb-1">Pekerjaan</label><input type="text" wire:model="pekerjaan" class="w-full rounded-lg border border-gray-300 text-sm px-4 h-[42px] focus:border-[#405189] transition-all"></div>
                         </div>
                     </div>
                     <div class="px-8 py-5 bg-gray-50/80 flex justify-end gap-3 border-t border-gray-100">
