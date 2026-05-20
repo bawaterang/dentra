@@ -10,5 +10,5 @@ class TrxMessage extends Model
 
     protected $table = 'trx_message';
 
-    protected $guarded = ['id'];
+    protected $fillable = ['nama', 'email', 'nomor_hp', 'pesan', 'platform', 'ip_address', 'jawaban', 'waktu_jawab'];
 }

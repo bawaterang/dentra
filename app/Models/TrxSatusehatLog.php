@@ -13,7 +13,7 @@ class TrxSatusehatLog extends Model
 
     protected $table = 'trx_satusehat_log';
 
-    protected $guarded = ['id'];
+    protected $fillable = ['nomor_kunjungan', 'patient_id', 'organization_id', 'resource_type', 'resource_uuid', 'request_json', 'response_json', 'status', 'error_message', 'created_by'];
 
     protected $casts = [
         'request_json' => 'array',

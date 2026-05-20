@@ -15,7 +15,7 @@ class MstKfaObat extends Model
     public $incrementing = false;
     protected $keyType = 'string';
 
-    protected $guarded = [];
+    protected $fillable = ['kfa_code','name','manufacturer','dosage_form_code','dosage_form_name','produk_template_kfa','last_synced_at'];
 
     protected $casts = [
         'last_synced_at' => 'datetime',

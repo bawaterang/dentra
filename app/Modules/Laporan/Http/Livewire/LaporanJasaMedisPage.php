@@ -112,7 +112,8 @@ class LaporanJasaMedisPage extends Component
             'pasien', 
             'dokter' => fn($q) => $q->withTrashed(), 
             'asuransi', 
-            'billing'
+            'billing',
+            'tindakans.tindakan'
         ])
             ->whereNotNull('created_at')
             ->whereMonth('created_at', $this->selectedBulan)
@@ -135,25 +136,21 @@ class LaporanJasaMedisPage extends Component
         return $query->orderBy('created_at', 'desc')->paginate(10);
     }
 
-    public function getTindakanDetails($nomorKunjungan)
+    public function getTindakanDetails($item)
     {
-        return TrxTindakan::withoutTrashed()->where('nomor_kunjungan', $nomorKunjungan)
-            ->with('tindakan')
-            ->get()
-            ->map(function ($item) {
-                $nominalJasaMedis = $this->calculateNominalJasaMedis($item->jasa_medis, $item->biaya, $item->satuan);
+        return $item->tindakans->map(function ($tindakanItem) {
+            $nominalJasaMedis = $this->calculateNominalJasaMedis($tindakanItem->jasa_medis, $tindakanItem->biaya, $tindakanItem->satuan);
 
-                return [
-                    'nama_tindakan' => $item->tindakan ? $item->tindakan->nama_tindakan : $item->kode_tindakan,
-                    'kode_tindakan' => $item->kode_tindakan,
-                    'jasa_medis_nominal' => $nominalJasaMedis,
-                    'jasa_medis_raw' => $item->jasa_medis,
-                    'satuan' => $item->satuan,
-                    'biaya' => $item->biaya,
-                    'bhp' => $item->bhp,
-                ];
-            })
-            ->toArray();
+            return [
+                'nama_tindakan' => $tindakanItem->tindakan ? $tindakanItem->tindakan->nama_tindakan : $tindakanItem->kode_tindakan,
+                'kode_tindakan' => $tindakanItem->kode_tindakan,
+                'jasa_medis_nominal' => $nominalJasaMedis,
+                'jasa_medis_raw' => $tindakanItem->jasa_medis,
+                'satuan' => $tindakanItem->satuan,
+                'biaya' => $tindakanItem->biaya,
+                'bhp' => $tindakanItem->bhp,
+            ];
+        })->toArray();
     }
 
     public function calculateNominalJasaMedis($jasaMedis, $biaya, $satuan)
@@ -166,20 +163,17 @@ class LaporanJasaMedisPage extends Component
         return (float) ($jasaMedis * $biaya / 100);
     }
 
-    public function getTotalsByKunjungan($nomorKunjungan)
+    public function getTotals($item)
     {
-        $tindakans = TrxTindakan::withoutTrashed()->where('nomor_kunjungan', $nomorKunjungan)->get();
-
         $totalJasaMedisNominal = 0;
         $totalBhp = 0;
 
-        foreach ($tindakans as $tindakan) {
+        foreach ($item->tindakans as $tindakan) {
             $totalJasaMedisNominal += $this->calculateNominalJasaMedis($tindakan->jasa_medis, $tindakan->biaya, $tindakan->satuan);
             $totalBhp += (float) $tindakan->bhp;
         }
 
-        $billing = TrxBilling::withoutTrashed()->where('nomor_kunjungan', $nomorKunjungan)->first();
-        $totalTagihan = $billing ? $billing->total_tagihan : 0;
+        $totalTagihan = $item->billing ? $item->billing->total_tagihan : 0;
 
         return [
             'jasa_medis' => $totalJasaMedisNominal,
@@ -224,7 +218,7 @@ class LaporanJasaMedisPage extends Component
         $this->grandTotalBiaya = 0;
 
         foreach ($this->laporanJasaMedis as $item) {
-            $totals = $this->getTotalsByKunjungan($item->nomor_kunjungan);
+            $totals = $this->getTotals($item);
             $this->grandTotalJasaMedis += $totals['jasa_medis'];
             $this->grandTotalBhp += $totals['bhp'];
             $this->grandTotalBiaya += $totals['total_tagihan'];

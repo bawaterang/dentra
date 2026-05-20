@@ -8,7 +8,7 @@ class TrxApiMonitoringLog extends Model
 {
     protected $table = 'trx_api_monitoring_log';
 
-    protected $guarded = ['id'];
+    protected $fillable = ['api_type', 'endpoint_url', 'http_status_code', 'is_up', 'response_time_ms', 'token_status', 'error_message', 'request_headers', 'response_headers', 'response_body', 'cpu_usage', 'memory_usage_mb', 'checked_by'];
 
     protected $casts = [
         'request_headers' => 'array',

@@ -193,7 +193,7 @@
                         <tbody class="divide-y divide-gray-50">
                             @forelse($this->laporanJasaMedis as $index => $item)
                             @php
-                                $totals = $this->getTotalsByKunjungan($item->nomor_kunjungan);
+                                $totals = $this->getTotals($item);
                                 $isExpanded = isset($this->expandedRows[$item->nomor_kunjungan]);
                             @endphp
                             <tr wire:key="laporan-{{ $item->id }}" class="laporan-row transition-all duration-200">
@@ -250,7 +250,7 @@
                                             <span class="font-bold text-xs text-[#405189] uppercase tracking-wider">Daftar Tindakan</span>
                                         </div>
                                         @php
-                                            $tindakanList = $this->getTindakanDetails($item->nomor_kunjungan);
+                                            $tindakanList = $this->getTindakanDetails($item);
                                         @endphp
                                         @forelse($tindakanList as $tindakan)
                                         <div class="flex items-center justify-between p-3 bg-white rounded-xl border border-gray-100 tindakan-item">

@@ -10,7 +10,7 @@ class MstMapObatKfa extends Model
     use HasFactory;
 
     protected $table = 'mst_map_obat_kfa';
-    protected $guarded = ['id'];
+    protected $fillable = ['obat_id', 'kfa_code', 'is_active'];
 
     public function obat()
     {

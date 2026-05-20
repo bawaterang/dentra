@@ -10,7 +10,7 @@ class MstKfaIngredient extends Model
     use HasFactory;
 
     protected $table = 'mst_kfa_ingredient';
-    protected $guarded = ['id'];
+    protected $fillable = ['kfa_code', 'zat_aktif', 'kfa_code_ingredient', 'kekuatan_zat_aktif'];
 
     public function kfaObat()
     {

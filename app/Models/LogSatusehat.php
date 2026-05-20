@@ -10,5 +10,5 @@ class LogSatusehat extends Model
     use HasFactory;
 
     protected $table = 'log_satusehat';
-    protected $guarded = ['id'];
+    protected $fillable = ['request_json', 'response_json', 'status'];
 }

@@ -85,6 +85,11 @@ class TrxPendaftaran extends Model
         return $this->hasMany(TrxSatusehatLog::class, 'nomor_kunjungan', 'nomor_kunjungan');
     }
 
+    public function tindakans()
+    {
+        return $this->hasMany(TrxTindakan::class, 'nomor_kunjungan', 'nomor_kunjungan');
+    }
+
     /**
      * Generate nomor kunjungan otomatis format: YYYYMMDDXXXX
      */
