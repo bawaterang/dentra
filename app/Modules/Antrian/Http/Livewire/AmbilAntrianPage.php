@@ -20,6 +20,7 @@ class AmbilAntrianPage extends Component
     public $kode_poli, $kode_dokter, $asuransi, $no_asuransi;
     public $tanggal_antrian, $jenis_antrian = 'offline';
     public $time_slot;
+    public $reservasi_id;
     public $mode_antrian = 'Nomor Urut';
     public $format_nomor_antrian = '[nomor]';
     public $availableTimeSlots = [];
@@ -45,6 +46,38 @@ class AmbilAntrianPage extends Component
             $this->mode_antrian = $setting->mode_antrian;
             $this->format_nomor_antrian = $setting->format_nomor_antrian ?? '[nomor]';
         }
+
+        if (request()->has('reservasi_id')) {
+            $this->reservasi_id = request()->reservasi_id;
+            $reservasi = \App\Models\TrxReservasi::with(['pasien', 'poli', 'dokter'])->find($this->reservasi_id);
+            if ($reservasi) {
+                if ($reservasi->pasien) {
+                    $this->nama_pasien = $reservasi->pasien->nama_pasien;
+                    $this->no_telepon = $reservasi->pasien->no_telepon;
+                    $this->nik = $reservasi->pasien->nik;
+                    $this->no_asuransi = $reservasi->pasien->no_penjamin;
+                } else {
+                    $this->nama_pasien = $reservasi->nama_pasien_manual;
+                    $this->no_telepon = $reservasi->no_telepon_manual;
+                    $this->nik = $reservasi->nik_manual;
+                }
+                
+                $this->kode_poli = $reservasi->poli?->kode_poli;
+                
+                // We need to fetch dokters based on poli directly if needed, or rely on livewire rendering.
+                // The view relies on kode_poli to fetch dokters. So setting kode_dokter will work if options match.
+                $this->kode_dokter = $reservasi->dokter?->kode_dokter;
+                
+                $this->tanggal_antrian = $reservasi->tanggal_reservasi;
+                $this->jenis_antrian = 'online'; // reservation means online/booking
+                
+                // time_slot is stored in TrxReservasi
+                if ($reservasi->time_slot) {
+                    $this->time_slot = substr($reservasi->time_slot, 0, 5) . ':00';
+                }
+            }
+        }
+
         $this->loadAvailableSlots();
     }
 
@@ -283,6 +316,13 @@ class AmbilAntrianPage extends Component
                 'time_slot' => $this->time_slot,
                 'status' => 'menunggu',
             ]);
+
+            if ($this->reservasi_id) {
+                $reservasiRecord = \App\Models\TrxReservasi::find($this->reservasi_id);
+                if ($reservasiRecord && $reservasiRecord->status === 'aktif') {
+                    $reservasiRecord->update(['status' => 'hadir']);
+                }
+            }
 
             $this->generatedAntrian = $antrian;
             $this->dispatch('alert', ['type' => 'success', 'message' => 'Antrian berhasil diambil! Nomor: ' . $nomorAntrian]);

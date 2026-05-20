@@ -18,6 +18,7 @@ return [
     DashboardServiceProvider::class,
     MasterServiceProvider::class,
     AntrianServiceProvider::class,
+    App\Modules\Reservasi\Providers\ReservasiServiceProvider::class,
     PendaftaranServiceProvider::class,
     ScreeningServiceProvider::class,
     SettingServiceProvider::class,
